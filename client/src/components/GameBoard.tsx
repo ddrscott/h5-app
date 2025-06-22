@@ -37,6 +37,7 @@ export const GameBoard: React.FC = () => {
           <PlayersList 
             players={room.state.players} 
             currentTurnPlayerId={gameState.currentTurnPlayerId}
+            leadPlayerId={gameState.leadPlayerId}
             myPlayerId={room.sessionId}
           />
           

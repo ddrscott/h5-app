@@ -37,7 +37,10 @@ export const PlayingArea: React.FC<PlayingAreaProps> = ({
             </div>
           </div>
         ) : (
-          <div className="no-cards-played">No cards played yet</div>
+          <div className="no-cards-played">
+            No cards played yet
+            {isMyTurn && <div className="free-play-notice">👑 You can play any valid meld!</div>}
+          </div>
         )}
       </div>
 

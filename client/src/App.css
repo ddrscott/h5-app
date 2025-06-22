@@ -396,6 +396,14 @@ button:disabled {
   margin-top: 20px;
 }
 
+.free-play-notice {
+  color: var(--color-gold-accent);
+  font-size: 18px;
+  margin-top: 10px;
+  font-weight: bold;
+  font-style: normal;
+}
+
 .waiting-indicator {
   margin-top: 20px;
   font-size: 18px;

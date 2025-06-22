@@ -122,6 +122,7 @@ export class HeartOfFive extends Room<GameState> {
     this.onMessage("pass", (client) => {
       if (this.state.phase !== GamePhase.PLAYING) return;
       
+      const previousLeader = this.state.leadPlayerId;
       const success = this.state.pass(client.sessionId);
       if (!success) {
         client.send("error", { message: "Cannot pass!" });
@@ -129,6 +130,15 @@ export class HeartOfFive extends Room<GameState> {
       }
       
       this.broadcast("player_passed", { playerId: client.sessionId });
+      
+      // Check if leadership changed after all passes
+      if (this.state.leadPlayerId !== previousLeader && this.state.consecutivePasses === 0) {
+        console.log('New leader after all passes:', this.state.leadPlayerId);
+        this.broadcast("new_leader", { 
+          playerId: this.state.leadPlayerId,
+          message: "All players passed. New leader can play any meld!"
+        });
+      }
     });
   }
 

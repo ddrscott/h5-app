@@ -553,5 +553,38 @@ describe('Meld Type Detection and Validation', () => {
       
       assert.strictEqual(gameState.isValidPlay(meld), false);  // Invalid meld
     });
+
+    it('after all pass, last player becomes leader', () => {
+      const gameState = new GameState();
+      
+      // Add 3 players
+      gameState.addPlayer('player1', 'Alice');
+      gameState.addPlayer('player2', 'Bob');
+      gameState.addPlayer('player3', 'Charlie');
+      
+      // Set up initial state
+      gameState.currentTurnPlayerId = 'player1';
+      gameState.leadPlayerId = 'player1';
+      gameState.lastPlayerId = 'player1';
+      
+      // Player 1 plays a single card
+      const meld = new Meld();
+      meld.setCards([new Card(Suit.HEARTS, Rank.KING)]);
+      gameState.currentMeld = meld;
+      gameState.currentMeldType = MeldType.SINGLE;
+      
+      // Simulate all other players passing
+      gameState.currentTurnPlayerId = 'player2';
+      assert.strictEqual(gameState.pass('player2'), true);
+      
+      gameState.currentTurnPlayerId = 'player3';
+      assert.strictEqual(gameState.pass('player3'), true);
+      
+      // After all pass, player1 should be the leader and current player
+      assert.strictEqual(gameState.leadPlayerId, 'player1');
+      assert.strictEqual(gameState.currentTurnPlayerId, 'player1');
+      assert.strictEqual(gameState.currentMeld, null);  // Table cleared
+      assert.strictEqual(gameState.consecutivePasses, 0);  // Reset
+    });
   });
 });

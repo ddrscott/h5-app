@@ -4,12 +4,14 @@ import { Player } from '../types/game';
 interface PlayersListProps {
   players: Map<string, Player>;
   currentTurnPlayerId: string | null;
+  leadPlayerId: string | null;
   myPlayerId: string;
 }
 
 export const PlayersList: React.FC<PlayersListProps> = ({ 
   players, 
-  currentTurnPlayerId, 
+  currentTurnPlayerId,
+  leadPlayerId, 
   myPlayerId 
 }) => {
   return (
@@ -23,7 +25,9 @@ export const PlayersList: React.FC<PlayersListProps> = ({
           }`}
         >
           <div className="player-name">
-            {player.name} {playerId === myPlayerId && '(You)'}
+            {player.name} 
+            {playerId === myPlayerId && ' (You)'}
+            {playerId === leadPlayerId && ' 👑'}
           </div>
           <div className="player-stats">
             <span>Cards: {player.handCount}</span>

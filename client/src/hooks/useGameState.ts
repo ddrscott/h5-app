@@ -121,6 +121,15 @@ export const useGameState = () => {
       }
     });
 
+    // Listen for new leader after all passes
+    room.onMessage('new_leader', (data: { playerId: string, message: string }) => {
+      console.log('New leader:', data.playerId);
+      const player = room.state?.players.get(data.playerId);
+      if (player) {
+        showToast(`${player.name} is the new leader! Can play any meld.`, 'success', 4000);
+      }
+    });
+
     // Listen for player left
     room.onMessage('player_left', (data: { playerId: string, totalPlayers: number }) => {
       console.log(`Player ${data.playerId} left (${data.totalPlayers} players remaining)`);

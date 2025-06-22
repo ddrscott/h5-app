@@ -511,7 +511,9 @@ export class GameState extends Schema {
     
     const activePlayers = Array.from(this.players.values()).filter(p => !p.isOut);
     
+    // When all other active players have passed, the last player who played becomes the leader
     if (this.consecutivePasses >= activePlayers.length - 1) {
+      console.log(`All players passed. ${this.lastPlayerId} becomes the new leader.`);
       this.leadPlayerId = this.lastPlayerId;
       this.currentMeld = null;
       this.currentMeldType = null;
@@ -519,7 +521,12 @@ export class GameState extends Schema {
       this.bombPlayed = false;
       this.consecutivePasses = 0;
       
+      // Reset all players' pass status
       this.players.forEach(p => p.hasPassed = false);
+      
+      // The new leader's turn - set it before nextTurn
+      this.currentTurnPlayerId = this.leadPlayerId;
+      return true;  // Don't call nextTurn() here since we just set the current player
     }
     
     this.nextTurn();
