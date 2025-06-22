@@ -13,7 +13,9 @@ export class GameAnalyzer {
     const melds = new Map<MeldType, Card[][]>();
     
     // Singles
-    melds.set(MeldType.SINGLE, cards.map(c => [c]));
+    if (cards.length > 0) {
+      melds.set(MeldType.SINGLE, cards.map(c => [c]));
+    }
     
     // Pairs
     const pairs = this.findPairs(cards);
@@ -168,12 +170,16 @@ export class GameAnalyzer {
       
       case MeldType.RUN:
       case MeldType.STRAIGHT_FLUSH:
-        // For runs, use the highest card (considering A and 2 are low)
-        const runRanks = cards.map(c => {
-          if (c.rank === Rank.ACE) return 1;
-          if (c.rank === Rank.TWO) return 2;
-          return c.rank;
-        });
+        // For runs, the highest card determines strength
+        const runRanks = cards.map(c => c.rank);
+        
+        // Special case for A-2-3-4-5 (wheel) - strength is 5
+        if (runRanks.includes(Rank.ACE) && runRanks.includes(Rank.TWO) && 
+            runRanks.includes(Rank.THREE) && runRanks.includes(Rank.FOUR) && runRanks.includes(Rank.FIVE)) {
+          return Rank.FIVE; // Wheel has strength of 5
+        }
+        
+        // For all other runs, use the highest rank
         return Math.max(...runRanks);
       
       default:
@@ -345,34 +351,57 @@ export class GameAnalyzer {
 
   private findRuns(cards: Card[]): Card[][] {
     const runs: Card[][] = [];
-    const uniqueRanks = [...new Set(cards.map(c => c.rank))];
     
-    // Convert ranks for run ordering
-    const convertedCards = cards.map(c => ({
-      card: c,
-      runRank: c.rank === Rank.ACE ? 1 : c.rank === Rank.TWO ? 2 : c.rank
-    }));
+    // Group cards by rank to avoid duplicates
+    const rankMap = new Map<number, Card[]>();
+    cards.forEach(card => {
+      if (!rankMap.has(card.rank)) rankMap.set(card.rank, []);
+      rankMap.get(card.rank)!.push(card);
+    });
     
-    // Sort by converted rank
-    convertedCards.sort((a, b) => a.runRank - b.runRank);
+    const ranks = Array.from(rankMap.keys()).sort((a, b) => a - b);
     
-    // Find consecutive sequences of 5+
-    for (let start = 0; start < convertedCards.length - 4; start++) {
-      const run: Card[] = [convertedCards[start].card];
-      let lastRank = convertedCards[start].runRank;
+    // Find normal consecutive runs (e.g., 3-4-5-6-7 or 10-J-Q-K-A)
+    for (let start = 0; start < ranks.length - 4; start++) {
+      const runCards: Card[] = [];
+      let consecutive = true;
       
-      for (let i = start + 1; i < convertedCards.length; i++) {
-        if (convertedCards[i].runRank === lastRank + 1) {
-          run.push(convertedCards[i].card);
-          lastRank = convertedCards[i].runRank;
-          
-          if (run.length >= 5) {
-            runs.push([...run]);
-          }
-        } else if (convertedCards[i].runRank > lastRank + 1) {
+      for (let i = 0; i < 5 && start + i < ranks.length; i++) {
+        if (i > 0 && ranks[start + i] !== ranks[start + i - 1] + 1) {
+          consecutive = false;
           break;
         }
+        runCards.push(rankMap.get(ranks[start + i])![0]);
       }
+      
+      if (consecutive && runCards.length >= 5) {
+        runs.push([...runCards]);
+        
+        // Check for longer runs
+        for (let i = start + 5; i < ranks.length; i++) {
+          if (ranks[i] === ranks[i - 1] + 1) {
+            runCards.push(rankMap.get(ranks[i])![0]);
+            runs.push([...runCards]);
+          } else {
+            break;
+          }
+        }
+      }
+    }
+    
+    // Check for wheel (A-2-3-4-5)
+    const hasWheel = [Rank.ACE, Rank.TWO, Rank.THREE, Rank.FOUR, Rank.FIVE]
+      .every(rank => rankMap.has(rank));
+    
+    if (hasWheel) {
+      const wheelCards = [
+        rankMap.get(Rank.ACE)![0],
+        rankMap.get(Rank.TWO)![0],
+        rankMap.get(Rank.THREE)![0],
+        rankMap.get(Rank.FOUR)![0],
+        rankMap.get(Rank.FIVE)![0],
+      ];
+      runs.push(wheelCards);
     }
     
     return runs;
@@ -455,17 +484,32 @@ export class GameAnalyzer {
     const ranks = [...new Set(cards.map(c => c.rank))];
     if (ranks.length !== cards.length) return false;
     
-    const runRanks = ranks.map(r => {
-      if (r === Rank.ACE) return 1;
-      if (r === Rank.TWO) return 2;
-      return r;
-    }).sort((a, b) => a - b);
+    // Sort ranks to check for consecutive sequence
+    const sortedRanks = [...ranks].sort((a, b) => a - b);
     
-    for (let i = 1; i < runRanks.length; i++) {
-      if (runRanks[i] !== runRanks[i - 1] + 1) return false;
+    // Check if it's a normal consecutive run (e.g., 3-4-5-6-7 or 10-J-Q-K-A)
+    let isConsecutive = true;
+    for (let i = 1; i < sortedRanks.length; i++) {
+      if (sortedRanks[i] !== sortedRanks[i - 1] + 1) {
+        isConsecutive = false;
+        break;
+      }
     }
     
-    return true;
+    if (isConsecutive) return true;
+    
+    // Special case: A-2-3-4-5 (wheel/steel wheel)
+    // Check if we have A (14) and 2 (15) along with 3,4,5
+    if (ranks.includes(Rank.ACE) && ranks.includes(Rank.TWO) && 
+        ranks.includes(Rank.THREE) && ranks.includes(Rank.FOUR) && ranks.includes(Rank.FIVE)) {
+      // Make sure it's exactly these 5 cards
+      const wheelRanks = [Rank.ACE, Rank.TWO, Rank.THREE, Rank.FOUR, Rank.FIVE];
+      if (ranks.length === 5 && ranks.every(r => wheelRanks.includes(r))) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   private isStraightFlush(cards: Card[]): boolean {
