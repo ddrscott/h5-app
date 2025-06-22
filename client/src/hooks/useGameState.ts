@@ -17,6 +17,7 @@ interface GameStateData {
   isMyTurn: boolean;
   selectedCards: Set<string>;
   chatMessages: ChatMessage[];
+  lastError: string | null;
 }
 
 export const useGameState = () => {
@@ -33,6 +34,7 @@ export const useGameState = () => {
     isMyTurn: false,
     selectedCards: new Set(),
     chatMessages: [],
+    lastError: null,
   });
 
   useEffect(() => {
@@ -173,6 +175,12 @@ export const useGameState = () => {
     // Listen for errors
     room.onMessage('error', (error: { message: string }) => {
       console.error('Game error:', error.message);
+      setGameState(prev => ({ ...prev, lastError: error.message }));
+      
+      // Clear error after 3 seconds
+      setTimeout(() => {
+        setGameState(prev => ({ ...prev, lastError: null }));
+      }, 3000);
     });
 
     // Cleanup function

@@ -29,7 +29,7 @@ export const PlayersList: React.FC<PlayersListProps> = ({
   return (
     <div className="p-2 h-full overflow-y-auto">
       <h3 className="text-sm font-bold mb-2 sticky top-0 bg-base-200 z-10">Players</h3>
-      <div className="space-y-1">
+      <div className="space-y-2">
         {Array.from(players.entries()).map(([playerId, player]) => (
           <div 
             key={playerId} 

@@ -82,11 +82,15 @@ export const GameBoard: React.FC = () => {
               isMyTurn={gameState.isMyTurn}
               onPlayCards={gameState.playCards}
               onPass={gameState.pass}
+              currentMeld={gameState.currentMeld}
+              isLeader={gameState.leadPlayerId === room.sessionId}
+              lastError={gameState.lastError}
+              consecutivePasses={gameState.consecutivePasses}
             />
           </div>
         </div>
       )}
-      <details className="collapse bg-base-200 mx-2 mb-2">
+      <details className="collapse bg-base-200 mx-2 mb-2  overflow-scroll">
         <summary className="collapse-title text-xs font-medium cursor-pointer">Debug Info</summary>
         <div className="collapse-content">
           <pre className="bg-base-300 text-xs p-2 rounded">{

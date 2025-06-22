@@ -1,5 +1,6 @@
 import React from 'react';
-import { Card, Suit } from '../types/game';
+import { Card, Suit, Meld } from '../types/game';
+import { CardIcon } from './CardIcon';
 
 interface PlayerHandProps {
   cards: Card[];
@@ -8,6 +9,10 @@ interface PlayerHandProps {
   isMyTurn: boolean;
   onPlayCards: () => void;
   onPass: () => void;
+  currentMeld: Meld | null;
+  isLeader: boolean;
+  lastError: string | null;
+  consecutivePasses: number;
 }
 
 export const PlayerHand: React.FC<PlayerHandProps> = ({
@@ -17,6 +22,10 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
   isMyTurn,
   onPlayCards,
   onPass,
+  currentMeld,
+  isLeader,
+  lastError,
+  consecutivePasses,
 }) => {
   // Create a map of cards by code for quick lookup
   const cardMap = new Map<string, Card>();
@@ -178,6 +187,29 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
         >
           Play ({selectedCards.size})
         </button>
+        {isMyTurn && (
+          <div className="text-xs">
+            {lastError ? (
+              <span className="text-error font-semibold animate-pulse">⚠️ {lastError}</span>
+            ) : (
+              <span className="text-base-content/70">
+                { (isLeader && consecutivePasses === 0) ? (
+                  <span className="text-success">👑 You're the leader - play any valid meld!</span>
+                ) : currentMeld ? (
+                  <span className="flex items-center gap-1">
+                    Beat: <span className="font-semibold">{currentMeld.type}</span>
+                    {currentMeld.cards.slice(0, 3).map((card, idx) => (
+                      <CardIcon key={idx} card={card} size="xs" />
+                    ))}
+                    {currentMeld.cards.length > 3 && <span>...</span>}
+                  </span>
+                ) : (
+                  <span>No cards played yet</span>
+                )}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
