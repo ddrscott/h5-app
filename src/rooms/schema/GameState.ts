@@ -298,6 +298,29 @@ export class Player extends Schema {
   }
 }
 
+export class ChatMessage extends Schema {
+  @type("string") id: string;
+  @type("string") playerId: string;
+  @type("string") playerName: string;
+  @type("string") message: string;
+  @type("number") timestamp: number;
+  @type("boolean") isSystem: boolean = false;
+  @type("string") messageType: string = "info"; // info, success, warning, error
+
+  constructor(playerId?: string, playerName?: string, message?: string, isSystem?: boolean, messageType?: string) {
+    super();
+    if (playerId && playerName && message) {
+      this.id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      this.playerId = playerId;
+      this.playerName = playerName;
+      this.message = message;
+      this.timestamp = Date.now();
+      this.isSystem = isSystem || false;
+      this.messageType = messageType || "info";
+    }
+  }
+}
+
 export class GameState extends Schema {
   @type("string") roomId: string;
   @type("string") phase: GamePhase = GamePhase.WAITING;
@@ -321,6 +344,8 @@ export class GameState extends Schema {
   @type(["string"]) turnOrder = new ArraySchema<string>();
   @type("number") consecutivePasses: number = 0;
   @type("boolean") bombPlayed: boolean = false;
+  
+  @type([ChatMessage]) chatMessages = new ArraySchema<ChatMessage>();
 
   initializeDeck() {
     this.deck.clear();
@@ -574,5 +599,34 @@ export class GameState extends Schema {
     
     this.initializeDeck();
     this.dealCards();
+  }
+
+  addChatMessage(playerId: string, message: string): boolean {
+    const player = this.players.get(playerId);
+    if (!player) return false;
+    
+    // Limit message length
+    const trimmedMessage = message.trim().substring(0, 200);
+    if (!trimmedMessage) return false;
+    
+    const chatMessage = new ChatMessage(playerId, player.name, trimmedMessage);
+    this.chatMessages.push(chatMessage);
+    
+    // Keep only last 100 messages
+    if (this.chatMessages.length > 100) {
+      this.chatMessages.splice(0, this.chatMessages.length - 100);
+    }
+    
+    return true;
+  }
+
+  addSystemMessage(message: string, messageType: string = "info"): void {
+    const systemMessage = new ChatMessage("system", "System", message, true, messageType);
+    this.chatMessages.push(systemMessage);
+    
+    // Keep only last 100 messages
+    if (this.chatMessages.length > 100) {
+      this.chatMessages.splice(0, this.chatMessages.length - 100);
+    }
   }
 }

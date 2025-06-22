@@ -177,6 +177,15 @@ button:disabled {
   background-color: var(--color-table-green);
 }
 
+/* New Game Board Layout */
+.game-board-new {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--color-table-green);
+  overflow: hidden;
+}
+
 .game-header {
   display: flex;
   justify-content: space-between;
@@ -217,7 +226,43 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+}
+
+/* Waiting Room Container with Chat */
+.waiting-room-container {
+  display: flex;
   flex: 1;
+  gap: 20px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.waiting-room-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.waiting-players-section {
+  background-color: var(--color-surface-dark);
+  border-radius: 10px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+  max-height: 400px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.waiting-chat-section {
+  width: 350px;
+  background-color: var(--color-surface-dark);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .room-share {
@@ -286,16 +331,20 @@ button:disabled {
 
 /* Players List */
 .players-list {
-  grid-row: 1 / -1;
-  background-color: var(--color-surface-dark);
   padding: 20px;
-  border-radius: 10px;
   overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .players-list h3 {
   margin-top: 0;
   margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  background-color: var(--color-surface-dark);
+  padding-bottom: 10px;
+  z-index: 1;
 }
 
 .player-info {
@@ -358,6 +407,8 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  overflow: auto;
 }
 
 .current-play {
@@ -412,10 +463,9 @@ button:disabled {
 
 /* Player Hand */
 .player-hand-container {
-  grid-column: 2;
-  background-color: var(--color-surface-dark);
-  padding: 20px;
-  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .player-hand-table {
@@ -539,6 +589,7 @@ button:disabled {
 .hand-controls {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 20px;
 }
 
@@ -622,15 +673,157 @@ button:disabled {
   color: var(--color-button-secondary);
 }
 
-/* Toast Notifications */
-.toast-container {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
+/* New Layout Sections */
+.game-main-area {
+  display: grid;
+  grid-template-columns: 250px 1fr 350px;
+  gap: 20px;
+  flex: 1;
+  padding: 20px;
+  overflow: hidden;
+  min-height: 0; /* Important for proper grid overflow */
+}
+
+.players-section {
+  background-color: var(--color-surface-dark);
+  border-radius: 10px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.middle-section {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.chat-section {
+  background-color: var(--color-surface-dark);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.player-hand-section {
+  background-color: var(--color-surface-dark);
+  padding: 20px;
+  border-top: 2px solid var(--color-surface-border);
+}
+
+/* Chat Component */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.chat-message {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background-color: var(--color-surface-light);
+  border-radius: 8px;
+}
+
+.chat-message.own-message {
+  background-color: var(--color-button-primary);
+  margin-left: 20%;
+}
+
+/* System Messages */
+.chat-message.system-message {
+  background-color: transparent;
+  border-left: 3px solid;
+  padding-left: 15px;
+  margin: 5px 0;
+}
+
+.chat-message.system-message .message-author {
+  display: none;
+}
+
+.chat-message.system-message.info {
+  border-left-color: #3498db;
+  color: #3498db;
+}
+
+.chat-message.system-message.success {
+  border-left-color: var(--color-button-success);
+  color: var(--color-button-success);
+}
+
+.chat-message.system-message.warning {
+  border-left-color: #ff9800;
+  color: #ff9800;
+}
+
+.chat-message.system-message.error {
+  border-left-color: var(--color-button-danger);
+  color: var(--color-button-danger);
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.message-author {
+  font-weight: bold;
+  color: var(--color-gold-accent);
+}
+
+.message-time {
+  color: var(--color-text-muted);
+}
+
+.message-text {
+  word-wrap: break-word;
+}
+
+.chat-input-form {
+  display: flex;
   gap: 10px;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--color-surface-border);
+  border-radius: 5px;
+  background-color: var(--color-surface-light);
+  color: var(--color-text-primary);
+}
+
+.chat-send-button {
+  padding: 10px 20px;
+  background-color: var(--color-button-primary);
+  color: var(--color-text-primary);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.chat-send-button:hover {
+  background-color: var(--color-button-primary-hover);
+}
+
+/* Play History Component - REMOVED (merged into chat) */
+
+/* Toast Notifications - DEPRECATED (using chat instead) */
+.toast-container {
+  display: none;
 }
 
 .toast {

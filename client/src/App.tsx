@@ -1,7 +1,6 @@
 import { ColyseusProvider, useColyseus } from './contexts/ColyseusContext';
 import { Lobby } from './components/Lobby';
 import { GameBoard } from './components/GameBoard';
-import { ToastContainer } from './components/Toast';
 import './App.css';
 
 function GameApp() {
@@ -10,7 +9,6 @@ function GameApp() {
   return (
     <div className="app">
       {isConnected ? <GameBoard /> : <Lobby />}
-      <ToastContainer />
     </div>
   );
 }

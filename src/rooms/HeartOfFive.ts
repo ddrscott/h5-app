@@ -57,6 +57,9 @@ export class HeartOfFive extends Room<GameState> {
       totalPlayers: this.state.players.size
     }, { except: client });
     
+    // Add system message for player joined
+    this.state.addSystemMessage(`👋 ${playerName} joined the game`, "info");
+    
     this.checkGameStart();
   }
 
@@ -113,6 +116,12 @@ export class HeartOfFive extends Room<GameState> {
         meldType: this.state.currentMeldType
       });
       
+      // Add system message for meld played
+      const meldPlayer = this.state.players.get(client.sessionId);
+      if (meldPlayer) {
+        this.state.addSystemMessage(`🃏 ${meldPlayer.name} played ${this.state.currentMeldType}`, "info");
+      }
+      
       // Check if the round ended after this play
       if ((this.state.phase as GamePhase) === GamePhase.ROUND_END) {
         this.handleRoundEnd();
@@ -131,6 +140,12 @@ export class HeartOfFive extends Room<GameState> {
       
       this.broadcast("player_passed", { playerId: client.sessionId });
       
+      // Add system message for player passed
+      const player = this.state.players.get(client.sessionId);
+      if (player) {
+        this.state.addSystemMessage(`⏭️ ${player.name} passed`, "info");
+      }
+      
       // Check if leadership changed after all passes
       if (this.state.leadPlayerId !== previousLeader && this.state.consecutivePasses === 0) {
         console.log('New leader after all passes:', this.state.leadPlayerId);
@@ -138,6 +153,19 @@ export class HeartOfFive extends Room<GameState> {
           playerId: this.state.leadPlayerId,
           message: "All players passed. New leader can play any meld!"
         });
+        
+        // Add system message for new leader
+        const leader = this.state.players.get(this.state.leadPlayerId);
+        if (leader) {
+          this.state.addSystemMessage(`👑 ${leader.name} is the new leader! Can play any meld.`, "success");
+        }
+      }
+    });
+
+    this.onMessage("chat", (client, message: { text: string }) => {
+      const success = this.state.addChatMessage(client.sessionId, message.text);
+      if (!success) {
+        client.send("error", { message: "Failed to send message" });
       }
     });
   }
@@ -146,12 +174,19 @@ export class HeartOfFive extends Room<GameState> {
     console.log(client.sessionId, "left!");
     
     if (this.state.phase === GamePhase.WAITING) {
+      // Get player name before removing
+      const player = this.state.players.get(client.sessionId);
+      const playerName = player ? player.name : "A player";
+      
       this.state.removePlayer(client.sessionId);
       
       this.broadcast("player_left", {
         playerId: client.sessionId,
         totalPlayers: this.state.players.size
       });
+      
+      // Add system message for player left
+      this.state.addSystemMessage(`🚪 ${playerName} left the game`, "warning");
     } else {
       const player = this.state.players.get(client.sessionId);
       if (player) {
@@ -244,6 +279,9 @@ export class HeartOfFive extends Room<GameState> {
       round: this.state.currentRound
     });
     
+    // Add system message for game started
+    this.state.addSystemMessage(`🎮 Game started! Round ${this.state.currentRound}`, "success");
+    
   }
 
   private parseCards(cardCodes: string[], player: any): Card[] | null {
@@ -269,6 +307,12 @@ export class HeartOfFive extends Room<GameState> {
       }))
     });
     
+    // Add system message for round ended
+    const winner = this.state.players.get(this.state.roundWinnerId);
+    if (winner) {
+      this.state.addSystemMessage(`🏆 Round ended! ${winner.name} won!`, "info");
+    }
+    
     if (this.state.phase === GamePhase.GAME_END) {
       this.handleGameEnd();
     } else {
@@ -276,6 +320,9 @@ export class HeartOfFive extends Room<GameState> {
         this.broadcast("new_round", {
           round: this.state.currentRound
         });
+        
+        // Add system message for new round
+        this.state.addSystemMessage(`🔄 Round ${this.state.currentRound} starting!`, "info");
         
         // Send each player their own hand privately for new round
         this.state.players.forEach((player, playerId) => {
@@ -309,6 +356,13 @@ export class HeartOfFive extends Room<GameState> {
           losses: p.losses
         }))
     });
+    
+    // Add system message for game ended
+    if (winner) {
+      this.state.addSystemMessage(`🎉 Game Over! ${winner.name} wins with ${winner.wins} victories!`, "success");
+    } else {
+      this.state.addSystemMessage(`🏁 Game ended!`, "info");
+    }
     
     setTimeout(() => {
       this.disconnect();

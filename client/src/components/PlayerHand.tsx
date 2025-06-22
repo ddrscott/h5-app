@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Rank, Suit } from '../types/game';
+import { Card, Suit } from '../types/game';
 
 interface PlayerHandProps {
   cards: Card[];
@@ -77,8 +77,6 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
 
   return (
     <div className="player-hand-container">
-      <h3>My Hand ({cards.length} cards)</h3>
-      
       <div className="player-hand-table">
         <table>
           <thead>
@@ -173,18 +171,19 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
 
       <div className="hand-controls">
         <button
-          onClick={onPlayCards}
-          disabled={!isMyTurn || selectedCards.size === 0}
-          className="play-button"
-        >
-          Play Selected Cards ({selectedCards.size})
-        </button>
-        <button
           onClick={onPass}
           disabled={!isMyTurn}
           className="pass-button"
         >
           Pass
+        </button>
+        <h3>My Hand ({cards.length} cards)</h3>
+        <button
+          onClick={onPlayCards}
+          disabled={!isMyTurn || selectedCards.size === 0}
+          className="play-button"
+        >
+          Play Selected Cards ({selectedCards.size})
         </button>
       </div>
     </div>

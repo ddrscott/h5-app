@@ -70,6 +70,16 @@ export interface Player {
   position: number;
 }
 
+export interface ChatMessage {
+  id: string;
+  playerId: string;
+  playerName: string;
+  message: string;
+  timestamp: number;
+  isSystem?: boolean;
+  messageType?: 'info' | 'success' | 'warning' | 'error';
+}
+
 export interface GameState {
   phase: GamePhase;
   currentRound: number;
@@ -78,6 +88,7 @@ export interface GameState {
   players: Map<string, Player>;
   currentMeld: Meld | null;
   consecutivePasses: number;
+  chatMessages?: ChatMessage[];
 }
 
 // Common 3-4 letter names for random default

@@ -2,7 +2,7 @@ import React from 'react';
 import { Player } from '../types/game';
 
 interface PlayersListProps {
-  players: Map<string, Player>;
+  players: Map<string, Player> | undefined;
   currentTurnPlayerId: string | null;
   leadPlayerId: string | null;
   myPlayerId: string;
@@ -14,6 +14,18 @@ export const PlayersList: React.FC<PlayersListProps> = ({
   leadPlayerId, 
   myPlayerId 
 }) => {
+  // Handle case where players might not be loaded yet
+  if (!players || players.size === 0) {
+    return (
+      <div className="players-list">
+        <h3>Players</h3>
+        <div className="player-info">
+          <div className="player-name">Waiting for players...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="players-list">
       <h3>Players</h3>

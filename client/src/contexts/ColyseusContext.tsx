@@ -40,8 +40,6 @@ export const ColyseusProvider: React.FC<ColyseusProviderProps> = ({
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [hand, setHand] = useState<Card[]>([]);
-
   useEffect(() => {
     const colyseusClient = new Client(serverUrl);
     setClient(colyseusClient);
@@ -53,15 +51,15 @@ export const ColyseusProvider: React.FC<ColyseusProviderProps> = ({
     try {
       setError(null);
       const newRoom = await client.create<GameState>('heartoffive', { name: playerName });
-      console.log('Created room:', newRoom.id);
+      console.log('Created room:', newRoom.roomId);
       setRoom(newRoom);
-      setRoomId(newRoom.id);
+      setRoomId(newRoom.roomId);
       setMyPlayerId(newRoom.sessionId);
       setIsConnected(true);
       
       // Update URL with room ID
       const url = new URL(window.location.href);
-      url.searchParams.set('room', newRoom.id);
+      url.searchParams.set('room', newRoom.roomId);
       window.history.replaceState({}, '', url.toString());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create room');
@@ -84,13 +82,13 @@ export const ColyseusProvider: React.FC<ColyseusProviderProps> = ({
       
       console.log('Joined room:', newRoom);
       setRoom(newRoom);
-      setRoomId(newRoom.id);
+      setRoomId(newRoom.roomId);
       setMyPlayerId(newRoom.sessionId);
       setIsConnected(true);
       
       // Update URL with room ID
       const url = new URL(window.location.href);
-      url.searchParams.set('room', newRoom.id);
+      url.searchParams.set('room', newRoom.roomId);
       window.history.replaceState({}, '', url.toString());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join room');

@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useColyseus } from '../contexts/ColyseusContext';
-import { Card, Player, Meld, GamePhase } from '../types/game';
-import { showToast } from '../components/Toast';
+import { Card, Player, Meld, GamePhase, ChatMessage } from '../types/game';
 
 // Global flag to track if we've already set up listeners for a room
 const roomListenerMap = new WeakMap<any, boolean>();
@@ -17,6 +16,7 @@ interface GameStateData {
   myHand: Card[];
   isMyTurn: boolean;
   selectedCards: Set<string>;
+  chatMessages: ChatMessage[];
 }
 
 export const useGameState = () => {
@@ -32,6 +32,7 @@ export const useGameState = () => {
     myHand: [],
     isMyTurn: false,
     selectedCards: new Set(),
+    chatMessages: [],
   });
 
   useEffect(() => {
@@ -46,9 +47,20 @@ export const useGameState = () => {
     console.log('[useGameState] Setting up event listeners for player:', myPlayerId);
     roomListenerMap.set(room, true);
 
+
     // Listen for state changes
     room.onStateChange((state) => {
       const isMyTurn = state.currentTurnPlayerId === myPlayerId;
+      
+      // Convert chat messages to array
+      const chatMessages = state.chatMessages ? 
+        Array.from(state.chatMessages).map((msg: any) => ({
+          id: msg.id,
+          playerId: msg.playerId,
+          playerName: msg.playerName,
+          message: msg.message,
+          timestamp: msg.timestamp
+        })) : [];
       
       setGameState(prev => ({
         ...prev,
@@ -60,6 +72,7 @@ export const useGameState = () => {
         currentMeld: state.currentMeld,
         consecutivePasses: state.consecutivePasses,
         isMyTurn,
+        chatMessages
       }));
     });
 
@@ -77,13 +90,11 @@ export const useGameState = () => {
     // Listen for welcome message
     room.onMessage('welcome', (data: { playerId: string, roomState: any }) => {
       console.log('Welcome received:', data);
-      showToast(`Welcome! ${data.roomState.currentPlayers}/${data.roomState.minPlayers} players in room`, 'info');
     });
 
     // Listen for player joined
     room.onMessage('player_joined', (data: { playerId: string, name: string, totalPlayers: number }) => {
       console.log(`${data.name} joined the game (${data.totalPlayers} players)`);
-      showToast(`${data.name} joined the game`, 'info');
     });
 
     // Listen for game started
@@ -97,53 +108,34 @@ export const useGameState = () => {
         phase: GamePhase.PLAYING,
         isMyTurn: data.currentTurn === myPlayerId
       }));
-      showToast('Game started!', 'success');
-      if (data.currentTurn === myPlayerId) {
-        showToast('Your turn!', 'info');
-      }
     });
 
     // Listen for meld played
     room.onMessage('meld_played', (data: { playerId: string, cards: string[], meldType: string }) => {
       console.log(`Player ${data.playerId} played ${data.meldType}:`, data.cards);
-      const player = room.state?.players.get(data.playerId);
-      if (player) {
-        showToast(`${player.name} played ${data.meldType}`, 'info');
-      }
     });
 
     // Listen for player passed
     room.onMessage('player_passed', (data: { playerId: string }) => {
       console.log(`Player ${data.playerId} passed`);
-      const player = room.state?.players.get(data.playerId);
-      if (player) {
-        showToast(`${player.name} passed`, 'info');
-      }
     });
 
     // Listen for new leader after all passes
     room.onMessage('new_leader', (data: { playerId: string, message: string }) => {
       console.log('New leader:', data.playerId);
-      const player = room.state?.players.get(data.playerId);
-      if (player) {
-        showToast(`${player.name} is the new leader! Can play any meld.`, 'success', 4000);
-      }
+      // Note: Server already clears currentMeld when establishing new leader
+      // We should NOT manipulate game state on the client side
     });
 
     // Listen for player left
     room.onMessage('player_left', (data: { playerId: string, totalPlayers: number }) => {
       console.log(`Player ${data.playerId} left (${data.totalPlayers} players remaining)`);
-      showToast(`A player left the game`, 'warning');
     });
 
     // Listen for round ended
     room.onMessage('round_ended', (data: { winner: string, standings: any[] }) => {
       console.log('Round ended! Winner:', data.winner);
       console.log('Standings:', data.standings);
-      const winnerData = data.standings.find(p => p.playerId === data.winner);
-      if (winnerData) {
-        showToast(`Round ended! ${winnerData.name} won!`, 'info', 5000);
-      }
     });
 
     // Listen for new round
@@ -155,7 +147,6 @@ export const useGameState = () => {
         currentMeld: null,
         consecutivePasses: 0
       }));
-      showToast(`Round ${data.round} starting!`, 'info');
     });
 
     // Listen for game ended
@@ -165,11 +156,6 @@ export const useGameState = () => {
         ...prev,
         phase: GamePhase.GAME_END
       }));
-      if (data.winner) {
-        showToast(`Game Over! ${data.winner.name} wins with ${data.winner.wins} victories!`, 'success', 10000);
-      } else {
-        showToast('Game ended!', 'info', 10000);
-      }
     });
 
     // Listen for reconnection game state
@@ -182,13 +168,11 @@ export const useGameState = () => {
         phase: data.phase,
         isMyTurn: data.currentTurn === myPlayerId
       }));
-      showToast('Reconnected to game', 'success');
     });
 
     // Listen for errors
     room.onMessage('error', (error: { message: string }) => {
       console.error('Game error:', error.message);
-      showToast(error.message, 'error');
     });
 
     // Cleanup function
@@ -235,6 +219,11 @@ export const useGameState = () => {
     room.send('startGame');
   };
 
+  const sendChatMessage = (message: string) => {
+    if (!room) return;
+    room.send('chat', { text: message });
+  };
+
   return {
     ...gameState,
     toggleCardSelection,
@@ -242,5 +231,6 @@ export const useGameState = () => {
     playCards,
     pass,
     startGame,
+    sendChatMessage,
   };
 };
