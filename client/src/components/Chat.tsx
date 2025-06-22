@@ -8,7 +8,7 @@ interface ChatProps {
   onSendMessage: (message: string) => void;
 }
 
-export const Chat: React.FC<ChatProps> = ({ messages, myPlayerId, onSendMessage }) => {
+export const Chat: React.FC<ChatProps> = ({ messages, myPlayerId, onSendMessage, children }) => {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -103,6 +103,12 @@ export const Chat: React.FC<ChatProps> = ({ messages, myPlayerId, onSendMessage 
           Send
         </button>
       </form>
+
+      { children  && 
+        <div className="mt-2">
+          {children}
+        </div>
+      }
     </div>
   );
 };

@@ -17,15 +17,12 @@ export const GameBoard: React.FC = () => {
   if (!room) return null;
 
   return (
-    <div className="flex flex-col h-screen bg-base-100">
+    <div className="container mx-auto flex flex-col h-screen bg-base-100 max-w-5xl">
       <div className="navbar bg-base-200 px-4">
         <div className="flex-1">
           <h1 className="text-2xl font-bold">❤️ Heart of Five 🃏</h1>
         </div>
         <div className="flex-none gap-4">
-          <div className="badge badge-neutral">Round: {gameState.currentRound}</div>
-          <div className="badge badge-neutral">Phase: {gameState.phase}</div>
-          <div className="badge badge-neutral">Room: {room ? room.roomId : 'Loading...'}</div>
           <button onClick={leaveRoom} className="btn btn-error btn-sm">
             Leave Game
           </button>
@@ -106,26 +103,28 @@ export const GameBoard: React.FC = () => {
                 messages={gameState.chatMessages}
                 myPlayerId={room.sessionId}
                 onSendMessage={gameState.sendChatMessage}
-              />
+              >
+                <PlayerHand 
+                  cards={gameState.myHand}
+                  selectedCards={gameState.selectedCards}
+                  onCardClick={gameState.toggleCardSelection}
+                  isMyTurn={gameState.isMyTurn}
+                  onPlayCards={gameState.playCards}
+                  onPass={gameState.pass}
+                  currentMeld={gameState.currentMeld}
+                  isLeader={gameState.leadPlayerId === room.sessionId}
+                  lastError={gameState.lastError}
+                  consecutivePasses={gameState.consecutivePasses}
+                />
+              </Chat>
             </div>
           </div>
           
-          <div className="card bg-base-200 mx-2 mb-2 p-2 flex-shrink-0">
-            <PlayerHand 
-              cards={gameState.myHand}
-              selectedCards={gameState.selectedCards}
-              onCardClick={gameState.toggleCardSelection}
-              isMyTurn={gameState.isMyTurn}
-              onPlayCards={gameState.playCards}
-              onPass={gameState.pass}
-              currentMeld={gameState.currentMeld}
-              isLeader={gameState.leadPlayerId === room.sessionId}
-              lastError={gameState.lastError}
-              consecutivePasses={gameState.consecutivePasses}
-            />
+          <div className="card bg-base-200 mx-2 mb-2 p-2 flex-shrink-0 max-w-3xl mx-auto">
           </div>
         </div>
       )}
+      { false && 
       <details className="collapse bg-base-200 mx-2 mb-2  overflow-scroll">
         <summary className="collapse-title text-xs font-medium cursor-pointer">Debug Info</summary>
         <div className="collapse-content">
@@ -143,6 +142,7 @@ export const GameBoard: React.FC = () => {
           }</pre>
         </div>
       </details>
+      }
     </div>
   );
 };
