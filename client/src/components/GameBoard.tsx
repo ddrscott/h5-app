@@ -53,6 +53,42 @@ export const GameBoard: React.FC = () => {
             />
           </div>
         </div>
+      ) : gameState.phase === GamePhase.ROUND_END || gameState.phase === GamePhase.GAME_END ? (
+        <div className="flex flex-col items-center justify-center flex-1 gap-4">
+          <div className="card bg-base-200 p-8">
+            <h2 className="text-3xl font-bold text-center mb-4">
+              {gameState.phase === GamePhase.ROUND_END ? 'Round Complete!' : 'Game Over!'}
+            </h2>
+            
+            <PlayersList 
+              players={room.state?.players || new Map()} 
+              currentTurnPlayerId={null}
+              leadPlayerId={null}
+              myPlayerId={room.sessionId}
+            />
+            
+            <div className="mt-6 text-center">
+              {gameState.phase === GamePhase.ROUND_END ? (
+                <button 
+                  onClick={gameState.startGame} 
+                  className="btn btn-primary btn-lg"
+                >
+                  Start Next Round
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-xl">Thanks for playing!</p>
+                  <button 
+                    onClick={leaveRoom} 
+                    className="btn btn-error"
+                  >
+                    Leave Game
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="flex flex-1 gap-2 p-2 overflow-hidden">

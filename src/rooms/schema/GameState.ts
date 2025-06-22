@@ -186,20 +186,32 @@ export class Meld extends Schema {
     const ranks = [...new Set(this.cards.map(c => c.rank))];
     if (ranks.length !== this.cards.length) return false;
     
-    // For runs, 2 is considered low (after Ace)
-    // Map ranks for run ordering: 3-K stay same, A=1, 2=2
-    const runRanks = ranks.map(r => {
-      if (r === Rank.ACE) return 1;  // A is low in runs
-      if (r === Rank.TWO) return 2;  // 2 is low in runs
-      return r;
-    }).sort((a, b) => a - b);
+    // Sort ranks to check for consecutive sequence
+    const sortedRanks = [...ranks].sort((a, b) => a - b);
     
-    // Check consecutive
-    for (let i = 1; i < runRanks.length; i++) {
-      if (runRanks[i] !== runRanks[i - 1] + 1) return false;
+    // Check if it's a normal consecutive run (e.g., 3-4-5-6-7 or 10-J-Q-K-A)
+    let isConsecutive = true;
+    for (let i = 1; i < sortedRanks.length; i++) {
+      if (sortedRanks[i] !== sortedRanks[i - 1] + 1) {
+        isConsecutive = false;
+        break;
+      }
     }
     
-    return true;
+    if (isConsecutive) return true;
+    
+    // Special case: A-2-3-4-5 (wheel/steel wheel)
+    // Check if we have A (14) and 2 (15) along with 3,4,5
+    if (ranks.includes(Rank.ACE) && ranks.includes(Rank.TWO) && 
+        ranks.includes(Rank.THREE) && ranks.includes(Rank.FOUR) && ranks.includes(Rank.FIVE)) {
+      // Make sure it's exactly these 5 cards
+      const wheelRanks = [Rank.ACE, Rank.TWO, Rank.THREE, Rank.FOUR, Rank.FIVE];
+      if (ranks.length === 5 && ranks.every(r => wheelRanks.includes(r))) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   private isStraightFlush(): boolean {
@@ -237,12 +249,15 @@ export class Meld extends Schema {
       case MeldType.RUN:
       case MeldType.STRAIGHT_FLUSH:
         // For runs, the highest card determines strength
-        // But we need to handle A and 2 being low
-        const runRanks = this.cards.map(c => {
-          if (c.rank === Rank.ACE) return 1;
-          if (c.rank === Rank.TWO) return 2;
-          return c.rank;
-        });
+        const runRanks = this.cards.map(c => c.rank);
+        
+        // Special case for A-2-3-4-5 (wheel) - strength is 5
+        if (runRanks.includes(Rank.ACE) && runRanks.includes(Rank.TWO) && 
+            runRanks.includes(Rank.THREE) && runRanks.includes(Rank.FOUR) && runRanks.includes(Rank.FIVE)) {
+          return Rank.FIVE; // Wheel has strength of 5
+        }
+        
+        // For all other runs, use the highest rank
         return Math.max(...runRanks);
       
       default:
@@ -440,6 +455,8 @@ export class GameState extends Schema {
   private findStartingPlayer() {
     let startingPlayerId: string = null;
     
+    console.log(`findStartingPlayer: round=${this.currentRound}, roundWinnerId=${this.roundWinnerId}`);
+    
     if (this.currentRound === 0) {
       this.players.forEach((player, playerId) => {
         const hasThreeOfHearts = player.hand.some(card => 
@@ -450,10 +467,13 @@ export class GameState extends Schema {
         }
       });
     } else {
+      // For rounds > 0, the previous round winner leads
       startingPlayerId = this.roundWinnerId;
+      console.log(`Round ${this.currentRound}: Previous winner ${startingPlayerId} will lead`);
     }
     
     if (!startingPlayerId && this.turnOrder.length > 0) {
+      console.log('No starting player found, defaulting to first in turn order');
       startingPlayerId = this.turnOrder[0];
     }
     
@@ -465,6 +485,12 @@ export class GameState extends Schema {
   playMeld(playerId: string, cards: Card[]): boolean {
     const player = this.players.get(playerId);
     if (!player || player.id !== this.currentTurnPlayerId) return false;
+    
+    // Players who are out cannot play
+    if (player.isOut) {
+      console.error(`Player ${playerId} is out but tried to play`);
+      return false;
+    }
     
     const meld = new Meld();
     meld.setCards(cards);
@@ -483,9 +509,18 @@ export class GameState extends Schema {
       
       cards.forEach(card => this.discardPile.push(card));
       
-      if (player.isOut && !this.roundWinnerId) {
-        this.roundWinnerId = playerId;
-        player.wins++;
+      if (player.isOut) {
+        // Track finishing positions
+        const finishedPlayers = Array.from(this.players.values()).filter(p => p.isOut).length;
+        player.position = finishedPlayers; // 1st, 2nd, 3rd, etc.
+        
+        // First player out is the round winner
+        if (!this.roundWinnerId) {
+          this.roundWinnerId = playerId;
+          player.wins++;
+          console.log(`${player.name} (${playerId}) finished first and wins round ${this.currentRound}!`);
+          console.log(`roundWinnerId set to: ${this.roundWinnerId}`);
+        }
       }
       
       this.nextTurn();
@@ -531,6 +566,14 @@ export class GameState extends Schema {
     const player = this.players.get(playerId);
     if (!player || player.id !== this.currentTurnPlayerId) return false;
     
+    // Players who are out cannot pass (they should be skipped)
+    if (player.isOut) {
+      console.error(`Player ${playerId} is out but tried to pass`);
+      // Skip to next player
+      this.nextTurn();
+      return true;
+    }
+    
     player.hasPassed = true;
     this.consecutivePasses++;
     
@@ -538,20 +581,64 @@ export class GameState extends Schema {
     
     // When all other active players have passed, the last player who played becomes the leader
     if (this.consecutivePasses >= activePlayers.length - 1) {
-      console.log(`All players passed. ${this.lastPlayerId} becomes the new leader.`);
-      this.leadPlayerId = this.lastPlayerId;
-      this.currentMeld = null;
-      this.currentMeldType = null;
-      this.currentMeldSize = 0;
-      this.bombPlayed = false;
-      this.consecutivePasses = 0;
+      // Check if the last player who played is still active (not out)
+      const lastPlayer = this.players.get(this.lastPlayerId);
       
-      // Reset all players' pass status
-      this.players.forEach(p => p.hasPassed = false);
-      
-      // The new leader's turn - set it before nextTurn
-      this.currentTurnPlayerId = this.leadPlayerId;
-      return true;  // Don't call nextTurn() here since we just set the current player
+      if (lastPlayer && !lastPlayer.isOut) {
+        console.log(`All players passed. ${this.lastPlayerId} becomes the new leader.`);
+        this.leadPlayerId = this.lastPlayerId;
+        this.currentMeld = null;
+        this.currentMeldType = null;
+        this.currentMeldSize = 0;
+        this.bombPlayed = false;
+        this.consecutivePasses = 0;
+        
+        // Reset all players' pass status
+        this.players.forEach(p => p.hasPassed = false);
+        
+        // The new leader's turn
+        this.currentTurnPlayerId = this.leadPlayerId;
+        return true;  // Don't call nextTurn() here since we just set the current player
+      } else {
+        // Last player is out, so we need to find another leader
+        console.log(`Last player ${this.lastPlayerId} is out. Finding new leader...`);
+        
+        // Find the first active player who hasn't passed
+        let newLeader: string | null = null;
+        for (const [id, player] of this.players) {
+          if (!player.isOut && !player.hasPassed) {
+            newLeader = id;
+            break;
+          }
+        }
+        
+        // If no one found, pick first active player
+        if (!newLeader) {
+          for (const [id, player] of this.players) {
+            if (!player.isOut) {
+              newLeader = id;
+              break;
+            }
+          }
+        }
+        
+        if (newLeader) {
+          console.log(`New leader: ${newLeader}`);
+          this.leadPlayerId = newLeader;
+          this.currentMeld = null;
+          this.currentMeldType = null;
+          this.currentMeldSize = 0;
+          this.bombPlayed = false;
+          this.consecutivePasses = 0;
+          
+          // Reset all players' pass status
+          this.players.forEach(p => p.hasPassed = false);
+          
+          // Set new leader's turn
+          this.currentTurnPlayerId = newLeader;
+          return true;
+        }
+      }
     }
     
     this.nextTurn();
@@ -578,16 +665,31 @@ export class GameState extends Schema {
 
   private endRound() {
     this.phase = GamePhase.ROUND_END;
-    this.currentRound++;
     
     const winner = this.players.get(this.roundWinnerId);
     if (winner && winner.wins >= this.targetWins) {
       this.phase = GamePhase.GAME_END;
-    } else {
-      this.resetForNewRound();
     }
+    
+    // Don't automatically start new round - wait for player action
+    console.log(`Round ${this.currentRound} ended. Winner: ${this.roundWinnerId}`);
   }
 
+  startNewRound() {
+    if (this.phase !== GamePhase.ROUND_END) {
+      console.error("Cannot start new round - not in ROUND_END phase");
+      return false;
+    }
+    
+    console.log(`Starting new round. Previous round winner: ${this.roundWinnerId}`);
+    const previousWinner = this.roundWinnerId; // Save it before any changes
+    this.currentRound++;
+    console.log(`Incremented round to ${this.currentRound}, winner preserved: ${previousWinner}`);
+    this.resetForNewRound();
+    console.log(`After reset, roundWinnerId is: ${this.roundWinnerId}`);
+    return true;
+  }
+  
   private resetForNewRound() {
     this.discardPile.clear();
     this.currentMeld = null;
@@ -597,8 +699,20 @@ export class GameState extends Schema {
     this.bombPlayed = false;
     this.lastPlayerId = null;
     
+    // Reset all players' isOut status for new round
+    this.players.forEach(player => {
+      player.isOut = false;
+      player.hasPassed = false;
+    });
+    
+    // Note: roundWinnerId is preserved across rounds and will be used by findStartingPlayer()
+    console.log(`resetForNewRound: Preserving roundWinnerId=${this.roundWinnerId} for round ${this.currentRound}`);
+    
     this.initializeDeck();
     this.dealCards();
+    
+    // dealCards() will set phase to PLAYING and call findStartingPlayer()
+    // which will use the preserved roundWinnerId
   }
 
   addChatMessage(playerId: string, message: string): boolean {

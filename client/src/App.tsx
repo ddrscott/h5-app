@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { ColyseusProvider, useColyseus } from './contexts/ColyseusContext';
 import { Lobby } from './components/Lobby';
 import { GameBoard } from './components/GameBoard';
+import BotManagerSingleton from './bots/BotManagerSingleton';
 import './App.css';
 
 function GameApp() {
@@ -14,6 +16,14 @@ function GameApp() {
 }
 
 function App() {
+  // Cleanup all bots when app unmounts
+  useEffect(() => {
+    return () => {
+      console.log('App unmounting, cleaning up all bots');
+      BotManagerSingleton.reset();
+    };
+  }, []);
+  
   return (
     <ColyseusProvider>
       <GameApp />

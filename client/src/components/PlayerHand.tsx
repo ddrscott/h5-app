@@ -87,7 +87,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
   return (
     <div>
       <div className="overflow-x-auto mb-2">
-        <table className="table table-compact mx-auto bg-base-300 rounded-lg">
+        <table className="table table-compact mx-auto bg-base-300 rounded-lg max-w-2xl">
           <tbody>
             {suits.map(suit => (
               <tr key={suit}>

@@ -55,8 +55,12 @@ export const PlayersList: React.FC<PlayersListProps> = ({
             </div>
             {(player.hasPassed || player.isOut) && (
               <div className="flex gap-1 mt-0.5">
-                {player.hasPassed && <span className="badge badge-warning badge-xs">PASS</span>}
-                {player.isOut && <span className="badge badge-error badge-xs">OUT</span>}
+                {player.hasPassed && !player.isOut && <span className="badge badge-warning badge-xs">PASS</span>}
+                {player.isOut && (
+                  <span className={`badge badge-xs ${player.handCount === 0 ? 'badge-success' : 'badge-error'}`}>
+                    {player.handCount === 0 ? '🏆 WON' : 'OUT'}
+                  </span>
+                )}
               </div>
             )}
           </div>

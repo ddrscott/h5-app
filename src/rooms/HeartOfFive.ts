@@ -22,6 +22,7 @@ export class HeartOfFive extends Room<GameState> {
     this.state.targetWins = options.targetWins || 10;
     
     this.setupMessageHandlers();
+    this.setupStateMonitoring();
     
     if (options.autoStart !== false) {
       this.autoStartTimeout = setTimeout(() => {
@@ -70,6 +71,18 @@ export class HeartOfFive extends Room<GameState> {
       if (player) {
         player.isActive = true;
         this.checkGameStart();
+      }
+    });
+
+    this.onMessage("startGame", (client, message) => {
+      // Allow starting a new round after ROUND_END
+      if (this.state.phase === GamePhase.ROUND_END || this.state.phase === GamePhase.WAITING) {
+        if (this.state.players.size >= 2) {
+          console.log("Starting new round/game...");
+          this.startGame();
+        } else {
+          client.send("error", { message: "Need at least 2 players to start" });
+        }
       }
     });
 
@@ -162,6 +175,11 @@ export class HeartOfFive extends Room<GameState> {
           this.state.addSystemMessage(`👑 ${leader.name} is the new leader! Can play any meld.`, "success");
         }
       }
+      
+      // Check if the round ended after this pass
+      if ((this.state.phase as GamePhase) === GamePhase.ROUND_END) {
+        this.handleRoundEnd();
+      }
     });
 
     this.onMessage("chat", (client, message: { text: string }) => {
@@ -170,6 +188,42 @@ export class HeartOfFive extends Room<GameState> {
         client.send("error", { message: "Failed to send message" });
       }
     });
+  }
+
+  private setupStateMonitoring() {
+    // We'll check for phase changes after each game action
+    // This will be called from various places where state changes
+  }
+
+  private handleGameEnd() {
+    // Find the overall winner
+    let winner: Player | null = null;
+    let maxWins = 0;
+    
+    this.state.players.forEach(player => {
+      if (player.wins > maxWins) {
+        maxWins = player.wins;
+        winner = player;
+      }
+    });
+    
+    this.broadcast("game_ended", {
+      winner: winner ? {
+        id: winner.id,
+        name: winner.name,
+        wins: winner.wins
+      } : null,
+      finalStandings: Array.from(this.state.players.values()).map(p => ({
+        playerId: p.id,
+        name: p.name,
+        wins: p.wins,
+        losses: p.losses
+      })).sort((a, b) => b.wins - a.wins)
+    });
+    
+    if (winner) {
+      this.state.addSystemMessage(`🎉 Game Over! ${winner.name} won with ${winner.wins} rounds!`, "success");
+    }
   }
 
   onLeave(client: Client, consented: boolean) {
@@ -235,16 +289,29 @@ export class HeartOfFive extends Room<GameState> {
   }
 
   private startGame() {
-    if (this.state.phase !== GamePhase.WAITING) return;
+    // Allow starting from WAITING or ROUND_END phases
+    if (this.state.phase !== GamePhase.WAITING && this.state.phase !== GamePhase.ROUND_END) {
+      console.log("Cannot start game - wrong phase:", this.state.phase);
+      return;
+    }
     
     if (this.autoStartTimeout) {
       clearTimeout(this.autoStartTimeout);
       this.autoStartTimeout = null;
     }
     
-    console.log("Starting game with", this.state.players.size, "players");
+    console.log("Starting game/round with", this.state.players.size, "players");
     
-    this.lock();
+    // Only lock on first game, not on subsequent rounds
+    if (this.state.phase === GamePhase.WAITING) {
+      this.lock();
+    } else if (this.state.phase === GamePhase.ROUND_END) {
+      // If starting from ROUND_END, we need to properly start the new round
+      this.state.startNewRound();
+      // startNewRound already deals cards, so we can return early
+      this.broadcastRoundStart();
+      return;
+    }
 
     this.state.initializeDeck();
     this.state.dealCards();
@@ -259,20 +326,8 @@ export class HeartOfFive extends Room<GameState> {
       }
     });
     
-    if (this.state.currentRound === 0) {
-        // first round and game, leader is the player with 3 of Hearts
-        this.state.players.forEach((player, index) => {
-            const hasThreeOfHearts = player.hand.some(card => card.code === "3H");
-            if (hasThreeOfHearts) {
-                this.state.currentTurnPlayerId = player.id;
-                this.state.leadPlayerId = player.id;
-            }
-        })
-    } else {
-        // current winner is the Leader
-        this.state.leadPlayerId = this.state.roundWinnerId;
-        this.state.currentTurnPlayerId = this.state.roundWinnerId;
-    }
+    // Note: For round 0, findStartingPlayer() in GameState will set the player with 3H as leader
+    // For subsequent rounds, resetForNewRound() has already set the previous winner as leader
 
     console.log('Broadcasting game_started with currentTurn:', this.state.currentTurnPlayerId);
     this.broadcast("game_started", {
@@ -284,6 +339,28 @@ export class HeartOfFive extends Room<GameState> {
     // Add system message for game started
     this.state.addSystemMessage(`🎮 Game started! Round ${this.state.currentRound}`, "success");
     
+  }
+
+  private broadcastRoundStart() {
+    // Send each player their own hand privately
+    this.state.players.forEach((player, playerId) => {
+      const client = this.clients.find(c => c.sessionId === playerId);
+      if (client) {
+        client.send("your_hand", {
+          cards: player.hand
+        });
+      }
+    });
+    
+    console.log('Broadcasting game_started with currentTurn:', this.state.currentTurnPlayerId);
+    this.broadcast("game_started", {
+      currentTurn: this.state.currentTurnPlayerId,
+      leadPlayer: this.state.leadPlayerId,
+      round: this.state.currentRound
+    });
+    
+    // Add system message for round started
+    this.state.addSystemMessage(`🎮 Round ${this.state.currentRound} started!`, "success");
   }
 
   private parseCards(cardCodes: string[], player: any): Card[] | null {
@@ -312,64 +389,17 @@ export class HeartOfFive extends Room<GameState> {
     // Add system message for round ended
     const winner = this.state.players.get(this.state.roundWinnerId);
     if (winner) {
-      this.state.addSystemMessage(`🏆 Round ended! ${winner.name} won!`, "info");
+      this.state.addSystemMessage(`🏆 Round ended! ${winner.name} won and will lead the next round!`, "info");
     }
     
     if (this.state.phase === GamePhase.GAME_END) {
       this.handleGameEnd();
     } else {
-      setTimeout(() => {
-        this.broadcast("new_round", {
-          round: this.state.currentRound
-        });
-        
-        // Add system message for new round
-        this.state.addSystemMessage(`🔄 Round ${this.state.currentRound} starting!`, "info");
-        
-        // Send each player their own hand privately for new round
-        this.state.players.forEach((player, playerId) => {
-          const client = this.clients.find(c => c.sessionId === playerId);
-          if (client) {
-            client.send("your_hand", {
-              cards: player.hand
-            });
-          }
-        });
-      }, 5000);
+      // Don't auto-start next round - wait for player action
+      this.state.addSystemMessage(`Ready for round ${this.state.currentRound + 1}! Click "Start Next Round" to continue.`, "info");
     }
   }
 
-  private handleGameEnd() {
-    const winner = Array.from(this.state.players.values())
-      .find(p => p.wins >= this.state.targetWins);
-    
-    this.broadcast("game_ended", {
-      winner: winner ? {
-        playerId: winner.id,
-        name: winner.name,
-        wins: winner.wins
-      } : null,
-      finalStandings: Array.from(this.state.players.values())
-        .sort((a, b) => b.wins - a.wins)
-        .map(p => ({
-          playerId: p.id,
-          name: p.name,
-          wins: p.wins,
-          losses: p.losses
-        }))
-    });
-    
-    // Add system message for game ended
-    if (winner) {
-      this.state.addSystemMessage(`🎉 Game Over! ${winner.name} wins with ${winner.wins} victories!`, "success");
-    } else {
-      this.state.addSystemMessage(`🏁 Game ended!`, "info");
-    }
-    
-    setTimeout(() => {
-      this.disconnect();
-    }, 30000);
-  }
 
   onDispose() {
     console.log("room", this.roomId, "disposing...");
