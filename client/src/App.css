@@ -1,0 +1,671 @@
+/* CSS Variables */
+:root {
+  /* Primary Colors */
+  --color-table-green: #2d4a2b;        /* Main background - poker table green */
+  --color-gold-accent: #ffcc00;        /* Gold accent for highlights and important elements */
+  
+  /* Card Colors */
+  --color-card-red: #ff0000;           /* Red suits (hearts, diamonds) */
+  --color-card-black: #000000;         /* Black suits (spades, clubs) */
+  --color-card-background: white;      /* Card face background */
+  --color-card-border: #333;           /* Card border */
+  
+  /* UI Surface Colors */
+  --color-surface-dark: rgba(0, 0, 0, 0.3);      /* Dark overlay for panels */
+  --color-surface-darker: rgba(0, 0, 0, 0.4);    /* Darker overlay for emphasis */
+  --color-surface-light: rgba(255, 255, 255, 0.1); /* Light overlay for subtle areas */
+  --color-surface-border: rgba(255, 255, 255, 0.2); /* Border color for sections */
+  
+  /* Interactive States */
+  --color-button-primary: #4a7c4e;     /* Primary button green */
+  --color-button-primary-hover: #5a8c5e;
+  --color-button-success: #4caf50;     /* Play button green */
+  --color-button-success-hover: #5cbf60;
+  --color-button-danger: #f44336;      /* Pass/leave button red */
+  --color-button-danger-hover: #f66356;
+  --color-button-secondary: #666;
+  --color-button-secondary-hover: #777;
+  
+  /* Status Colors */
+  --color-player-active: rgba(76, 175, 80, 0.3);  /* Active player highlight */
+  --color-player-current: rgba(255, 204, 0, 0.3); /* Current turn highlight */
+  --color-status-passed: #ff6666;      /* Passed player status */
+  --color-status-out: #888;            /* Out player status */
+  --color-empty-slot: #444;            /* Empty card slot */
+  
+  /* Text Colors */
+  --color-text-primary: white;
+  --color-text-secondary: #ccc;
+  --color-text-muted: #888;
+  
+  /* Special Effects */
+  --shadow-card-special: 0 0 10px rgba(255, 204, 0, 0.5);
+  --shadow-card-hover: 0 0 5px rgba(255, 204, 0, 0.5);
+}
+
+/* Global Styles */
+* {
+  box-sizing: border-box;
+}
+
+.app {
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--color-table-green);
+  color: var(--color-text-primary);
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Lobby Styles */
+.lobby {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.lobby h1 {
+  font-size: 3rem;
+  margin-bottom: 30px;
+}
+
+.lobby-content {
+  background-color: var(--color-surface-dark);
+  padding: 40px;
+  border-radius: 10px;
+  max-width: 500px;
+  width: 100%;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.player-name-input {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border: 2px solid var(--color-button-primary);
+  border-radius: 5px;
+  background-color: var(--color-card-background);
+  color: var(--color-card-border);
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.primary-button, .secondary-button {
+  flex: 1;
+  padding: 12px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.primary-button {
+  background-color: var(--color-button-primary);
+  color: var(--color-text-primary);
+}
+
+.primary-button:hover:not(:disabled) {
+  background-color: var(--color-button-primary-hover);
+}
+
+.secondary-button {
+  background-color: var(--color-button-secondary);
+  color: var(--color-text-primary);
+}
+
+.secondary-button:hover:not(:disabled) {
+  background-color: var(--color-button-secondary-hover);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.room-code-section {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.room-code-section a {
+  color: var(--color-gold-accent);
+  text-decoration: none;
+}
+
+.room-code-input {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.room-code-input input {
+  flex: 1;
+  padding: 10px;
+  font-size: 16px;
+  border: 2px solid var(--color-button-primary);
+  border-radius: 5px;
+}
+
+.error-message {
+  background-color: var(--color-button-danger);
+  color: var(--color-text-primary);
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 20px;
+}
+
+/* Game Board Styles */
+.game-board {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  height: 100%;
+  flex: 1;
+  padding: 20px;
+  background-color: var(--color-table-green);
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--color-surface-border);
+}
+
+.game-info {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.game-info span {
+  background-color: var(--color-surface-dark);
+  padding: 5px 10px;
+  border-radius: 5px;
+}
+
+.leave-button {
+  background-color: var(--color-button-danger);
+  color: var(--color-text-primary);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.leave-button:hover {
+  background-color: var(--color-button-danger-hover);
+}
+
+/* Waiting Room */
+.waiting-room {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.room-share {
+  background-color: var(--color-surface-dark);
+  padding: 30px;
+  border-radius: 10px;
+  margin: 20px 0;
+  max-width: 600px;
+  width: 100%;
+}
+
+.room-code-display, .room-link-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.room-code-display code, .room-link-display code {
+  flex: 1;
+  background-color: var(--color-surface-light);
+  padding: 10px;
+  border-radius: 5px;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.copy-button {
+  padding: 8px 16px;
+  background-color: var(--color-button-primary);
+  color: var(--color-text-primary);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.copy-button:hover {
+  background-color: var(--color-button-primary-hover);
+}
+
+.start-button {
+  padding: 15px 30px;
+  font-size: 18px;
+  background-color: var(--color-gold-accent);
+  color: var(--color-table-green);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.start-button:hover {
+  background-color: var(--color-gold-accent);
+  filter: brightness(1.1);
+}
+
+/* Game Content */
+.game-content {
+  display: grid;
+  grid-template-columns: 40vw 1fr;
+  grid-template-rows: 1fr auto;
+  gap: 1em;
+  flex: 1;
+}
+
+/* Players List */
+.players-list {
+  grid-row: 1 / -1;
+  background-color: var(--color-surface-dark);
+  padding: 20px;
+  border-radius: 10px;
+  overflow-y: auto;
+}
+
+.players-list h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.player-info {
+  background-color: var(--color-surface-light);
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.player-info.is-me {
+  background-color: var(--color-player-active);
+  border: 2px solid var(--color-button-success);
+}
+
+.player-info.current-turn {
+  background-color: var(--color-player-current);
+  border: 2px solid var(--color-gold-accent);
+}
+
+.player-name {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.player-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.player-status {
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.player-status.passed {
+  color: var(--color-status-passed);
+}
+
+.player-status.out {
+  color: var(--color-status-out);
+}
+
+.turn-indicator {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  font-size: 24px;
+}
+
+/* Playing Area */
+.playing-area {
+  background-color: var(--color-surface-dark);
+  padding: 20px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.current-play {
+  text-align: center;
+  width: 100%;
+}
+
+.current-meld {
+  margin-top: 20px;
+}
+
+.meld-info {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.meld-type {
+  background-color: var(--color-player-current);
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+.meld-cards {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.no-cards-played {
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin-top: 20px;
+}
+
+.waiting-indicator {
+  margin-top: 20px;
+  font-size: 18px;
+  color: var(--color-gold-accent);
+}
+
+/* Player Hand */
+.player-hand-container {
+  grid-column: 2;
+  background-color: var(--color-surface-dark);
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.player-hand-table {
+  margin: 20px 0;
+  overflow-x: auto;
+}
+
+.player-hand-table table {
+  margin: 0 auto;
+  border-spacing: 2px;
+  background-color: var(--color-surface-dark);
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.player-hand-table th {
+  padding: 5px;
+  font-weight: bold;
+  font-size: 16px;
+  color: var(--color-gold-accent);
+}
+
+.suit-header {
+  padding: 5px 10px;
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.suit-header .red {
+  color: var(--color-card-red);
+}
+
+.suit-header .black {
+  color: var(--color-card-black);
+  text-shadow: 0 0 2px var(--color-text-primary);
+}
+
+.card-cell {
+  padding: 2px;
+  text-align: center;
+}
+
+.empty-cell {
+  padding: 2px;
+}
+
+.empty-card {
+  width: 30px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-empty-slot);
+  font-size: 18px;
+}
+
+.table-card {
+  width: 30px;
+  height: 25px;
+  background-color: var(--color-card-background);
+  border: 1px solid var(--color-card-border);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.table-card.red {
+  color: var(--color-card-red);
+}
+
+.table-card.black {
+  color: var(--color-card-black);
+}
+
+.table-card.special {
+  border-color: var(--color-gold-accent);
+  border-width: 2px;
+  box-shadow: var(--shadow-card-hover);
+}
+
+.table-card:hover:not(.disabled) {
+  transform: scale(1.1);
+  z-index: 10;
+}
+
+.table-card.selected {
+  background-color: var(--color-gold-accent);
+  transform: scale(1.15);
+  z-index: 11;
+}
+
+.table-card.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.joker-size {
+  font-size: 10px;
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  color: var(--color-button-secondary);
+}
+
+.hand-controls {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.play-button, .pass-button {
+  padding: 12px 24px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.play-button {
+  background-color: var(--color-button-success);
+  color: var(--color-text-primary);
+}
+
+.play-button:hover:not(:disabled) {
+  background-color: var(--color-button-success-hover);
+}
+
+.pass-button {
+  background-color: var(--color-button-danger);
+  color: var(--color-text-primary);
+}
+
+.pass-button:hover:not(:disabled) {
+  background-color: var(--color-button-danger-hover);
+}
+
+/* Card Display */
+.card {
+  width: 60px;
+  height: 80px;
+  background-color: var(--color-card-background);
+  border: 2px solid var(--color-card-border);
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.card.red {
+  color: var(--color-card-red);
+}
+
+.card.black {
+  color: var(--color-card-black);
+}
+
+.card.special {
+  border-color: var(--color-gold-accent);
+  border-width: 3px;
+  box-shadow: var(--shadow-card-special);
+}
+
+.card-rank {
+  font-size: 24px;
+}
+
+.card-suit {
+  font-size: 20px;
+}
+
+.special-indicator {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 12px;
+  color: var(--color-gold-accent);
+}
+
+.joker-type {
+  position: absolute;
+  bottom: 2px;
+  font-size: 10px;
+  color: var(--color-button-secondary);
+}
+
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toast {
+  padding: 12px 20px;
+  border-radius: 5px;
+  color: var(--color-text-primary);
+  min-width: 250px;
+  max-width: 400px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  animation: slideIn 0.3s ease-out;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast-info {
+  background-color: #3498db;
+}
+
+.toast-success {
+  background-color: var(--color-button-success);
+}
+
+.toast-error {
+  background-color: var(--color-button-danger);
+}
+
+.toast-warning {
+  background-color: #ff9800;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--color-text-primary);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 10px;
+  line-height: 1;
+}
+
+.toast-close:hover {
+  opacity: 0.8;
+}
