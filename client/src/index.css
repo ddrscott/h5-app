@@ -1,36 +1,47 @@
+@import "tailwindcss";
+
+/* Base styles that complement Tailwind */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-html {
-  height: 100%;
+/* Card suit colors */
+.text-red-suit {
+  color: #dc2626; /* red-600 */
 }
 
-body {
-  margin: 0;
-  padding: 0;
-  min-width: 320px;
-  min-height: 100%;
-  height: 100%;
-  background-color: var(--color-table-green, #2d4a2b);
+.text-black-suit {
+  color: #1f2937; /* gray-800 */
 }
 
-#root {
-  width: 100%;
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
-  background-color: var(--color-table-green, #2d4a2b);
+/* Card sizes */
+.playing-card-sm {
+  width: 2.5rem;
+  height: 3.5rem;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+.playing-card-lg {
+  width: 4rem;
+  height: 5.5rem;
+}
+
+/* Card selection and hover effects */
+.card-selected {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  background-color: #fef3c7 !important; /* amber-100 */
+  border-color: #f59e0b !important; /* amber-500 */
+  border-width: 3px !important;
+}
+
+.card-hover:hover:not(.card-selected) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Special card outline */
+.card-special {
 }

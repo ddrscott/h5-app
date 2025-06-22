@@ -2,7 +2,6 @@ import React from 'react';
 import { useColyseus } from '../contexts/ColyseusContext';
 import { useGameState } from '../hooks/useGameState';
 import { WaitingRoom } from './WaitingRoom';
-import { PlayingArea } from './PlayingArea';
 import { PlayerHand } from './PlayerHand';
 import { PlayersList } from './PlayersList';
 import { Chat } from './Chat';
@@ -18,24 +17,26 @@ export const GameBoard: React.FC = () => {
   if (!room) return null;
 
   return (
-    <div className="game-board-new">
-      <div className="game-header">
-        <h1>❤️ Heart of Five 🃏</h1>
-        <div className="game-info">
-          <span>Round: {gameState.currentRound}</span>
-          <span>Phase: {gameState.phase}</span>
-          <span>Room: {room ? room.roomId : 'Loading...'}</span>
-          <button onClick={leaveRoom} className="leave-button">
+    <div className="flex flex-col h-screen bg-base-100">
+      <div className="navbar bg-base-200 px-4">
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold">❤️ Heart of Five 🃏</h1>
+        </div>
+        <div className="flex-none gap-4">
+          <div className="badge badge-neutral">Round: {gameState.currentRound}</div>
+          <div className="badge badge-neutral">Phase: {gameState.phase}</div>
+          <div className="badge badge-neutral">Room: {room ? room.roomId : 'Loading...'}</div>
+          <button onClick={leaveRoom} className="btn btn-error btn-sm">
             Leave Game
           </button>
         </div>
       </div>
 
       {gameState.phase === GamePhase.WAITING ? (
-        <div className="waiting-room-container">
-          <div className="waiting-room-main">
+        <div className="flex flex-1 gap-2 p-2">
+          <div className="flex-1 flex flex-col gap-2">
             <WaitingRoom roomId={room?.roomId || ''} onStartGame={gameState.startGame} />
-            <div className="waiting-players-section">
+            <div className="card bg-base-200 flex-1">
               <PlayersList 
                 players={room.state?.players || new Map()} 
                 currentTurnPlayerId={gameState.currentTurnPlayerId}
@@ -44,7 +45,7 @@ export const GameBoard: React.FC = () => {
               />
             </div>
           </div>
-          <div className="waiting-chat-section">
+          <div className="w-80 card bg-base-200">
             <Chat 
               messages={gameState.chatMessages}
               myPlayerId={room.sessionId}
@@ -53,9 +54,9 @@ export const GameBoard: React.FC = () => {
           </div>
         </div>
       ) : (
-        <>
-          <div className="game-main-area">
-            <div className="players-section">
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex flex-1 gap-2 p-2 overflow-hidden">
+            <div className="w-48 card bg-base-200 overflow-hidden">
               <PlayersList 
                 players={room.state?.players || new Map()} 
                 currentTurnPlayerId={gameState.currentTurnPlayerId}
@@ -64,16 +65,7 @@ export const GameBoard: React.FC = () => {
               />
             </div>
             
-            <div className="middle-section">
-              <PlayingArea 
-                currentMeld={gameState.currentMeld}
-                isMyTurn={gameState.isMyTurn}
-                currentTurnPlayerId={gameState.currentTurnPlayerId}
-                players={gameState.players}
-              />
-            </div>
-            
-            <div className="chat-section">
+            <div className="card bg-base-200 flex-1 overflow-hidden">
               <Chat 
                 messages={gameState.chatMessages}
                 myPlayerId={room.sessionId}
@@ -82,7 +74,7 @@ export const GameBoard: React.FC = () => {
             </div>
           </div>
           
-          <div className="player-hand-section">
+          <div className="card bg-base-200 mx-2 mb-2 p-2 flex-shrink-0">
             <PlayerHand 
               cards={gameState.myHand}
               selectedCards={gameState.selectedCards}
@@ -92,22 +84,24 @@ export const GameBoard: React.FC = () => {
               onPass={gameState.pass}
             />
           </div>
-        </>
+        </div>
       )}
-      <details style={{marginTop: '20px', padding: '0 20px 20px'}}>
-        <summary>Debug Info</summary>
-        <pre style={{'background': 'black', 'color': 'white', 'padding': '10px', 'marginTop': '10px'}}>{
-            `Player ID: ${playerId}\n` +
-            `Is My Turn: ${myturn}\n` +
-            `Game Phase: ${gameState.phase}\n` +
-            `Current Round: ${gameState.currentRound}`
-        }</pre>
-        <pre style={{'background': 'black', 'color': 'white', 'padding': '10px', 'marginTop': '10px', 'maxHeight': '200px', 'overflow': 'auto'}}>{
-            JSON.stringify(room, null, 2)
-        }</pre>
-        <pre style={{'background': 'black', 'color': 'white', 'padding': '10px', 'marginTop': '10px', 'maxHeight': '200px', 'overflow': 'auto'}}>{
-            JSON.stringify(room?.state, null, 2)
-        }</pre>
+      <details className="collapse bg-base-200 mx-2 mb-2">
+        <summary className="collapse-title text-xs font-medium cursor-pointer">Debug Info</summary>
+        <div className="collapse-content">
+          <pre className="bg-base-300 text-xs p-2 rounded">{
+              `Player ID: ${playerId}\n` +
+              `Is My Turn: ${myturn}\n` +
+              `Game Phase: ${gameState.phase}\n` +
+              `Current Round: ${gameState.currentRound}`
+          }</pre>
+          <pre className="bg-base-300 text-xs p-2 rounded mt-2">{
+              JSON.stringify(room, null, 2)
+          }</pre>
+          <pre className="bg-base-300 text-xs p-2 rounded mt-2">{
+              JSON.stringify(room?.state, null, 2)
+          }</pre>
+        </div>
       </details>
     </div>
   );

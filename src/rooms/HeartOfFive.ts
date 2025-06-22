@@ -116,10 +116,12 @@ export class HeartOfFive extends Room<GameState> {
         meldType: this.state.currentMeldType
       });
       
-      // Add system message for meld played
+      // Add play message as player message
       const meldPlayer = this.state.players.get(client.sessionId);
-      if (meldPlayer) {
-        this.state.addSystemMessage(`🃏 ${meldPlayer.name} played ${this.state.currentMeldType}`, "info");
+      if (meldPlayer && this.state.currentMeld) {
+        // Send card codes for easier parsing in frontend
+        const cardCodes = this.state.currentMeld.cards.map(card => card.code).join(" ");
+        this.state.addChatMessage(client.sessionId, `(played) ${cardCodes}`);
       }
       
       // Check if the round ended after this play
@@ -140,10 +142,10 @@ export class HeartOfFive extends Room<GameState> {
       
       this.broadcast("player_passed", { playerId: client.sessionId });
       
-      // Add system message for player passed
+      // Add pass message as player message
       const player = this.state.players.get(client.sessionId);
       if (player) {
-        this.state.addSystemMessage(`⏭️ ${player.name} passed`, "info");
+        this.state.addChatMessage(client.sessionId, "(passed)");
       }
       
       // Check if leadership changed after all passes
@@ -154,7 +156,7 @@ export class HeartOfFive extends Room<GameState> {
           message: "All players passed. New leader can play any meld!"
         });
         
-        // Add system message for new leader
+        // Add system message for new leader (keep this as system message)
         const leader = this.state.players.get(this.state.leadPlayerId);
         if (leader) {
           this.state.addSystemMessage(`👑 ${leader.name} is the new leader! Can play any meld.`, "success");

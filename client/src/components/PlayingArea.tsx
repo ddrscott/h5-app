@@ -21,36 +21,41 @@ export const PlayingArea: React.FC<PlayingAreaProps> = ({
   const currentTurnPlayer = currentTurnPlayerId ? players.get(currentTurnPlayerId) : null;
 
   return (
-    <div className="playing-area">
-      <div className="current-play">
-        <h3>Current Play</h3>
+    <div className="card bg-base-200 flex-1 flex flex-col items-center justify-center p-8">
+      <div className="text-center">
+        <h3 className="text-2xl font-bold mb-4">Current Play</h3>
         {currentMeld ? (
-          <div className="current-meld">
-            <div className="meld-info">
-              <span>{currentPlayer?.name || 'Unknown'} played:</span>
-              <span className="meld-type">{currentMeld.type}</span>
+          <div className="space-y-4">
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-lg">{currentPlayer?.name || 'Unknown'} played:</span>
+              <span className="badge badge-lg badge-primary">{currentMeld.type}</span>
             </div>
-            <div className="meld-cards">
+            <div className="flex justify-center gap-2 flex-wrap">
               {currentMeld.cards.map((card, index) => (
                 <CardDisplay key={index} card={card} />
               ))}
             </div>
           </div>
         ) : (
-          <div className="no-cards-played">
-            No cards played yet
-            {isMyTurn && <div className="free-play-notice">👑 You can play any valid meld!</div>}
+          <div className="space-y-4">
+            <p className="text-base-content/60 italic">No cards played yet</p>
+            {isMyTurn && (
+              <div className="alert alert-success">
+                <span className="text-lg">👑 You can play any valid meld!</span>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      <div className="game-status">
-        {!isMyTurn && currentTurnPlayer && (
-          <div className="waiting-indicator">
-            ⏳ Waiting for {currentTurnPlayer.name} to play...
+      {!isMyTurn && currentTurnPlayer && (
+        <div className="mt-8">
+          <div className="alert alert-info">
+            <span className="loading loading-spinner loading-sm"></span>
+            <span>Waiting for {currentTurnPlayer.name} to play...</span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

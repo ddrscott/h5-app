@@ -54,8 +54,8 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
   };
 
   const getSuitClass = (suit: Suit): string => {
-    if (suit === Suit.HEARTS || suit === Suit.DIAMONDS) return 'red';
-    return 'black';
+    if (suit === Suit.HEARTS || suit === Suit.DIAMONDS) return 'text-red-suit';
+    return 'text-black-suit';
   };
 
   const getCardCode = (rank: number, suit: Suit): string => {
@@ -76,26 +76,13 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
   };
 
   return (
-    <div className="player-hand-container">
-      <div className="player-hand-table">
-        <table>
-          <thead>
-            <tr>
-              <th></th>
-              {ranks.map(rank => (
-                <th key={rank} className="rank-header">
-                  {getRankDisplay(rank)}
-                </th>
-              ))}
-            </tr>
-          </thead>
+    <div>
+      <div className="overflow-x-auto mb-2">
+        <table className="table table-compact mx-auto bg-base-300 rounded-lg">
           <tbody>
             {suits.map(suit => (
               <tr key={suit}>
-                <td className="suit-header">
-                  <span className={getSuitClass(suit)}>
-                    {getSuitSymbol(suit)}
-                  </span>
+                <td className="text-center text-2xl px-2">
                 </td>
                 {ranks.map(rank => {
                   // Handle joker column
@@ -115,20 +102,24 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                     }
                     
                     return (
-                      <td key={rank} className="card-cell">
+                      <td key={rank} className="p-1 text-center">
                         {card ? (
                           <div
-                            className={`table-card ${
-                              selectedCards.has(card.code) ? 'selected' : ''
-                            } ${!isMyTurn ? 'disabled' : ''} special`}
+                            className={`playing-card-sm bg-white border border-base-content rounded cursor-pointer transition-all flex flex-col items-center justify-center font-bold ${
+                              selectedCards.has(card.code) ? 'card-selected' : ''
+                            } ${!isMyTurn ? 'opacity-60 cursor-not-allowed' : 'card-hover'} ${
+                              card.isSpecial ? 'card-special' : ''
+                            }`}
                             onClick={() => isMyTurn && onCardClick(card.code)}
                             title={card.code}
                           >
-                            <span className="black">{jokerType}</span>
-                            <span className="suit-symbol">🃏</span>
+                            <span className="text-xs">{jokerType}</span>
+                            <span className="text-xs">🃏</span>
                           </div>
                         ) : (
-                          <div className="empty-card">·</div>
+                          <div className="playing-card-sm flex items-center justify-center text-base-content/20">
+                            ·
+                          </div>
                         )}
                       </td>
                     );
@@ -139,26 +130,28 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                   const card = cardMap.get(code);
                   
                   return (
-                    <td key={rank} className="card-cell">
+                    <td key={rank} className="p-1 text-center">
                       {card ? (
                         <div
-                          className={`table-card ${
-                            selectedCards.has(card.code) ? 'selected' : ''
-                          } ${!isMyTurn ? 'disabled' : ''} ${
-                            card.isSpecial ? 'special' : ''
+                          className={`playing-card-sm bg-white border border-base-content rounded cursor-pointer transition-all flex flex-col items-center justify-center font-bold ${
+                            selectedCards.has(card.code) ? 'card-selected' : ''
+                          } ${!isMyTurn ? 'opacity-60 cursor-not-allowed' : 'card-hover'} ${
+                            card.isSpecial ? 'card-special' : ''
                           }`}
                           onClick={() => isMyTurn && onCardClick(card.code)}
                           title={card.code}
                         >
-                          <span className={getSuitClass(card.suit)}>
+                          <span className={`text-sm ${getSuitClass(card.suit)}`}>
                             {getRankDisplay(rank as number)}
                           </span>
-                          <span className={`suit-symbol ${getSuitClass(card.suit)}`}>
+                          <span className={`text-xs ${getSuitClass(card.suit)}`}>
                             {getSuitSymbol(card.suit)}
                           </span>
                         </div>
                       ) : (
-                        <div className="empty-card">·</div>
+                        <div className="playing-card-sm flex items-center justify-center text-base-content/20">
+                          ·
+                        </div>
                       )}
                     </td>
                   );
@@ -169,21 +162,21 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
         </table>
       </div>
 
-      <div className="hand-controls">
+      <div className="flex items-center justify-center gap-2">
         <button
           onClick={onPass}
           disabled={!isMyTurn}
-          className="pass-button"
+          className="btn btn-error btn-sm"
         >
           Pass
         </button>
-        <h3>My Hand ({cards.length} cards)</h3>
+        <h3 className="text-sm font-semibold">My Hand ({cards.length})</h3>
         <button
           onClick={onPlayCards}
           disabled={!isMyTurn || selectedCards.size === 0}
-          className="play-button"
+          className="btn btn-success btn-sm"
         >
-          Play Selected Cards ({selectedCards.size})
+          Play ({selectedCards.size})
         </button>
       </div>
     </div>

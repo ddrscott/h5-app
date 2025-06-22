@@ -34,11 +34,23 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({ card }) => {
   const isJoker = card.rank === 16 || card.rank === 17;
 
   return (
-    <div className={`card ${isRed ? 'red' : 'black'} ${card.isSpecial ? 'special' : ''}`}>
-      <div className="card-rank">{getRankDisplay(card.rank)}</div>
-      <div className="card-suit">{getSuitSymbol(card.suit)}</div>
-      {card.isSpecial && <div className="special-indicator">⭐</div>}
-      {isJoker && <div className="joker-type">{card.rank === 17 ? 'BIG' : 'SMALL'}</div>}
+    <div className={`playing-card-lg bg-white border-2 ${
+      card.isSpecial ? 'border-warning outline outline-2 outline-warning' : 'border-base-content'
+    } rounded-lg flex flex-col items-center justify-center relative font-bold shadow-lg`}>
+      <div className={`text-2xl ${isRed ? 'text-red-suit' : 'text-black-suit'}`}>
+        {getRankDisplay(card.rank)}
+      </div>
+      <div className={`text-xl ${isRed ? 'text-red-suit' : 'text-black-suit'}`}>
+        {getSuitSymbol(card.suit)}
+      </div>
+      {card.isSpecial && (
+        <div className="absolute top-1 right-1 text-warning text-sm">⭐</div>
+      )}
+      {isJoker && (
+        <div className="absolute bottom-1 text-xs text-base-content/60">
+          {card.rank === 17 ? 'BIG' : 'SMALL'}
+        </div>
+      )}
     </div>
   );
 };

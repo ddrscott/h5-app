@@ -7,7 +7,7 @@ function GameApp() {
   const { isConnected } = useColyseus();
   
   return (
-    <div className="app">
+    <div className="min-h-screen game-table-green" data-theme="dark">
       {isConnected ? <GameBoard /> : <Lobby />}
     </div>
   );

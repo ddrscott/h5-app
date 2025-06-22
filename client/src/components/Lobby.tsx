@@ -54,76 +54,111 @@ export const Lobby: React.FC = () => {
   };
 
   return (
-    <div className="lobby">
-      <h1>❤️ Heart of Five (红心五) 🃏</h1>
-      <div className="lobby-content">
-        <h2>Heart of Five - Multiplayer Card Game</h2>
+    <div className="hero min-h-screen">
+      <div className="hero-content flex-col">
+        <div className="text-center mb-8">
+          <h1 className="text-5xl font-bold mb-2">❤️ Heart of Five</h1>
+          <p className="text-xl text-base-content/70">(红心五) 🃏</p>
+          <h2 className="text-2xl mt-4">Multiplayer Card Game</h2>
+        </div>
         
-        <div className="form-group">
-          <input
-            type="text"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            placeholder="Enter your name"
-            maxLength={20}
-            className="player-name-input"
-            disabled={isLoading}
-          />
-        </div>
-
-        <div className="button-group">
-          <button 
-            onClick={handleCreateRoom} 
-            disabled={isLoading}
-            className="primary-button"
-          >
-            {isLoading ? 'Creating...' : 'Create New Room'}
-          </button>
-          <button 
-            onClick={handleJoinRoom} 
-            disabled={isLoading}
-            className="primary-button"
-          >
-            {isLoading ? 'Joining...' : 'Join Random Room'}
-          </button>
-        </div>
-
-        <div className="room-code-section">
-          <a 
-            href="#" 
-            onClick={(e) => {
-              e.preventDefault();
-              setShowRoomCode(!showRoomCode);
-            }}
-          >
-            {showRoomCode ? 'Hide room code' : 'Have a room code?'}
-          </a>
-          
-          {showRoomCode && (
-            <div className="room-code-input">
+        <div className="card w-full max-w-md bg-base-200 shadow-xl">
+          <div className="card-body">
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text">Your Name</span>
+              </label>
               <input
                 type="text"
-                value={roomCode}
-                onChange={(e) => setRoomCode(e.target.value)}
-                placeholder="Enter room code"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="Enter your name"
+                maxLength={20}
+                className="input input-bordered w-full"
                 disabled={isLoading}
               />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 mt-6">
               <button 
-                onClick={handleJoinSpecificRoom} 
+                onClick={handleCreateRoom} 
                 disabled={isLoading}
-                className="secondary-button"
+                className="btn btn-primary btn-lg"
               >
-                {isLoading ? 'Joining...' : 'Join Room'}
+                {isLoading ? (
+                  <>
+                    <span className="loading loading-spinner"></span>
+                    Creating...
+                  </>
+                ) : (
+                  'Create New Room'
+                )}
+              </button>
+              <button 
+                onClick={handleJoinRoom} 
+                disabled={isLoading}
+                className="btn btn-secondary btn-lg"
+              >
+                {isLoading ? (
+                  <>
+                    <span className="loading loading-spinner"></span>
+                    Joining...
+                  </>
+                ) : (
+                  'Join Random Room'
+                )}
               </button>
             </div>
-          )}
-        </div>
 
-        {error && (
-          <div className="error-message">
-            {error}
+            <div className="divider">OR</div>
+
+            <div className="collapse collapse-arrow bg-base-300">
+              <input 
+                type="checkbox" 
+                checked={showRoomCode}
+                onChange={(e) => setShowRoomCode(e.target.checked)}
+              />
+              <div className="collapse-title text-sm font-medium">
+                Have a room code?
+              </div>
+              <div className="collapse-content">
+                <div className="join w-full">
+                  <input
+                    type="text"
+                    value={roomCode}
+                    onChange={(e) => setRoomCode(e.target.value)}
+                    placeholder="Enter room code"
+                    disabled={isLoading}
+                    className="input input-bordered join-item flex-1"
+                  />
+                  <button 
+                    onClick={handleJoinSpecificRoom} 
+                    disabled={isLoading || !roomCode.trim()}
+                    className="btn join-item"
+                  >
+                    {isLoading ? (
+                      <>
+                        <span className="loading loading-spinner loading-sm"></span>
+                        Joining...
+                      </>
+                    ) : (
+                      'Join Room'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {error && (
+              <div className="alert alert-error mt-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
