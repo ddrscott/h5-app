@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useColyseus } from '../contexts/ColyseusContext';
 import { Card, Player, Meld, GamePhase } from '../types/game';
 import { showToast } from '../components/Toast';
+
+// Global flag to track if we've already set up listeners for a room
+const roomListenerMap = new WeakMap<any, boolean>();
 
 interface GameStateData {
   phase: GamePhase;
@@ -33,6 +36,15 @@ export const useGameState = () => {
 
   useEffect(() => {
     if (!room || !myPlayerId) return;
+
+    // Check if we've already set up listeners for this room
+    if (roomListenerMap.get(room)) {
+      console.log('[useGameState] Listeners already set up for this room, skipping');
+      return;
+    }
+
+    console.log('[useGameState] Setting up event listeners for player:', myPlayerId);
+    roomListenerMap.set(room, true);
 
     // Listen for state changes
     room.onStateChange((state) => {
@@ -170,7 +182,14 @@ export const useGameState = () => {
       showToast(error.message, 'error');
     });
 
-    // Cleanup is handled automatically when room is disconnected
+    // Cleanup function
+    return () => {
+      console.log('[useGameState] Cleaning up event listeners');
+      if (room) {
+        roomListenerMap.delete(room);
+        room.removeAllListeners();
+      }
+    };
   }, [room, myPlayerId]);
 
   const toggleCardSelection = (cardCode: string) => {

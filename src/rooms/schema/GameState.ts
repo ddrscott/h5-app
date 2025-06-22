@@ -114,20 +114,29 @@ export class Meld extends Schema {
     const count = this.cards.length;
     
     if (count === 1) return MeldType.SINGLE;
-    if (count === 2) return MeldType.PAIR;
-    if (count === 3) return MeldType.THREE_OF_KIND;
+    if (count === 2 && this.isPair()) return MeldType.PAIR;
+    if (count === 3 && this.allSameRank()) return MeldType.THREE_OF_KIND;
     if (count === 4 && this.allSameRank()) return MeldType.BOMB;
     
-    if (this.isFullHouse()) return MeldType.FULL_HOUSE;
-    if (this.isSisters()) return MeldType.SISTERS;
-    if (this.isStraightFlush()) return MeldType.STRAIGHT_FLUSH;
-    if (this.isRun()) return MeldType.RUN;
+    if (count === 5 && this.isFullHouse()) return MeldType.FULL_HOUSE;
+    if (count >= 4 && this.isSisters()) return MeldType.SISTERS;
+    if (count >= 5 && this.isStraightFlush()) return MeldType.STRAIGHT_FLUSH;
+    if (count >= 5 && this.isRun()) return MeldType.RUN;
     
-    return MeldType.SINGLE;
+    // Invalid meld - default to invalid type
+    return null;
   }
 
   private allSameRank(): boolean {
     return this.cards.every(card => card.rank === this.cards[0].rank);
+  }
+
+  private isPair(): boolean {
+    if (this.cards.length !== 2) return false;
+    // Check same rank and neither is a joker
+    return this.cards[0].rank === this.cards[1].rank && 
+           this.cards[0].rank !== Rank.SMALL_JOKER && 
+           this.cards[0].rank !== Rank.BIG_JOKER;
   }
 
   private isFullHouse(): boolean {
@@ -143,15 +152,28 @@ export class Meld extends Schema {
   }
 
   private isSisters(): boolean {
-    if (this.cards.length < 4 || this.cards.length % 2 !== 0) return false;
+    if (this.cards.length < 4) return false;
     
-    const pairCount = this.cards.length / 2;
-    const sortedCards = [...this.cards].sort((a, b) => a.rank - b.rank);
+    // Group cards by rank
+    const rankGroups = new Map<number, Card[]>();
+    this.cards.forEach(card => {
+      if (!rankGroups.has(card.rank)) {
+        rankGroups.set(card.rank, []);
+      }
+      rankGroups.get(card.rank).push(card);
+    });
     
-    for (let i = 0; i < pairCount; i++) {
-      const idx = i * 2;
-      if (sortedCards[idx].rank !== sortedCards[idx + 1].rank) return false;
-      if (i > 0 && sortedCards[idx].rank !== sortedCards[idx - 2].rank + 1) return false;
+    // Check if all groups have same size (2 or 3)
+    const groupSizes = Array.from(rankGroups.values()).map(g => g.length);
+    const groupSize = groupSizes[0];
+    if (groupSize < 2 || groupSize > 3) return false;
+    if (!groupSizes.every(size => size === groupSize)) return false;
+    
+    // Check if ranks are consecutive
+    // For sisters, A and 2 are NOT consecutive (unlike in runs)
+    const sortedRanks = Array.from(rankGroups.keys()).sort((a, b) => a - b);
+    for (let i = 1; i < sortedRanks.length; i++) {
+      if (sortedRanks[i] !== sortedRanks[i - 1] + 1) return false;
     }
     
     return true;
@@ -160,11 +182,21 @@ export class Meld extends Schema {
   private isRun(): boolean {
     if (this.cards.length < 5) return false;
     
-    const sortedRanks = [...new Set(this.cards.map(c => c.rank))].sort((a, b) => a - b);
-    if (sortedRanks.length !== this.cards.length) return false;
+    // Get unique ranks
+    const ranks = [...new Set(this.cards.map(c => c.rank))];
+    if (ranks.length !== this.cards.length) return false;
     
-    for (let i = 1; i < sortedRanks.length; i++) {
-      if (sortedRanks[i] !== sortedRanks[i - 1] + 1) return false;
+    // For runs, 2 is considered low (after Ace)
+    // Map ranks for run ordering: 3-K stay same, A=1, 2=2
+    const runRanks = ranks.map(r => {
+      if (r === Rank.ACE) return 1;  // A is low in runs
+      if (r === Rank.TWO) return 2;  // 2 is low in runs
+      return r;
+    }).sort((a, b) => a - b);
+    
+    // Check consecutive
+    for (let i = 1; i < runRanks.length; i++) {
+      if (runRanks[i] !== runRanks[i - 1] + 1) return false;
     }
     
     return true;
@@ -178,6 +210,8 @@ export class Meld extends Schema {
   }
 
   private calculateStrength(): number {
+    if (!this.type) return 0;
+    
     switch (this.type) {
       case MeldType.SINGLE:
         return this.cards[0].getStrength();
@@ -202,7 +236,14 @@ export class Meld extends Schema {
       
       case MeldType.RUN:
       case MeldType.STRAIGHT_FLUSH:
-        return Math.max(...this.cards.map(c => c.rank));
+        // For runs, the highest card determines strength
+        // But we need to handle A and 2 being low
+        const runRanks = this.cards.map(c => {
+          if (c.rank === Rank.ACE) return 1;
+          if (c.rank === Rank.TWO) return 2;
+          return c.rank;
+        });
+        return Math.max(...runRanks);
       
       default:
         return 0;
@@ -429,7 +470,12 @@ export class GameState extends Schema {
     return false;
   }
 
-  private isValidPlay(meld: Meld): boolean {
+  isValidPlay(meld: Meld): boolean {
+    // First check if the meld itself is valid
+    if (!meld.type) {
+      return false;  // Invalid meld
+    }
+    
     if (this.leadPlayerId === meld.playerId) {
       return true;
     }

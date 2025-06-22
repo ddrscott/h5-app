@@ -1,5 +1,5 @@
 import { Room, Client } from "@colyseus/core";
-import { GameState, GamePhase, Card, Player } from "./schema/GameState";
+import { GameState, GamePhase, Card, Player, Meld } from "./schema/GameState";
 
 export interface HeartOfFiveOptions {
   minPlayers?: number;
@@ -85,9 +85,17 @@ export class HeartOfFive extends Room<GameState> {
         return;
       }
       
+      // First check if the meld is structurally valid
+      const testMeld = new Meld();
+      testMeld.setCards(cards);
+      if (!testMeld.type) {
+        client.send("error", { message: "Invalid card combination! Not a valid meld type." });
+        return;
+      }
+      
       const success = this.state.playMeld(client.sessionId, cards);
       if (!success) {
-        client.send("error", { message: "Invalid meld!" });
+        client.send("error", { message: "Invalid play! Must match current meld type or play a bomb." });
         return;
       }
       
@@ -105,7 +113,8 @@ export class HeartOfFive extends Room<GameState> {
         meldType: this.state.currentMeldType
       });
       
-      if (this.state.phase === GamePhase.ROUND_END) {
+      // Check if the round ended after this play
+      if ((this.state.phase as GamePhase) === GamePhase.ROUND_END) {
         this.handleRoundEnd();
       }
     });

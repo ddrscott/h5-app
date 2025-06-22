@@ -120,13 +120,14 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                       <td key={rank} className="card-cell">
                         {card ? (
                           <div
-                            className={`table-card black ${
+                            className={`table-card ${
                               selectedCards.has(card.code) ? 'selected' : ''
                             } ${!isMyTurn ? 'disabled' : ''} special`}
                             onClick={() => isMyTurn && onCardClick(card.code)}
                             title={card.code}
                           >
-                            {jokerType}
+                            <span className="black">{jokerType}</span>
+                            <span className="suit-symbol">🃏</span>
                           </div>
                         ) : (
                           <div className="empty-card">·</div>
@@ -143,7 +144,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                     <td key={rank} className="card-cell">
                       {card ? (
                         <div
-                          className={`table-card ${getSuitClass(card.suit)} ${
+                          className={`table-card ${
                             selectedCards.has(card.code) ? 'selected' : ''
                           } ${!isMyTurn ? 'disabled' : ''} ${
                             card.isSpecial ? 'special' : ''
@@ -151,7 +152,12 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                           onClick={() => isMyTurn && onCardClick(card.code)}
                           title={card.code}
                         >
-                          {getSuitSymbol(card.suit)}
+                          <span className={getSuitClass(card.suit)}>
+                            {getRankDisplay(rank as number)}
+                          </span>
+                          <span className={`suit-symbol ${getSuitClass(card.suit)}`}>
+                            {getSuitSymbol(card.suit)}
+                          </span>
                         </div>
                       ) : (
                         <div className="empty-card">·</div>
