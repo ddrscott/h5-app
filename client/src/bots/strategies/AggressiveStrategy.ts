@@ -49,40 +49,39 @@ export class AggressiveStrategy extends BaseStrategy {
   }
 
   protected async choosePlay(context: GameContext, validPlays: Card[][]): Promise<BotDecision> {
-    // Evaluate each play
-    const evaluatedPlays = validPlays.map(play => ({
-      cards: play,
-      evaluation: this.evaluatePlay(play, context),
-      strength: this.calculatePlayStrength(play)
-    }));
+    // SIMPLE RULE: Play the smallest valid meld to save bigger cards
+    // This is what real players do!
     
-    // Sort by evaluation score
-    evaluatedPlays.sort((a, b) => b.evaluation - a.evaluation);
+    // Sort plays by number of cards (ascending) - use fewest cards possible
+    validPlays.sort((a, b) => a.length - b.length);
     
-    // Aggressive strategy: play if we have anything decent
-    const bestPlay = evaluatedPlays[0];
+    // Among plays of the same size, prefer lower ranks
+    const smallestPlays = validPlays.filter(play => play.length === validPlays[0].length);
+    smallestPlays.sort((a, b) => {
+      const avgRankA = a.reduce((sum, c) => sum + c.rank, 0) / a.length;
+      const avgRankB = b.reduce((sum, c) => sum + c.rank, 0) / b.length;
+      return avgRankA - avgRankB;
+    });
     
-    // Low threshold for playing
-    const playThreshold = 0.3 - (this.config.personality.aggressiveness * 0.2);
-    
-    if (bestPlay.evaluation > playThreshold) {
-      // Sometimes play a slightly weaker option for unpredictability
-      const topPlays = evaluatedPlays.filter(p => p.evaluation > bestPlay.evaluation * 0.8);
-      const chosen = topPlays[Math.floor(Math.random() * Math.min(3, topPlays.length))];
+    // Aggressive bots ALWAYS play if they can
+    if (this.shouldPlay(context, 1.0, 0.5)) {
+      // Pick from the smallest plays with some randomness
+      const topChoices = smallestPlays.slice(0, Math.min(3, smallestPlays.length));
+      const chosen = topChoices[Math.floor(Math.random() * topChoices.length)];
       
       return {
         action: 'play',
-        cards: chosen.cards,
-        confidence: Math.min(0.95, chosen.evaluation + 0.3),
-        reasoning: `Aggressive play with evaluation ${chosen.evaluation.toFixed(2)}`
+        cards: chosen,
+        confidence: 0.9,
+        reasoning: `Playing minimum cards (${chosen.length}) to stay in the game`
       };
     }
     
-    // Even aggressive bots sometimes pass
+    // Rare pass for aggressive bots
     return {
       action: 'pass',
-      confidence: 0.6,
-      reasoning: 'Waiting for better opportunity'
+      confidence: 0.3,
+      reasoning: 'Strategic pass (rare for aggressive)'
     };
   }
 

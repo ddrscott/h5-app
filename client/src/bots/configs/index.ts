@@ -9,10 +9,10 @@ export const AGGRESSIVE_ANNIE: BotConfig = {
   name: "Aggressive Annie",
   avatar: "🔥",
   personality: {
-    aggressiveness: 0.9,
+    aggressiveness: 0.95,  // Almost always plays
     riskTolerance: 0.8,
     bluffingTendency: 0.3,
-    patience: 0.2,
+    patience: 0.05,        // Very impatient - rarely passes
     adaptability: 0.5,
   },
   skillLevel: 'intermediate',
@@ -34,10 +34,10 @@ export const CAUTIOUS_CARL: BotConfig = {
   name: "Cautious Carl",
   avatar: "🛡️",
   personality: {
-    aggressiveness: 0.3,
+    aggressiveness: 0.4,     // Still plays often, just more selective
     riskTolerance: 0.2,
     bluffingTendency: 0.1,
-    patience: 0.9,
+    patience: 0.3,          // More patient than aggressive, but still plays
     adaptability: 0.7,
   },
   skillLevel: 'advanced',
@@ -59,10 +59,10 @@ export const BALANCED_BETTY: BotConfig = {
   name: "Balanced Betty",
   avatar: "⚖️",
   personality: {
-    aggressiveness: 0.5,
+    aggressiveness: 0.7,    // Plays frequently but thoughtfully
     riskTolerance: 0.5,
     bluffingTendency: 0.4,
-    patience: 0.6,
+    patience: 0.15,         // Not very patient - plays often
     adaptability: 0.8,
   },
   skillLevel: 'advanced',

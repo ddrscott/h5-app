@@ -64,69 +64,54 @@ export class BalancedStrategy extends BaseStrategy {
   }
 
   protected async choosePlay(context: GameContext, validPlays: Card[][]): Promise<BotDecision> {
+    // BALANCED: Sometimes play minimum, sometimes play bigger melds
     const gameProgress = this.assessGameProgress(context);
-    const playStyle = this.determinePlayStyle(context, gameProgress);
     
-    // Evaluate all plays with adaptive scoring
-    const evaluatedPlays = validPlays.map(play => ({
-      cards: play,
-      score: this.evaluateAdaptivePlay(play, context, playStyle),
-      aggressive: this.isAggressivePlay(play, context)
-    }));
+    // Sort plays by size
+    const smallPlays = validPlays.filter(p => p.length <= 2);
+    const mediumPlays = validPlays.filter(p => p.length === 3);
+    const bigPlays = validPlays.filter(p => p.length >= 4);
     
-    // Sort by score
-    evaluatedPlays.sort((a, b) => b.score - a.score);
+    // Balanced decision making
+    let chosenPlay: Card[] | null = null;
     
-    if (evaluatedPlays.length === 0) {
-      return {
-        action: 'pass',
-        confidence: 0.8,
-        reasoning: 'No favorable plays'
-      };
-    }
-    
-    // Dynamic threshold based on game state
-    const threshold = this.calculateDynamicThreshold(context, gameProgress, playStyle);
-    
-    // Filter plays above threshold
-    const viablePlays = evaluatedPlays.filter(p => p.score > threshold);
-    
-    if (viablePlays.length > 0) {
-      // Balance between best play and variety
-      const recentAggressive = this.recentPlays.filter(p => p.aggressive).length;
-      const shouldVary = recentAggressive > 3 || recentAggressive < 1;
-      
-      let chosen;
-      if (shouldVary && viablePlays.length > 1) {
-        // Pick something different from recent pattern
-        const differentStyle = viablePlays.filter(p => 
-          p.aggressive !== (recentAggressive > 2)
-        );
-        chosen = differentStyle[0] || viablePlays[0];
-      } else {
-        // Pick from top plays with some randomness
-        const topPlays = viablePlays.slice(0, 3);
-        chosen = topPlays[Math.floor(Math.random() * topPlays.length)];
+    // Almost always play when we can (80-90% of the time)
+    if (this.shouldPlay(context, 0.8, 0.5)) {
+      // Early game: prefer small plays to feel out opponents
+      if (gameProgress.stage === 'early' && smallPlays.length > 0) {
+        chosenPlay = smallPlays[Math.floor(Math.random() * smallPlays.length)];
+      }
+      // Late game or behind: use bigger plays
+      else if ((gameProgress.stage === 'late' || gameProgress.position === 'behind') && bigPlays.length > 0) {
+        chosenPlay = bigPlays[Math.floor(Math.random() * bigPlays.length)];
+      }
+      // Default: play smallest available
+      else {
+        // Sort all plays by size, then by rank
+        validPlays.sort((a, b) => {
+          if (a.length !== b.length) return a.length - b.length;
+          const avgA = a.reduce((sum, c) => sum + c.rank, 0) / a.length;
+          const avgB = b.reduce((sum, c) => sum + c.rank, 0) / b.length;
+          return avgA - avgB;
+        });
+        chosenPlay = validPlays[0];
       }
       
-      this.recentPlays.push({ 
-        round: context.currentRound, 
-        aggressive: chosen.aggressive 
-      });
-      if (this.recentPlays.length > 5) this.recentPlays.shift();
-      
-      return {
-        action: 'play',
-        cards: chosen.cards,
-        confidence: chosen.score,
-        reasoning: `Adaptive play (${playStyle} style)`
-      };
+      if (chosenPlay) {
+        return {
+          action: 'play',
+          cards: chosenPlay,
+          confidence: 0.8,
+          reasoning: `Balanced play (${gameProgress.stage} game, ${gameProgress.position})`
+        };
+      }
     }
     
+    // Occasional strategic pass
     return {
       action: 'pass',
-      confidence: 0.7,
-      reasoning: `Threshold not met (${threshold.toFixed(2)})`
+      confidence: 0.6,
+      reasoning: 'Strategic pass (balanced)'
     };
   }
 

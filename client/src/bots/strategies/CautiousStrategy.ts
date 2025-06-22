@@ -58,57 +58,55 @@ export class CautiousStrategy extends BaseStrategy {
   }
 
   protected async choosePlay(context: GameContext, validPlays: Card[][]): Promise<BotDecision> {
-    // Check if we're in a good position
-    const myPlayer = context.players.get(context.myPlayerId);
-    const handSize = myPlayer?.handCount || context.myHand.length;
-    const avgHandSize = this.getAverageHandSize(context);
-    const isAhead = handSize < avgHandSize - 2;
+    // CAUTIOUS: Still play most of the time, but prefer low cards
     
-    // Evaluate plays focusing on card conservation
-    const evaluatedPlays = validPlays.map(play => ({
-      cards: play,
-      evaluation: this.evaluateCautiousPlay(play, context),
-      strength: this.calculateMeldStrength(play)
-    }));
+    // Separate plays by card strength
+    const lowCardPlays = validPlays.filter(play => {
+      const avgRank = play.reduce((sum, c) => sum + c.rank, 0) / play.length;
+      return avgRank < Rank.EIGHT;
+    });
     
-    // Sort by evaluation
-    evaluatedPlays.sort((a, b) => b.evaluation - a.evaluation);
+    const highCardPlays = validPlays.filter(play => {
+      const avgRank = play.reduce((sum, c) => sum + c.rank, 0) / play.length;
+      return avgRank >= Rank.QUEEN;
+    });
     
-    // High threshold for playing
-    const baseThreshold = 0.6 + (this.config.personality.patience * 0.2);
-    const threshold = isAhead ? baseThreshold + 0.2 : baseThreshold;
-    
-    const bestPlay = evaluatedPlays[0];
-    
-    if (bestPlay.evaluation > threshold) {
-      // Cautious players are predictable - usually play the best option
-      return {
-        action: 'play',
-        cards: bestPlay.cards,
-        confidence: Math.min(0.9, bestPlay.evaluation),
-        reasoning: `Cautious play with ${bestPlay.evaluation.toFixed(2)} confidence`
-      };
+    // Cautious bots still play 60-70% of the time
+    if (this.shouldPlay(context, 0.7, 0.7)) {
+      let chosenPlay: Card[] | null = null;
+      
+      // Prefer low card plays
+      if (lowCardPlays.length > 0) {
+        // Sort by size (prefer singles/pairs) then by rank
+        lowCardPlays.sort((a, b) => {
+          if (a.length !== b.length) return a.length - b.length;
+          const avgA = a.reduce((sum, c) => sum + c.rank, 0) / a.length;
+          const avgB = b.reduce((sum, c) => sum + c.rank, 0) / b.length;
+          return avgA - avgB;
+        });
+        chosenPlay = lowCardPlays[0];
+      }
+      // If no low cards, play the smallest meld
+      else {
+        validPlays.sort((a, b) => a.length - b.length);
+        chosenPlay = validPlays[0];
+      }
+      
+      if (chosenPlay) {
+        return {
+          action: 'play',
+          cards: chosenPlay,
+          confidence: 0.7,
+          reasoning: `Cautious play with low cards (${chosenPlay.length} card${chosenPlay.length > 1 ? 's' : ''})`
+        };
+      }
     }
     
-    // Check if we should use a bomb defensively
-    const bombs = evaluatedPlays.filter(p => 
-      p.cards.length === 4 && this.allSameRank(p.cards)
-    );
-    
-    if (bombs.length > 0 && handSize > avgHandSize + 3) {
-      // Use bomb to regain control when behind
-      return {
-        action: 'play',
-        cards: bombs[0].cards,
-        confidence: 0.85,
-        reasoning: 'Defensive bomb to regain control'
-      };
-    }
-    
+    // More likely to pass than aggressive bots
     return {
       action: 'pass',
-      confidence: 0.9,
-      reasoning: 'Preserving cards for better opportunity'
+      confidence: 0.8,
+      reasoning: 'Waiting for lower cards'
     };
   }
 

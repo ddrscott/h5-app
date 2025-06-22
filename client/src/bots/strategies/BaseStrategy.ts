@@ -82,36 +82,26 @@ export abstract class BaseStrategy extends BotStrategy {
 
   /**
    * Calculate if we should play or pass based on game state
+   * SIMPLIFIED: Bots should play whenever they can!
    */
   protected shouldPlay(
     context: GameContext,
     playStrength: number,
     cardValue: number
   ): boolean {
-    const { aggressiveness, riskTolerance, patience } = this.config.personality;
+    const { aggressiveness, patience } = this.config.personality;
     
-    // Adjust based on hand size
-    const myPlayer = context.players.get(context.myPlayerId);
-    const handSize = myPlayer?.handCount || context.myHand.length;
-    const avgHandSize = this.getAverageHandSize(context);
+    // Basic rule: If we can play, we usually should!
+    // Only pass if we're being very strategic
     
-    // More aggressive when behind
-    const behindModifier = handSize > avgHandSize ? 0.2 : 0;
+    // Random chance to pass based on patience (less patient = less likely to pass)
+    const passChance = patience * 0.3; // Max 30% chance to pass for very patient bots
     
-    // More conservative when ahead
-    const aheadModifier = handSize < avgHandSize ? -0.2 : 0;
+    // Aggressive bots almost never pass
+    const adjustedPassChance = passChance * (1 - aggressiveness);
     
-    // Calculate play threshold
-    const baseThreshold = 0.5 - (aggressiveness * 0.3);
-    const threshold = baseThreshold + behindModifier + aheadModifier;
-    
-    // Factor in card value and risk
-    const valueRisk = cardValue > 0.7 ? (1 - riskTolerance) * 0.3 : 0;
-    
-    // Random factor based on patience
-    const randomFactor = Math.random() * (1 - patience) * 0.2;
-    
-    return playStrength > (threshold + valueRisk - randomFactor);
+    // Most of the time, play if we can!
+    return Math.random() > adjustedPassChance;
   }
 
   /**
