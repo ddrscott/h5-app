@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChatMessage } from '../types/game';
 import { CardIcon, createCardFromCode } from './CardIcon';
 
@@ -12,13 +12,50 @@ interface ChatProps {
 export const Chat: React.FC<ChatProps> = ({ messages, myPlayerId, onSendMessage, children }) => {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [animatedMessageIds, setAnimatedMessageIds] = useState<Set<string>>(new Set());
+
+  // Track which messages are new for animation
+  const previousMessageIds = useRef<Set<string>>(new Set());
+  
+  useEffect(() => {
+    const currentIds = new Set(messages.map(m => m.id));
+    const newIds = new Set<string>();
+    
+    // Find new messages
+    currentIds.forEach(id => {
+      if (!previousMessageIds.current.has(id)) {
+        newIds.add(id);
+      }
+    });
+    
+    // Animate new messages
+    if (newIds.size > 0) {
+      setAnimatedMessageIds(prev => new Set([...prev, ...newIds]));
+      
+      // Remove animation class after animation completes
+      setTimeout(() => {
+        setAnimatedMessageIds(prev => {
+          const updated = new Set(prev);
+          newIds.forEach(id => updated.delete(id));
+          return updated;
+        });
+      }, 600); // Slightly longer than animation duration (400ms)
+    }
+    
+    previousMessageIds.current = currentIds;
+  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Delay scroll slightly to let animation start
+    const scrollTimeout = setTimeout(() => {
+      scrollToBottom();
+    }, 50);
+    
+    return () => clearTimeout(scrollTimeout);
   }, [messages]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -51,21 +88,26 @@ export const Chat: React.FC<ChatProps> = ({ messages, myPlayerId, onSendMessage,
     <div className="flex flex-col h-full p-2">
       <h3 className="text-sm font-bold mb-2">Chat</h3>
       <div className="flex-1 overflow-y-auto mb-2 space-y-1 min-h-0 max-h-[calc(100vh-20rem)]">
-        {messages.map((msg) => (
-          <div key={msg.id}>
-            {msg.isSystem ? (
-              <div className={`alert ${getSystemMessageClass(msg.messageType)} py-1 px-2`}>
-                <span className="text-xs">{msg.message}</span>
-              </div>
-            ) : (
-              <div className={`chat ${msg.playerId === myPlayerId ? 'chat-end' : 'chat-start'}`}>
-                <div className="chat-header">
-                  {msg.playerName}
-                  <time className="text-xs opacity-50 ml-1">{formatTime(msg.timestamp)}</time>
+        {messages.map((msg) => {
+          const isAnimating = animatedMessageIds.has(msg.id);
+          return (
+            <div 
+              key={msg.id}
+              className={`${isAnimating ? 'animate-slide-in-fade' : ''}`}
+            >
+              {msg.isSystem ? (
+                <div className={`alert ${getSystemMessageClass(msg.messageType)} py-1 px-2`}>
+                  <span className="text-xs">{msg.message}</span>
                 </div>
-                <div className={`chat-bubble ${
-                  msg.playerId === myPlayerId ? 'chat-bubble-primary' : ''
-                }`}>
+              ) : (
+                <div className={`chat ${msg.playerId === myPlayerId ? 'chat-end' : 'chat-start'}`}>
+                  <div className="chat-header">
+                    {msg.playerName}
+                    <time className="text-xs opacity-50 ml-1">{formatTime(msg.timestamp)}</time>
+                  </div>
+                  <div className={`chat-bubble ${
+                    msg.playerId === myPlayerId ? 'chat-bubble-primary' : ''
+                  }`}>
                   {msg.message.startsWith('(played)') ? (
                     <span className="text-sm flex items-center flex-wrap">
                       <span className="opacity-60 mr-2">played</span>
@@ -87,7 +129,8 @@ export const Chat: React.FC<ChatProps> = ({ messages, myPlayerId, onSendMessage,
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
       

@@ -19,41 +19,26 @@ interface PlayerHandProps {
 }
 
 export const PlayerHand: React.FC<PlayerHandProps> = (props) => {
-  const [useOverlapping, setUseOverlapping] = useState(false);
+  // Initialize from localStorage, defaulting to table mode (false for overlapping)
+  const [useOverlapping, setUseOverlapping] = useState(() => {
+    const saved = localStorage.getItem('handDisplayMode');
+    return saved === 'overlapping';
+  });
 
-  useEffect(() => {
-    const checkLayout = () => {
-      // Use overlapping layout for:
-      // - Mobile devices (width < 768px)
-      // - Tablets in portrait mode (width < 1024px and aspect ratio)
-      // - When there are many cards (> 13)
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      const isPortrait = height > width;
-      const isMobile = width < 768;
-      const isTabletPortrait = width < 1024 && isPortrait;
-      const hasManyCards = props.cards.length > 13;
-      
-      setUseOverlapping(isMobile || isTabletPortrait || hasManyCards);
-    };
-
-    checkLayout();
-    window.addEventListener('resize', checkLayout);
-    window.addEventListener('orientationchange', checkLayout);
-    
-    return () => {
-      window.removeEventListener('resize', checkLayout);
-      window.removeEventListener('orientationchange', checkLayout);
-    };
-  }, [props.cards.length]);
+  // Save preference to localStorage whenever it changes
+  const toggleDisplayMode = () => {
+    const newMode = !useOverlapping;
+    setUseOverlapping(newMode);
+    localStorage.setItem('handDisplayMode', newMode ? 'overlapping' : 'table');
+  };
 
   return (
     <div className="w-full relative">
       {/* Layout toggle button - positioned absolutely */}
       <button
-        onClick={() => setUseOverlapping(!useOverlapping)}
+        onClick={toggleDisplayMode}
         className="absolute top-0 right-0 z-50 btn btn-xs btn-ghost opacity-30 hover:opacity-70 p-1"
-        title={useOverlapping ? 'Switch to Grid View' : 'Switch to Card Fan View'}
+        title={useOverlapping ? 'Switch to Table View' : 'Switch to Overlapping View'}
       >
         {useOverlapping ? (
           <LayoutGrid size={16} />

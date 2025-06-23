@@ -15,13 +15,14 @@ export const PlayerHandOverlapping: React.FC<PlayerHandOverlappingProps> = ({
   onCardClick,
   isMyTurn,
 }) => {
-  // Sort cards by suit then rank
+  // Sort cards by rank then suit
   const sortedCards = [...cards].sort((a, b) => {
-    if (a.suit !== b.suit) {
-      const suitOrder = [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES, Suit.JOKER];
-      return suitOrder.indexOf(a.suit) - suitOrder.indexOf(b.suit);
+    if (a.rank !== b.rank) {
+      return a.rank - b.rank;
     }
-    return a.rank - b.rank;
+    // If ranks are equal, sort by suit
+    const suitOrder = [Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS, Suit.SPADES, Suit.JOKER];
+    return suitOrder.indexOf(a.suit) - suitOrder.indexOf(b.suit);
   });
 
   const getRankDisplay = (card: Card): string => {
