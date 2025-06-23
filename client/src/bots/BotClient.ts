@@ -327,7 +327,7 @@ export class BotClient implements IBotClient {
   public debugStatus(): void {
     console.log(`[${this.config.name}] Debug Status:`, {
       connected: this.isConnected,
-      roomId: this.room?.id,
+      roomId: this.room?.roomId,
       sessionId: this.room?.sessionId,
       isMyTurn: this.isMyTurn,
       decisionInProgress: this.decisionInProgress,
@@ -351,7 +351,7 @@ export class BotClient implements IBotClient {
       inGame: this.gameContext?.phase === GamePhase.PLAYING,
       isMyTurn: this.isMyTurn,
       handSize: this.myHand.length,
-      roomId: this.room?.id || null
+      roomId: this.room?.roomId || null
     };
   }
 }

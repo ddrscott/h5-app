@@ -36,20 +36,39 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({ card }) => {
   return (
     <div className={`playing-card-lg bg-white border-2 ${
       card.isSpecial ? 'border-warning outline outline-2 outline-warning' : 'border-base-content'
-    } rounded-lg flex flex-col items-center justify-center relative font-bold shadow-lg`}>
-      <div className={`text-2xl ${isRed ? 'text-red-suit' : 'text-black-suit'}`}>
-        {getRankDisplay(card.rank)}
-      </div>
-      <div className={`text-xl ${isRed ? 'text-red-suit' : 'text-black-suit'}`}>
-        {getSuitSymbol(card.suit)}
-      </div>
-      {card.isSpecial && (
-        <div className="absolute top-1 right-1 text-warning text-sm">⭐</div>
-      )}
-      {isJoker && (
-        <div className="absolute bottom-1 text-xs text-base-content/60">
-          {card.rank === 17 ? 'BIG' : 'SMALL'}
+    } rounded-lg relative font-bold shadow-lg`}>
+      {isJoker ? (
+        <div className="flex flex-col items-center justify-center h-full">
+          <span className="text-lg font-bold">{card.rank === 17 ? 'BIG' : 'SMALL'}</span>
+          <span className="text-4xl">{getSuitSymbol(card.suit)}</span>
         </div>
+      ) : (
+        <>
+          {/* Top left corner */}
+          <div className={`absolute top-1 left-2 flex flex-col items-center leading-none ${isRed ? 'text-red-suit' : 'text-black-suit'}`}>
+            <span className="text-xl font-bold">
+              {getRankDisplay(card.rank)}
+            </span>
+            <span className="text-lg -mt-0.5">
+              {getSuitSymbol(card.suit)}
+            </span>
+          </div>
+          
+          {/* Bottom right corner (upside down) */}
+          <div className={`absolute bottom-1 right-2 flex flex-col items-center leading-none rotate-180 ${isRed ? 'text-red-suit' : 'text-black-suit'}`}>
+            <span className="text-xl font-bold">
+              {getRankDisplay(card.rank)}
+            </span>
+            <span className="text-lg -mt-0.5">
+              {getSuitSymbol(card.suit)}
+            </span>
+          </div>
+          
+          {/* Special card indicator */}
+          {card.isSpecial && (
+            <div className="absolute top-1 right-1 text-warning text-sm">⭐</div>
+          )}
+        </>
       )}
     </div>
   );

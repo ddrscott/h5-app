@@ -27,8 +27,13 @@ export default config({
             res.send("It's time to kick ass and chew bubblegum!");
         });
 
-        // Serve static files from public directory
-        app.use(require('express').static('public'));
+        // Serve static files from client build directory
+        const express = require('express');
+        const path = require('path');
+        const clientBuildPath = path.join(__dirname, '../client/dist');
+        
+        // Serve client files
+        app.use(express.static(clientBuildPath));
 
         /**
          * Use @colyseus/playground
@@ -44,6 +49,11 @@ export default config({
          * Read more: https://docs.colyseus.io/tools/monitor/#restrict-access-to-the-panel-using-a-password
          */
         app.use("/monitor", monitor());
+        
+        // Fallback to index.html for client-side routing (must be last)
+        app.get('*', (req, res) => {
+            res.sendFile(path.join(clientBuildPath, 'index.html'));
+        });
     },
 
 

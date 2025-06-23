@@ -1,5 +1,6 @@
 import { BotConfig, BotStrategy, BotDecision, GameContext } from '../types';
 import { createCustomBot } from './index';
+import { Card } from '../../types/game';
 
 /**
  * Example of creating custom bot configurations

@@ -29,9 +29,25 @@ interface ColyseusProviderProps {
   serverUrl?: string;
 }
 
+// Automatically determine the WebSocket URL based on the current location
+const getDefaultServerUrl = () => {
+  if (import.meta.env.VITE_SERVER_URL) {
+    return import.meta.env.VITE_SERVER_URL;
+  }
+  
+  // In development, use localhost
+  if (import.meta.env.DEV) {
+    return 'ws://localhost:2567';
+  }
+  
+  // In production, use the same host as the page
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}`;
+};
+
 export const ColyseusProvider: React.FC<ColyseusProviderProps> = ({ 
   children, 
-  serverUrl = 'ws://localhost:2567' 
+  serverUrl = getDefaultServerUrl()
 }) => {
   const [client, setClient] = useState<Client | null>(null);
   const [room, setRoom] = useState<Room<GameState> | null>(null);

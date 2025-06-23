@@ -17,7 +17,7 @@ export const GameBoard: React.FC = () => {
   if (!room) return null;
 
   return (
-    <div className="container mx-auto flex flex-col h-screen bg-base-100 max-w-5xl">
+    <div className="container mx-auto flex flex-col h-screen bg-base-100 max-w-6xl">
       <div className="navbar bg-base-200 px-4">
         <div className="flex-1">
           <h1 className="text-2xl font-bold">❤️ Heart of Five 🃏</h1>
@@ -30,10 +30,10 @@ export const GameBoard: React.FC = () => {
       </div>
 
       {gameState.phase === GamePhase.WAITING ? (
-        <div className="flex flex-1 gap-2 p-2">
-          <div className="flex-1 flex flex-col gap-2">
+        <div className="flex flex-col lg:flex-row flex-1 gap-2 p-2">
+          <div className="flex-1 flex flex-col gap-2 order-1 lg:order-1">
             <WaitingRoom roomId={room?.roomId || ''} onStartGame={gameState.startGame} />
-            <div className="card bg-base-200 flex-1">
+            <div className="card bg-base-200 hidden lg:block">
               <PlayersList 
                 players={room.state?.players || new Map()} 
                 currentTurnPlayerId={gameState.currentTurnPlayerId}
@@ -42,11 +42,19 @@ export const GameBoard: React.FC = () => {
               />
             </div>
           </div>
-          <div className="w-80 card bg-base-200">
+          <div className="w-full lg:w-80 card bg-base-200 order-2 lg:order-2 min-h-[300px] lg:min-h-0">
             <Chat 
               messages={gameState.chatMessages}
               myPlayerId={room.sessionId}
               onSendMessage={gameState.sendChatMessage}
+            />
+          </div>
+          <div className="card bg-base-200 lg:hidden order-3">
+            <PlayersList 
+              players={room.state?.players || new Map()} 
+              currentTurnPlayerId={gameState.currentTurnPlayerId}
+              leadPlayerId={gameState.leadPlayerId}
+              myPlayerId={room.sessionId}
             />
           </div>
         </div>
@@ -88,8 +96,8 @@ export const GameBoard: React.FC = () => {
         </div>
       ) : (
         <div className="flex flex-col flex-1 overflow-hidden">
-          <div className="flex flex-1 gap-2 p-2 overflow-hidden">
-            <div className="w-48 card bg-base-200 overflow-hidden">
+          <div className="flex flex-col lg:flex-row flex-1 gap-2 p-2 overflow-hidden">
+            <div className="w-full lg:w-48 h-auto lg:h-full card bg-base-200 overflow-hidden order-2 lg:order-1">
               <PlayersList 
                 players={room.state?.players || new Map()} 
                 currentTurnPlayerId={gameState.currentTurnPlayerId}
@@ -98,7 +106,7 @@ export const GameBoard: React.FC = () => {
               />
             </div>
             
-            <div className="card bg-base-200 flex-1 overflow-hidden">
+            <div className="card bg-base-200 flex-1 overflow-hidden order-1 lg:order-2">
               <Chat 
                 messages={gameState.chatMessages}
                 myPlayerId={room.sessionId}
@@ -118,9 +126,6 @@ export const GameBoard: React.FC = () => {
                 />
               </Chat>
             </div>
-          </div>
-          
-          <div className="card bg-base-200 mx-2 mb-2 p-2 flex-shrink-0 max-w-3xl mx-auto">
           </div>
         </div>
       )}

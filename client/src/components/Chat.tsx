@@ -6,6 +6,7 @@ interface ChatProps {
   messages: ChatMessage[];
   myPlayerId: string;
   onSendMessage: (message: string) => void;
+  children?: React.ReactNode;
 }
 
 export const Chat: React.FC<ChatProps> = ({ messages, myPlayerId, onSendMessage, children }) => {
