@@ -10,9 +10,19 @@ class BotManagerSingleton {
   static getInstance(): BotManager {
     if (!this.instance) {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const serverUrl = `${protocol}//${window.location.hostname}:2567`;
+      let serverUrl: string;
+      
+      // For production HTTPS, don't add port (use standard 443)
+      // For local development or custom ports, include the port
+      if (window.location.protocol === 'https:' && window.location.port === '') {
+        serverUrl = `${protocol}//${window.location.hostname}`;
+      } else {
+        const port = window.location.port || '2567';
+        serverUrl = `${protocol}//${window.location.hostname}:${port}`;
+      }
+      
       this.instance = new BotManager(serverUrl);
-      console.log('Created BotManager singleton instance');
+      console.log('Created BotManager singleton instance with URL:', serverUrl);
     }
     return this.instance;
   }
