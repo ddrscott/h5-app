@@ -23,10 +23,20 @@ export class BalancedStrategy extends BaseStrategy {
     });
     
     if (options.length === 0) {
+      console.error(`[${this.config.name}] Leader has no valid melds! This shouldn't happen.`);
+      // As a last resort, try to play any single card
+      if (context.myHand.length > 0) {
+        return {
+          action: 'play',
+          cards: [context.myHand[0]],
+          confidence: 0.1,
+          reasoning: 'Emergency play - leader must play something'
+        };
+      }
       return {
         action: 'pass',
-        confidence: 0.5,
-        reasoning: 'No valid melds'
+        confidence: 0.1,
+        reasoning: 'No valid melds to lead with (ERROR - leader should not pass)'
       };
     }
     

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import BotManagerSingleton from '../bots/BotManagerSingleton';
 import { BOT_CONFIGS } from '../bots/configs';
 import { BotBuilder } from '../bots/BotBuilder';
@@ -32,17 +32,34 @@ export const BotControls: React.FC<BotControlsProps> = ({ roomId, isWaitingRoom 
     return () => {
       clearInterval(interval);
     };
-  }, [botManager]);
+  }, []); // No dependencies - botManager is a singleton
 
-  // Only cleanup bots when room changes
+  // Track previous room ID to detect actual room changes
+  const previousRoomIdRef = useRef<string>(roomId);
+  
+  // Only cleanup bots when we actually change rooms
   useEffect(() => {
-    // Remove bots from previous room when room changes
+    const previousRoomId = previousRoomIdRef.current;
+    
+    // If room changed, clean up bots from the previous room
+    if (previousRoomId && previousRoomId !== roomId) {
+      const botsInPreviousRoom = botManager.getBotsInRoom(previousRoomId);
+      if (botsInPreviousRoom.length > 0) {
+        console.log(`Leaving room ${previousRoomId}: removing ${botsInPreviousRoom.length} bots`);
+        botsInPreviousRoom.forEach(bot => botManager.removeBot(bot.id));
+      }
+    }
+    
+    // Update ref for next render
+    previousRoomIdRef.current = roomId;
+    
+    // Cleanup on actual unmount (when user navigates away)
     return () => {
-      const botsInThisRoom = botManager.getBotsInRoom(roomId);
-      console.log(`Room ${roomId} cleanup: removing ${botsInThisRoom.length} bots`);
-      botsInThisRoom.forEach(bot => botManager.removeBot(bot.id));
+      // This cleanup will be called by StrictMode, but we only want to clean up
+      // when the component is truly unmounting (navigating away from the game)
+      // The BotManagerSingleton persists across re-renders, so bots will stay connected
     };
-  }, [roomId, botManager]);
+  }, [roomId]); // Only depend on roomId
 
   const addBot = async (configKey: keyof typeof BOT_CONFIGS) => {
     setIsLoading(true);

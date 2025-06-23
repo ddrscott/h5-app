@@ -574,6 +574,12 @@ export class GameState extends Schema {
       return true;
     }
     
+    // Leaders cannot pass when there's no current meld (they must play something)
+    if (this.leadPlayerId === playerId && !this.currentMeld) {
+      console.error(`Leader ${playerId} cannot pass when there's no current meld!`);
+      return false;
+    }
+    
     player.hasPassed = true;
     this.consecutivePasses++;
     

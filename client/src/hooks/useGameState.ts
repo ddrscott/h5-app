@@ -173,9 +173,16 @@ export const useGameState = () => {
     });
 
     // Listen for errors
-    room.onMessage('error', (error: { message: string }) => {
-      console.error('Game error:', error.message);
-      setGameState(prev => ({ ...prev, lastError: error.message }));
+    room.onMessage('error', (error: { message: string; code?: string }) => {
+      console.error('Game error:', error.message, error.code);
+      
+      // Show more helpful message for specific error codes
+      let errorMessage = error.message;
+      if (error.code === 'LEADER_MUST_PLAY') {
+        errorMessage = "As the leader, you must play something to start the trick!";
+      }
+      
+      setGameState(prev => ({ ...prev, lastError: errorMessage }));
       
       // Clear error after 3 seconds
       setTimeout(() => {

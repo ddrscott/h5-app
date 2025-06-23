@@ -16,13 +16,18 @@ export abstract class BaseStrategy extends BotStrategy {
   async makeDecision(context: GameContext): Promise<BotDecision> {
     await this.simulateThinking();
     
+    console.log(`[${this.config.name}] Making decision:`, {
+      isLeader: context.isLeader,
+      currentMeld: context.currentMeld,
+      currentMeldType: context.currentMeld?.type,
+      consecutivePasses: context.consecutivePasses,
+      handSize: context.myHand.length
+    });
+    
     // Check if we're the leader - leaders must play something
-    if (context.isLeader) {
-      // If there's no current meld OR we just became leader after everyone passed
-      if (!context.currentMeld || context.consecutivePasses === 0) {
-        console.log(`[${this.config.name}] I'm the leader! Must play something.`);
-        return this.makeLeaderDecision(context);
-      }
+    if (context.isLeader && !context.currentMeld) {
+      console.log(`[${this.config.name}] I'm the leader with no current meld! Must play something.`);
+      return this.makeLeaderDecision(context);
     }
     
     // Find all valid plays
@@ -33,8 +38,8 @@ export abstract class BaseStrategy extends BotStrategy {
     );
     
     if (validPlays.length === 0) {
-      // Leaders can't pass when they have the lead
-      if (context.isLeader && (!context.currentMeld || context.consecutivePasses === 0)) {
+      // Leaders can't pass when they have the lead and no current meld
+      if (context.isLeader && !context.currentMeld) {
         console.error(`[${this.config.name}] ERROR: Leader tried to pass but must play!`);
         // Force leader to play something
         return this.makeLeaderDecision(context);

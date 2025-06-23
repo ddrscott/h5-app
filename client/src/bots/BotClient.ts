@@ -1,7 +1,7 @@
 import { Client, Room } from 'colyseus.js';
 import { BotConfig, BotStrategy, GameContext, BotClient as IBotClient } from './types';
 import { GameAnalyzer } from './GameAnalyzer';
-import { Card, Player, Meld, GamePhase } from '../types/game';
+import { Card, Player, Meld, GamePhase, MeldType } from '../types/game';
 
 /**
  * Bot client that connects to the game server and plays autonomously
@@ -30,21 +30,31 @@ export class BotClient implements IBotClient {
 
   async connect(serverUrl: string, roomId: string): Promise<void> {
     try {
+      console.log(`[${this.config.name}] Starting connection to room ${roomId}`);
       this.client = new Client(serverUrl);
       
       // Join or create room
       if (roomId && roomId !== 'create') {
+        console.log(`[${this.config.name}] Joining room by ID: ${roomId}`);
         this.room = await this.client.joinById(roomId, {
           name: this.config.name
         });
       } else {
+        console.log(`[${this.config.name}] Creating new room`);
         this.room = await this.client.create('heartoffive', {
           name: this.config.name
         });
       }
       
-      this.isConnected = true;
+      console.log(`[${this.config.name}] Connected! Setting up event listeners...`);
+      
+      // CRITICAL: Set up event listeners BEFORE marking as connected
       this.setupEventListeners();
+      
+      // NOW mark as connected
+      this.isConnected = true;
+      
+      console.log(`[${this.config.name}] Fully connected and ready`);
       
       // Send greeting if chat is enabled
       const greeting = this.strategy.getChatMessage('greeting');
@@ -55,11 +65,15 @@ export class BotClient implements IBotClient {
     } catch (error) {
       console.error(`Bot ${this.config.name} failed to connect:`, error);
       this.isConnected = false;
+      this.room = null;
+      this.client = null;
       throw error;
     }
   }
 
   disconnect(): void {
+    console.log(`[${this.config.name}] Disconnecting...`);
+    
     this.isConnected = false;
     this.myHand = [];
     this.gameContext = null;
@@ -68,6 +82,7 @@ export class BotClient implements IBotClient {
     
     if (this.room) {
       try {
+        console.log(`[${this.config.name}] Removing listeners and leaving room`);
         this.room.removeAllListeners();
         this.room.leave();
       } catch (error) {
@@ -79,6 +94,8 @@ export class BotClient implements IBotClient {
     if (this.client) {
       this.client = null;
     }
+    
+    console.log(`[${this.config.name}] Disconnected`);
   }
 
   updateStrategy(strategy: BotStrategy): void {
@@ -200,8 +217,14 @@ export class BotClient implements IBotClient {
     });
 
     // Listen for errors
-    this.room.onMessage('error', ({ message }: { message: string }) => {
-      console.error(`Bot ${this.config.name} error:`, message);
+    this.room.onMessage('error', ({ message, code }: { message: string; code?: string }) => {
+      console.error(`Bot ${this.config.name} error:`, message, code);
+      
+      // If we're the leader and tried to pass, we need to play something
+      if (code === 'LEADER_MUST_PLAY' && this.isMyTurn) {
+        console.log(`[${this.config.name}] Leader pass rejected - forcing play`);
+        this.handleLeaderMustPlayError();
+      }
     });
     
     // Register handlers for other message types to avoid warnings
@@ -219,16 +242,23 @@ export class BotClient implements IBotClient {
   private updateGameContext(state: any): void {
     if (!this.room) return; // Guard against null room
     
+    const isLeader = state.leadPlayerId === this.room.sessionId;
+    
     this.gameContext = {
       myHand: this.myHand,
       currentMeld: state.currentMeld,
-      isLeader: state.leadPlayerId === this.room.sessionId,
+      isLeader: isLeader,
       consecutivePasses: state.consecutivePasses,
       players: new Map(state.players),
       myPlayerId: this.room.sessionId,
       currentRound: state.currentRound,
       phase: state.phase
     };
+    
+    // Debug log leader changes
+    if (isLeader && (!this.gameContext || !this.gameContext.isLeader)) {
+      console.log(`[${this.config.name}] I just became the leader! leadPlayerId=${state.leadPlayerId}, mySessionId=${this.room.sessionId}`);
+    }
   }
 
   private async makeDecision(): Promise<void> {
@@ -237,7 +267,9 @@ export class BotClient implements IBotClient {
       isMyTurn: this.isMyTurn,
       decisionInProgress: this.decisionInProgress,
       phase: this.gameContext?.phase,
-      handSize: this.myHand.length
+      handSize: this.myHand.length,
+      isLeader: this.gameContext?.isLeader,
+      currentMeld: this.gameContext?.currentMeld
     });
     
     if (!this.gameContext || !this.isMyTurn || this.decisionInProgress) {
@@ -277,7 +309,20 @@ export class BotClient implements IBotClient {
       if (decision.action === 'play' && decision.cards && decision.cards.length > 0) {
         this.playCards(decision.cards);
       } else {
-        this.pass();
+        // Safety check: Leaders should never pass when there's no current meld
+        if (this.gameContext.isLeader && !this.gameContext.currentMeld) {
+          console.error(`[${this.config.name}] CRITICAL: Leader tried to pass with no current meld!`);
+          // Force play a single card as emergency fallback
+          if (this.myHand.length > 0) {
+            console.log(`[${this.config.name}] Emergency: Playing first card`);
+            this.playCards([this.myHand[0]]);
+          } else {
+            console.error(`[${this.config.name}] CRITICAL: No cards to play!`);
+            this.pass();
+          }
+        } else {
+          this.pass();
+        }
       }
       
     } catch (error) {
@@ -314,6 +359,54 @@ export class BotClient implements IBotClient {
     if (!this.room || !this.config.chatEnabled) return;
     
     this.room.send('chat', { text: message });
+  }
+
+  private handleLeaderMustPlayError(): void {
+    if (!this.gameContext || this.decisionInProgress) return;
+    
+    console.log(`[${this.config.name}] Handling leader must play error`);
+    this.decisionInProgress = true;
+    
+    try {
+      // Find any valid meld to play
+      const allMelds = this.gameAnalyzer.findAllMelds(this.myHand);
+      let cardsToPlay: Card[] | null = null;
+      
+      // Try to find the smallest meld
+      const singles = allMelds.get(MeldType.SINGLE) || [];
+      const pairs = allMelds.get(MeldType.PAIR) || [];
+      const threes = allMelds.get(MeldType.THREE_OF_KIND) || [];
+      
+      if (singles.length > 0) {
+        // Play the lowest single
+        singles.sort((a, b) => a[0].rank - b[0].rank);
+        cardsToPlay = singles[0];
+      } else if (pairs.length > 0) {
+        // Play the lowest pair
+        pairs.sort((a, b) => a[0].rank - b[0].rank);
+        cardsToPlay = pairs[0];
+      } else if (threes.length > 0) {
+        // Play the lowest three
+        threes.sort((a, b) => a[0].rank - b[0].rank);
+        cardsToPlay = threes[0];
+      } else {
+        // Last resort - play first card
+        if (this.myHand.length > 0) {
+          cardsToPlay = [this.myHand[0]];
+        }
+      }
+      
+      if (cardsToPlay) {
+        console.log(`[${this.config.name}] Playing emergency meld after error:`, cardsToPlay.map(c => c.code));
+        this.playCards(cardsToPlay);
+      } else {
+        console.error(`[${this.config.name}] CRITICAL: No cards to play after leader error!`);
+      }
+    } catch (error) {
+      console.error(`[${this.config.name}] Error in handleLeaderMustPlayError:`, error);
+    } finally {
+      this.decisionInProgress = false;
+    }
   }
 
   // Public methods for external control

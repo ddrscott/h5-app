@@ -149,7 +149,15 @@ export class HeartOfFive extends Room<GameState> {
       const previousLeader = this.state.leadPlayerId;
       const success = this.state.pass(client.sessionId);
       if (!success) {
-        client.send("error", { message: "Cannot pass!" });
+        // Check if it's because leader tried to pass with no meld
+        if (this.state.leadPlayerId === client.sessionId && !this.state.currentMeld) {
+          client.send("error", { 
+            message: "Cannot pass - you must play something as the leader!",
+            code: "LEADER_MUST_PLAY"
+          });
+        } else {
+          client.send("error", { message: "Cannot pass!" });
+        }
         return;
       }
       

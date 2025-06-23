@@ -23,10 +23,20 @@ export class CautiousStrategy extends BaseStrategy {
     meldsByStrength.sort((a, b) => a.strength - b.strength);
     
     if (meldsByStrength.length === 0) {
+      console.error(`[${this.config.name}] Leader has no valid melds! This shouldn't happen.`);
+      // As a last resort, try to play any single card
+      if (context.myHand.length > 0) {
+        return {
+          action: 'play',
+          cards: [context.myHand[0]],
+          confidence: 0.1,
+          reasoning: 'Emergency play - leader must play something'
+        };
+      }
       return {
         action: 'pass',
-        confidence: 0.9,
-        reasoning: 'No melds available'
+        confidence: 0.1,
+        reasoning: 'No melds available (ERROR - leader should not pass)'
       };
     }
     
