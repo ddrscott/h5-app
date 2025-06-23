@@ -5,16 +5,31 @@ import { WaitingRoom } from './WaitingRoom';
 import { PlayerHand } from './PlayerHand';
 import { PlayersList } from './PlayersList';
 import { Chat } from './Chat';
+import { GameTable } from './GameTable';
 import { GamePhase } from '../types/game';
 
 export const GameBoard: React.FC = () => {
   const { room, leaveRoom } = useColyseus();
   const gameState = useGameState();
+  const [useNewUI, setUseNewUI] = React.useState(() => {
+    return localStorage.getItem('useNewGameUI') === 'true';
+  });
 
   const playerId = room?.sessionId,
     myturn = (playerId === gameState.currentTurnPlayerId);
 
   if (!room) return null;
+  
+  const toggleUI = () => {
+    const newValue = !useNewUI;
+    setUseNewUI(newValue);
+    localStorage.setItem('useNewGameUI', newValue.toString());
+  };
+
+  // Show different layouts based on UI mode and game phase
+  if (useNewUI && gameState.phase === GamePhase.PLAYING) {
+    return <GameTable roomId={room.roomId} />;
+  }
 
   return (
     <div className="container mx-auto flex flex-col h-screen bg-base-100 max-w-6xl">
@@ -23,6 +38,9 @@ export const GameBoard: React.FC = () => {
           <h1 className="text-2xl font-bold">❤️ Heart of Five 🃏</h1>
         </div>
         <div className="flex-none gap-4">
+          <button onClick={toggleUI} className="btn btn-sm btn-ghost">
+            {useNewUI ? 'Classic View' : 'Table View'}
+          </button>
           <button onClick={leaveRoom} className="btn btn-error btn-sm">
             Leave Game
           </button>
