@@ -29,6 +29,7 @@ docker build -t heartfive .
 docker run -d \
   -p 2567:2567 \
   -e NODE_ENV=production \
+  -e WEB_URL=https://yourdomain.com \
   --name heartfive \
   heartfive
 
@@ -46,6 +47,9 @@ The following environment variables can be set:
 
 - `PORT` - Server port (default: 2567)
 - `NODE_ENV` - Environment mode (default: production)
+- `WEB_URL` - The public URL where your game is hosted (default: http://localhost:2567)
+  - **Important**: Set this to your actual domain in production (e.g., `https://yourgame.com`)
+  - Used for generating invite links and redirect URLs
 
 ## Production Deployment
 

@@ -52,5 +52,8 @@ EXPOSE 2567
 # Set environment to production
 ENV NODE_ENV=production
 
+# Default WEB_URL to localhost
+ENV WEB_URL=http://localhost:2567
+
 # Start the server
 CMD ["node", "build/index.js"]

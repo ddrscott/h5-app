@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BotControls } from './BotControls';
 import { Copy, Link, Users } from 'lucide-react';
+import { InviteLink } from './InviteLink';
 
 interface WaitingRoomProps {
   roomId: string;
@@ -64,30 +65,7 @@ export const WaitingRoom: React.FC<WaitingRoomProps> = ({ roomId, onStartGame })
             </div>
             
             {/* Direct Link Section */}
-            <div className="bg-base-300 rounded-lg p-4">
-              <p className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <span className="text-base-content/70">Direct Link</span>
-              </p>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  value={`${window.location.origin}?room=${roomId}`} 
-                  readOnly 
-                  className="input input-bordered flex-1 text-xs md:text-sm"
-                />
-                <button 
-                  onClick={copyRoomLink} 
-                  className={`btn ${copiedLink ? 'btn-success' : 'btn-ghost'}`}
-                  title="Copy direct link"
-                >
-                  {copiedLink ? (
-                    <>✓<span className="hidden sm:inline ml-1">Copied!</span></>
-                  ) : (
-                    <><Link size={16} /><span className="hidden sm:inline ml-1">Copy</span></>
-                  )}
-                </button>
-              </div>
-            </div>
+            <InviteLink />
 
             {/* Start Game Button */}
             <div className="text-center mt-4">

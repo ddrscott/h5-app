@@ -1,5 +1,6 @@
 import { Room, Client } from "@colyseus/core";
 import { GameState, GamePhase, Card, Player, Meld } from "./schema/GameState";
+import { getRoomJoinUrl, getInviteUrl } from "../utils/url";
 
 export interface HeartOfFiveOptions {
   minPlayers?: number;
@@ -49,7 +50,8 @@ export class HeartOfFive extends Room<GameState> {
         maxPlayers: this.maxClients,
         currentPlayers: this.state.players.size,
         phase: this.state.phase
-      }
+      },
+      inviteUrl: getInviteUrl(this.roomId, "Heart of Five Game")
     });
     
     this.broadcast("player_joined", {

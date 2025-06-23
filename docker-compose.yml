@@ -6,4 +6,5 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=2567
+      - WEB_URL=${WEB_URL:-http://localhost:2567}
     restart: unless-stopped
