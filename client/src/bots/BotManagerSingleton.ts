@@ -16,6 +16,8 @@ class BotManagerSingleton {
       // For local development or custom ports, include the port
       if (window.location.protocol === 'https:' && window.location.port === '') {
         serverUrl = `${protocol}//${window.location.hostname}`;
+      } else if (window.location.hostname === 'localhost') {
+        serverUrl = `${protocol}//${window.location.hostname}:2567`;
       } else {
         const port = window.location.port || '2567';
         serverUrl = `${protocol}//${window.location.hostname}:${port}`;
