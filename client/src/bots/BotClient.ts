@@ -56,10 +56,12 @@ export class BotClient implements IBotClient {
       
       console.log(`[${this.config.name}] Fully connected and ready`);
       
-      // Send greeting if chat is enabled
-      const greeting = this.strategy.getChatMessage('greeting');
-      if (greeting) {
-        setTimeout(() => this.sendChat(greeting), 1000);
+      // Send greeting if chat is enabled (50% chance)
+      if (Math.random() < 0.5) {
+        const greeting = this.strategy.getChatMessage('greeting');
+        if (greeting) {
+          setTimeout(() => this.sendChat(greeting), 1000);
+        }
       }
       
     } catch (error) {
@@ -194,24 +196,39 @@ export class BotClient implements IBotClient {
     this.room.onMessage('round_ended', ({ winner }: { winner: string }) => {
       this.strategy.onRoundEnd?.(winner);
       
-      // React to round end
+      // React to round end (only sometimes)
       if (this.room && winner === this.room.sessionId) {
-        const message = this.strategy.getChatMessage('winning');
-        if (message) this.sendChat(message);
+        // Winners talk more (70% chance)
+        if (Math.random() < 0.7) {
+          const message = this.strategy.getChatMessage('winning');
+          if (message) this.sendChat(message);
+        }
       } else {
-        const message = this.strategy.getChatMessage('losing');
-        if (message) this.sendChat(message);
+        // Losers rarely complain (20% chance)
+        if (Math.random() < 0.2) {
+          const message = this.strategy.getChatMessage('losing');
+          if (message) this.sendChat(message);
+        }
       }
     });
 
     this.room.onMessage('meld_played', ({ playerId, meld }: { playerId: string; meld: any }) => {
       this.strategy.onPlayerMove?.(playerId, meld);
       
-      // Sometimes compliment good plays
-      if (this.room && playerId !== this.room.sessionId && Math.random() < 0.3) {
-        const message = this.strategy.getChatMessage('goodPlay');
-        if (message) {
-          setTimeout(() => this.sendChat(message), 1000);
+      // Very rarely compliment amazing plays (bombs, straight flushes, or 5+ card melds)
+      if (this.room && playerId !== this.room.sessionId && meld) {
+        const isAmazingPlay = meld.type === 'BOMB' || 
+                             meld.type === 'STRAIGHT_FLUSH' || 
+                             (meld.cards && meld.cards.length >= 5);
+        
+        // 30% chance for amazing plays, 5% for regular plays
+        const chatChance = isAmazingPlay ? 0.3 : 0.05;
+        
+        if (Math.random() < chatChance) {
+          const message = this.strategy.getChatMessage('goodPlay');
+          if (message) {
+            setTimeout(() => this.sendChat(message), 1000);
+          }
         }
       }
     });
@@ -348,9 +365,11 @@ export class BotClient implements IBotClient {
     
     console.log(`Bot ${this.config.name} passing`);
     
-    // Send pass message if chat enabled
-    const message = this.strategy.getChatMessage('pass');
-    if (message) this.sendChat(message);
+    // Very rarely announce passes (5% chance)
+    if (Math.random() < 0.05) {
+      const message = this.strategy.getChatMessage('pass');
+      if (message) this.sendChat(message);
+    }
     
     this.room.send('pass');
   }
