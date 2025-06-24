@@ -33,6 +33,7 @@ export const Card: React.FC<CardProps> = ({
     if (suit === 'J') {
       return rank === 16 ? 'JK' : 'JK';
     }
+    if (rank === 15) return '2';
     if (rank === 14) return 'A';
     if (rank === 13) return 'K';
     if (rank === 12) return 'Q';

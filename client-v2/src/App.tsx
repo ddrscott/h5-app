@@ -135,6 +135,11 @@ function App() {
           leadPlayerId={gameState.leadPlayerId || ''}
           deckCount={gameState.deckCount}
           discardTop={gameState.discardTop || undefined}
+          consecutivePasses={gameState.consecutivePasses}
+          trickMelds={gameState.trickMelds}
+          lastTrickMelds={gameState.lastTrickMelds}
+          lastError={gameState.lastError}
+          lastNotification={gameState.lastNotification}
           onCardSelect={gameState.toggleCardSelection}
           onPlayCards={gameState.playCards}
           onPass={gameState.pass}

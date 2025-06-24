@@ -14,11 +14,14 @@ interface GameStateData {
   players: Map<string, Player>;
   currentMeld: Meld | null;
   consecutivePasses: number;
+  trickMelds: Meld[];
+  lastTrickMelds: Meld[];
   myHand: Card[];
   isMyTurn: boolean;
   selectedCards: Set<string>;
   chatMessages: ChatMessage[];
   lastError: string | null;
+  lastNotification: string | null;
   deckCount: number;
   discardTop: Card | null;
 }
@@ -33,11 +36,14 @@ export const useGameState = () => {
     players: new Map(),
     currentMeld: null,
     consecutivePasses: 0,
+    trickMelds: [],
+    lastTrickMelds: [],
     myHand: [],
     isMyTurn: false,
     selectedCards: new Set(),
     chatMessages: [],
     lastError: null,
+    lastNotification: null,
     deckCount: 0,
     discardTop: null,
   });
@@ -74,6 +80,25 @@ export const useGameState = () => {
         .reduce((sum, player: any) => sum + player.handCount, 0);
       const deckCount = Math.max(0, 52 - totalDistributed);
       
+      // Convert trick melds to arrays
+      const trickMelds = state.trickMelds ? 
+        Array.from(state.trickMelds).map((meld: any) => ({
+          cards: Array.from(meld.cards),
+          type: meld.type,
+          playerId: meld.playerId
+        })) : [];
+        
+      const lastTrickMelds = state.lastTrickMelds ? 
+        Array.from(state.lastTrickMelds).map((meld: any) => ({
+          cards: Array.from(meld.cards),
+          type: meld.type,
+          playerId: meld.playerId
+        })) : [];
+        
+      if (trickMelds.length > 0) {
+        console.log('State has trickMelds:', trickMelds);
+      }
+      
       setGameState(prev => ({
         ...prev,
         phase: state.phase,
@@ -83,6 +108,8 @@ export const useGameState = () => {
         players: new Map(state.players),
         currentMeld: state.currentMeld,
         consecutivePasses: state.consecutivePasses,
+        trickMelds,
+        lastTrickMelds,
         isMyTurn,
         chatMessages,
         deckCount,
@@ -136,6 +163,26 @@ export const useGameState = () => {
     // Listen for new leader after all passes
     room.onMessage('new_leader', (data: { playerId: string, message: string }) => {
       console.log('New leader:', data.playerId);
+      
+      setGameState(prev => {
+        const leaderPlayer = prev.players.get(data.playerId);
+        const leaderName = leaderPlayer?.name || 'Unknown';
+        // Personalize message based on whether it's the current player
+        const notification = data.playerId === myPlayerId 
+          ? "You are the new leader!" 
+          : `${leaderName} is the new leader!`;
+        
+        // Clear notification after 5 seconds
+        setTimeout(() => {
+          setGameState(p => ({ ...p, lastNotification: null }));
+        }, 5000);
+        
+        return { 
+          ...prev, 
+          lastNotification: notification,
+          leadPlayerId: data.playerId
+        };
+      });
     });
 
     // Listen for player left

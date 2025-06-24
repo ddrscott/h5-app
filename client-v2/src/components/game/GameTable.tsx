@@ -12,6 +12,11 @@ interface GameTableProps {
   leadPlayerId: string;
   deckCount: number;
   discardTop?: CardType;
+  consecutivePasses: number;
+  trickMelds: Meld[];
+  lastTrickMelds: Meld[];
+  lastError?: string | null;
+  lastNotification?: string | null;
   onCardSelect: (cardKey: string) => void;
   onPlayCards: () => void;
   onPass: () => void;
@@ -28,15 +33,37 @@ export const GameTable: React.FC<GameTableProps> = ({
   leadPlayerId,
   deckCount,
   discardTop,
+  consecutivePasses,
+  trickMelds,
+  lastTrickMelds,
+  lastError,
+  lastNotification,
   onCardSelect,
   onPlayCards,
   onPass,
   onLeaveGame,
 }) => {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [isSweeping, setIsSweeping] = useState(false);
   const isMyTurn = currentTurnPlayerId === myPlayerId;
   const isLeader = leadPlayerId === myPlayerId;
-  const canPass = !isLeader || !!currentMeld;
+  const canPass = isLeader ? !!currentMeld : true; // Leader can only pass if there's a meld to beat
+
+  // Detect when cards should sweep (when trickMelds becomes empty after having cards)
+  const prevTrickMeldsLength = React.useRef(0);
+  
+  React.useEffect(() => {
+    console.log('trickMelds:', trickMelds);
+    console.log('trickMelds length:', trickMelds.length);
+    if (prevTrickMeldsLength.current > 0 && trickMelds.length === 0) {
+      // Cards were cleared, trigger sweep animation
+      setIsSweeping(true);
+      setTimeout(() => {
+        setIsSweeping(false);
+      }, 500);
+    }
+    prevTrickMeldsLength.current = trickMelds.length;
+  }, [trickMelds]);
 
   // Get other players for positioning
   const otherPlayers = Array.from(players.entries())
@@ -65,16 +92,8 @@ export const GameTable: React.FC<GameTableProps> = ({
   return (
     <div className="fixed inset-0 felt-texture overflow-hidden">
       {/* Score Panel with Game Title */}
-      <div className="absolute top-2 right-2 bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 shadow-xl z-20">
+      <div className="absolute top-1 right-2 p-3 z-20">
         <h3 className="text-sm font-bold text-gold mb-1">Heart of Five</h3>
-        <div className="space-y-1">
-          {Array.from(players.entries()).map(([id, player]) => (
-            <div key={id} className="flex justify-between text-xs">
-              <span className={id === myPlayerId ? 'text-gold' : ''}>{player.name}</span>
-              <span className="font-bold ml-3">{player.wins}W/{player.losses}L</span>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Leave Game Icon */}
@@ -137,6 +156,7 @@ export const GameTable: React.FC<GameTableProps> = ({
                 <p className="text-xs font-medium text-center">
                   {isLeaderPlayer && '👑 '}
                   {opponent.player.name}
+                  <span className="font-bold ml-1">({opponent.player.wins}-{opponent.player.losses})</span>
                   {isCurrentTurn && ' 🎯'}
                 </p>
               </div>
@@ -160,31 +180,104 @@ export const GameTable: React.FC<GameTableProps> = ({
           );
         })}
 
-        {/* Center Play Area */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          {/* Current Meld */}
-          {currentMeld && currentMeld.cards.length > 0 && (
-            <div className="flex justify-center -space-x-8">
-              {currentMeld.cards.map((card, index) => (
-                <Card
-                  key={`${card.suit}-${card.rank}-${index}`}
-                  {...card}
-                  className="transform scale-90 hover:z-10 transition-all"
-                  style={{ 
-                    transform: `rotate(${(index - currentMeld.cards.length / 2) * 5}deg) scale(0.9)`,
-                    animation: 'tossCard 0.3s ease-out'
-                  }}
-                />
+        {/* Swept Cards - Off to the side */}
+        {lastTrickMelds.length > 0 && (
+          <div className="absolute top-1/2 left-10 transform -translate-y-1/2">
+            <p className="text-xs text-gray-400 mb-1">Last Trick:</p>
+            <div className="relative w-32 h-24">
+              {lastTrickMelds.map((meld, meldIndex) => (
+                <div
+                  key={`swept-${meldIndex}`}
+                  className="absolute inset-0"
+                >
+                  {meld.cards.map((card, cardIndex) => {
+                    // Create more natural, less uniform positions
+                    const cardTotal = lastTrickMelds.reduce((sum, m) => sum + m.cards.length, 0);
+                    const globalIndex = lastTrickMelds.slice(0, meldIndex).reduce((sum, m) => sum + m.cards.length, 0) + cardIndex;
+                    
+                    // More chaotic positioning using different patterns
+                    const seed1 = globalIndex * 2.7;
+                    const seed2 = globalIndex * 1.9;
+                    const seed3 = globalIndex * 3.3;
+                    
+                    // Mix different functions for less predictable patterns
+                    const xSpread = (Math.sin(seed1) * 30 + Math.cos(seed2 * 0.5) * 20) + 40; // More varied X
+                    const ySpread = (Math.sin(seed2) * 25 + Math.sin(seed3) * 15) + 20; // More varied Y
+                    const rotation = Math.sin(seed1) * 30 + Math.cos(seed3) * 20; // Mix of rotations
+                    
+                    return (
+                      <Card
+                        key={`swept-${meldIndex}-${card.suit}-${card.rank}-${cardIndex}`}
+                        {...card}
+                        className="absolute transform scale-50"
+                        style={{ 
+                          transform: `rotate(${rotation}deg) scale(0.3)`,
+                          top: `${ySpread}px`,
+                          left: `${xSpread}px`,
+                          zIndex: globalIndex,
+                          filter: 'brightness(0.3) contrast(0.7)' // Same darkening as older melds
+                        }}
+                      />
+                    );
+                  })}
+                </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Center Play Area - Messy Stack */}
+        <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ${
+          isSweeping ? 'translate-x-[-200%] opacity-0' : ''
+        }`}>
+          {/* All center melds stacked messily */}
+          {trickMelds.map((meld, meldIndex) => {
+            const isCurrentMeld = meldIndex === trickMelds.length - 1;
+            
+            return (
+              <div
+                key={`center-${meldIndex}`}
+                className="absolute"
+                style={{
+                  // More varied rotation using different patterns
+                  transform: `rotate(${Math.sin(meldIndex * 2.3) * 20 + Math.cos(meldIndex * 1.7) * 15}deg)`,
+                  zIndex: meldIndex * 100,
+                  filter: isCurrentMeld ? 'none' : 'brightness(0.3) contrast(0.7)', // Darken and reduce contrast for older melds
+                }}
+              >
+                {meld.cards.map((card, cardIndex) => (
+                  <Card
+                    key={`center-${meldIndex}-${card.suit}-${card.rank}-${cardIndex}`}
+                    {...card}
+                    className="absolute transform hover:z-10 transition-all"
+                    style={{ 
+                      transform: `translateX(${(cardIndex - meld.cards.length / 2) * 30}px) rotate(${(cardIndex - meld.cards.length / 2) * 5}deg) scale(0.9)`,
+                      animation: isCurrentMeld ? 'tossCard 0.3s ease-out' : 'none'
+                    }}
+                  />
+                ))}
+              </div>
+            );
+          })}
+          
+          {/* Leader message when center is empty */}
+          {!currentMeld && isMyTurn && isLeader && (
+            <div className="bg-gold/20 backdrop-blur-sm border-2 border-gold px-6 py-4 rounded-lg">
+              <p className="text-lg text-gold font-bold text-center">
+                You are the leader
+              </p>
+              <p className="text-sm text-gold text-center mt-1">
+                You may lead with any type
+              </p>
             </div>
           )}
           
           {/* Deck and Discard indicators */}
-          {!currentMeld && (
+          {!currentMeld && !isLeader && (
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <Card suit="" rank={0} isBack className="w-16 h-24" />
-                <span className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs bg-gray-800/90 px-2 py-1 rounded">
+                <span className="absolute left-1/2 transform -translate-x-1/2 text-xs bg-gray-800/90 px-2 py-1 rounded">
                   {deckCount}
                 </span>
               </div>
@@ -195,13 +288,33 @@ export const GameTable: React.FC<GameTableProps> = ({
           )}
         </div>
 
+        {/* Important Notification - Center of screen */}
+        {lastNotification && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 animate-notification-pop pointer-events-none">
+            <div className="bg-gold/20 backdrop-blur-sm rounded-lg px-8 py-6 shadow-2xl border-2 border-gold">
+              <p className="text-2xl text-gold font-bold text-center">
+                {lastNotification}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Error Toast - Above Action Buttons */}
+        {lastError && (
+          <div className="absolute bottom-36 left-1/2 transform -translate-x-1/2 z-40 animate-fade-in">
+            <div className="bg-red-900/90 backdrop-blur-sm rounded-lg px-6 py-3 shadow-xl border border-red-700">
+              <p className="text-sm text-red-100 font-medium">{lastError}</p>
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons - Above Cards */}
         {isMyTurn && (
-          <div className="absolute bottom-28 left-1/2 transform -translate-x-1/2 flex space-x-3 z-30">
+          <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 flex space-x-3 z-30">
             <button
               onClick={onPlayCards}
               disabled={selectedCards.size === 0}
-              className={`${
+              className={`min-w-48 ${
                 selectedCards.size > 0 ? 'bg-gold hover:bg-gold-dark text-gray-900' : 'bg-gray-600 text-gray-400 cursor-not-allowed'
               } px-6 py-2 text-sm font-bold rounded-lg transition-all shadow-lg`}
             >
@@ -234,11 +347,11 @@ export const GameTable: React.FC<GameTableProps> = ({
       </div>
 
       {/* Player Hand - Bottom of screen, CSS Grid layout */}
-      <div className="absolute bottom-0 left-0 right-0 pb-4 px-4">
+      <div className="absolute bottom-0 left-0 right-0 px-4">
         <div 
-          className="player-hand"
+          className="player-hand justify-center"
           style={{
-            gridTemplateColumns: `repeat(${myHand.length}, calc((100% - 70px) / ${myHand.length - 1}))`
+            gridTemplateColumns: `repeat(${myHand.length}, 1.5em)`
           }}
         >
           {myHand.map((card, index) => {

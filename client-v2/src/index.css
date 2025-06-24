@@ -98,8 +98,7 @@
   grid-gap: 0;
   transition: all 0.2s ease;
   width: 100%;
-  max-width: 1000px; /* Optional: limit max spread */
-  margin: 0 auto;
+  max-width: 95vw; /* Optional: limit max spread */
 }
 
 .player-card {
@@ -107,7 +106,7 @@
   height: 100px;
   position: relative;
   cursor: pointer;
-  transform: translateY(60%);
+  transform: translateY(55%);
   transition: all 0.2s ease;
 }
 
@@ -119,4 +118,39 @@
 .player-card.selected {
   transform: translateY(30%);
   z-index: 101;
+}
+
+/* Toast Animation */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Notification Pop Animation */
+@keyframes notification-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.animate-notification-pop {
+  animation: notification-pop 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }

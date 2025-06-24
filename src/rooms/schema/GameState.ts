@@ -355,6 +355,8 @@ export class GameState extends Schema {
   @type(Meld) currentMeld: Meld;
   @type("string") currentMeldType: MeldType;
   @type("number") currentMeldSize: number = 0;
+  @type([Meld]) trickMelds = new ArraySchema<Meld>(); // All melds played in current trick
+  @type([Meld]) lastTrickMelds = new ArraySchema<Meld>(); // Melds from the last completed trick
   
   @type(["string"]) turnOrder = new ArraySchema<string>();
   @type("number") consecutivePasses: number = 0;
@@ -503,6 +505,9 @@ export class GameState extends Schema {
       this.lastPlayerId = playerId;
       this.bombPlayed = meld.type === MeldType.BOMB || meld.type === MeldType.STRAIGHT_FLUSH;
       
+      // Add meld to current trick
+      this.trickMelds.push(meld);
+      
       player.removeCards(cards);
       player.hasPassed = false;
       this.consecutivePasses = 0;
@@ -599,6 +604,11 @@ export class GameState extends Schema {
         this.bombPlayed = false;
         this.consecutivePasses = 0;
         
+        // Move current trick to last trick
+        this.lastTrickMelds.clear();
+        this.trickMelds.forEach(meld => this.lastTrickMelds.push(meld));
+        this.trickMelds.clear();
+        
         // Reset all players' pass status
         this.players.forEach(p => p.hasPassed = false);
         
@@ -636,6 +646,11 @@ export class GameState extends Schema {
           this.currentMeldSize = 0;
           this.bombPlayed = false;
           this.consecutivePasses = 0;
+          
+          // Move current trick to last trick
+          this.lastTrickMelds.clear();
+          this.trickMelds.forEach(meld => this.lastTrickMelds.push(meld));
+          this.trickMelds.clear();
           
           // Reset all players' pass status
           this.players.forEach(p => p.hasPassed = false);
@@ -704,6 +719,8 @@ export class GameState extends Schema {
     this.consecutivePasses = 0;
     this.bombPlayed = false;
     this.lastPlayerId = null;
+    this.trickMelds.clear();
+    this.lastTrickMelds.clear();
     
     // Reset all players' isOut status for new round
     this.players.forEach(player => {
