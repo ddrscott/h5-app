@@ -72,18 +72,56 @@ export const GameTable: React.FC<GameTableProps> = ({
 
   // Position players around the table in landscape
   const getPlayerPosition = (index: number, total: number) => {
-    // Distribute players along the top edge in landscape
-    const spacing = 100 / (total + 1);
-    const position = spacing * (index + 1);
-    
     if (total === 1) {
-      return { top: '15%', left: '50%', transform: 'translateX(-50%)' };
+      // Single opponent at top
+      return { 
+        top: '5%', 
+        left: '50%', 
+        transform: 'translateX(-50%)'
+      };
     } else if (total === 2) {
+      // Two opponents: one left, one right
       return index === 0 
-        ? { top: '15%', left: '30%', transform: 'translateX(-50%)' }
-        : { top: '15%', right: '30%', transform: 'translateX(50%)' };
+        ? { 
+            top: '50%', 
+            left: '2%', 
+            transform: 'translateY(-50%) rotate(-90deg)'
+          }
+        : { 
+            top: '50%', 
+            right: '2%', 
+            transform: 'translateY(-50%) rotate(90deg)'
+          };
+    } else if (total === 3) {
+      // Three opponents: left, top, right
+      if (index === 0) {
+        return { 
+          top: '50%', 
+          left: '2%', 
+          transform: 'translateY(-50%) rotate(-90deg)'
+        };
+      } else if (index === 1) {
+        return { 
+          top: '5%', 
+          left: '50%', 
+          transform: 'translateX(-50%)'
+        };
+      } else {
+        return { 
+          top: '50%', 
+          right: '2%', 
+          transform: 'translateY(-50%) rotate(90deg)'
+        };
+      }
     } else {
-      return { top: '15%', left: `${position}%`, transform: 'translateX(-50%)' };
+      // 4+ players: distribute along top
+      const spacing = 100 / (total + 1);
+      const position = spacing * (index + 1);
+      return { 
+        top: '5%', 
+        left: `${position}%`, 
+        transform: 'translateX(-50%)'
+      };
     }
   };
 
@@ -162,15 +200,14 @@ export const GameTable: React.FC<GameTableProps> = ({
               </div>
               
               {/* Card stack - only showing top portion */}
-              <div className="flex -space-x-3">
+              <div className="flex -space-x-12 justify-center">
                 {Array.from({ length: Math.min(opponent.player.handCount, 13) }).map((_, i) => (
-                  <div key={i} className="relative h-8 w-12">
+                  <div key={i} className="relative h-12 w-8">
                     <Card 
                       suit="" 
                       rank={0} 
                       isBack 
                       className="absolute inset-0 w-full h-full scale-75"
-                      style={{ clipPath: 'polygon(0 0, 100% 0, 100% 40%, 0 40%)' }}
                     />
                   </div>
                 ))}
