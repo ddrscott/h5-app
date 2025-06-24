@@ -30,7 +30,7 @@ export default config({
         // Serve static files from client build directory
         const express = require('express');
         const path = require('path');
-        const clientBuildPath = path.join(__dirname, '../client/dist');
+        const clientBuildPath = path.join(__dirname, '../client-v2/dist');
         
         // Serve client files
         app.use(express.static(clientBuildPath));
