@@ -194,8 +194,8 @@ export const GameTable: React.FC<GameTableProps> = ({
         })}
 
         {/* Swept Cards - Off to the side */}
-        {lastTrickMelds.length > 0 && (
             <div className="absolute bottom-[20vh] left-[10vw] landscape:left-[20vw] landscape:bottom-[40vh]">
+            {lastTrickMelds.length > 0 && (
             <div className="relative">
               {lastTrickMelds.map((meld, meldIndex) => (
                 <div
@@ -235,12 +235,12 @@ export const GameTable: React.FC<GameTableProps> = ({
                 </div>
               ))}
             </div>
+            )}
             {/* Label painted on felt below cards */}
               <p className="text-center text-xs mt-2 text-yellow-100/40
                   font-serif tracking-wider
                   border border-yellow-200/20 rounded-lg p-6">Discards</p>
           </div>
-        )}
 
         {/* Center Play Area - Messy Stack */}
         <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${
