@@ -82,12 +82,12 @@ export const GameTable: React.FC<GameTableProps> = ({
         transform: 'translateX(-50%)'
       };
     } else if (total === 2) {
-      // Two opponents: one left, one right
+      // Two opponents: one top, one right (for 3-player game)
       return index === 0 
         ? { 
-            top: '50%', 
-            left: '2%', 
-            transform: 'translateY(-50%) rotate(-90deg)'
+            top: '5%', 
+            left: '50%', 
+            transform: 'translateX(-50%)'
           }
         : { 
             top: '50%', 
@@ -317,7 +317,7 @@ export const GameTable: React.FC<GameTableProps> = ({
         {lastNotification && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 animate-notification-pop pointer-events-none">
             <div className="bg-gold/20 backdrop-blur-sm rounded-lg px-8 py-6 shadow-2xl border-2 border-gold">
-              <p className="text-2xl text-gold font-bold text-center">
+              <p className="text-2xl text-gold font-bold text-center whitespace-nowrap">
                 {lastNotification}
               </p>
             </div>
@@ -370,6 +370,23 @@ export const GameTable: React.FC<GameTableProps> = ({
           </div>
         )}
       </div>
+
+      {/* Current Player Nameplate - Bottom center above hand */}
+      {myPlayer && (
+        <div className="absolute bottom-[3.2em] left-1/2 transform -translate-x-1/2">
+          <div className={`
+            bg-gray-800/90 rounded-lg px-3 py-2 transition-all duration-300
+            ${isMyTurn ? 'ring-2 ring-gold shadow-glow' : ''}
+          `}>
+            <p className="text-xs font-medium text-center">
+              {isLeader && '👑 '}
+              {myPlayer.name} (You)
+              <span className="font-bold ml-1">({myPlayer.wins}-{myPlayer.losses})</span>
+              {isMyTurn && ' 🎯'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Player Hand - Bottom of screen */}
       <PlayerHand 

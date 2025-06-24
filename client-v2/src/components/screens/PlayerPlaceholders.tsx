@@ -11,12 +11,42 @@ export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
   players,
   maxPlayers = 6
 }) => {
+  // Define specific positions for different player counts
+  const getPlayerPositions = (playerCount: number) => {
+    // All positions (0=bottom, 1=top, 2=right, 3=left, 4=bottom-right, 5=bottom-left)
+    switch (playerCount) {
+      case 2:
+        return [0, 1]; // Bottom and top
+      case 3:
+        return [0, 1, 2]; // Bottom, top, right
+      case 4:
+        return [0, 1, 2, 3]; // Bottom, top, right, left
+      case 5:
+        return [0, 1, 2, 3, 4]; // Bottom, top, right, left, bottom-right
+      case 6:
+        return [0, 1, 2, 3, 4, 5]; // All positions
+      default:
+        return [0]; // Single player at bottom
+    }
+  };
+
+  // Position angles for each spot (in degrees)
+  const positionAngles: Record<number, number> = {
+    0: 90,   // Bottom
+    1: 270,  // Top
+    2: 0,    // Right
+    3: 180,  // Left
+    4: 45,   // Bottom-right
+    5: 135   // Bottom-left
+  };
+
+  const activePositions = getPlayerPositions(players.length);
+
   return (
     <>
-      {Array.from({ length: maxPlayers }).map((_, index) => {
+      {activePositions.map((position, index) => {
         const player = players[index];
-        // Position first spot at bottom, others distributed around
-        const angle = index === 0 ? 90 : ((index - 1) * 360) / maxPlayers + 150;
+        const angle = positionAngles[position];
         const radius = 140;
         const x = Math.cos((angle * Math.PI) / 180) * radius;
         const y = Math.sin((angle * Math.PI) / 180) * radius;

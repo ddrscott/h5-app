@@ -177,18 +177,20 @@ export const useGameState = () => {
         const leaderName = leaderPlayer?.name || 'Unknown';
         // Personalize message based on whether it's the current player
         const notification = data.playerId === myPlayerId 
-          ? "You are the new leader!" 
-          : `${leaderName} is the new leader!`;
+          ? "🎯 You are the new leader!" 
+          : `🎯 ${leaderName} is the new leader!`;
         
-        // Clear notification after 5 seconds
+        // Clear notification after 7 seconds (longer for better visibility)
         setTimeout(() => {
           setGameState(p => ({ ...p, lastNotification: null }));
-        }, 5000);
+        }, 7000);
         
         return { 
           ...prev, 
           lastNotification: notification,
-          leadPlayerId: data.playerId
+          leadPlayerId: data.playerId,
+          currentMeld: null, // Clear current meld when new leader is assigned
+          consecutivePasses: 0 // Reset consecutive passes
         };
       });
     });
