@@ -59,6 +59,8 @@ export interface GameState {
   players: Map<string, Player>;
   currentMeld: Meld | null;
   consecutivePasses: number;
+  trickMelds?: any[];
+  lastTrickMelds?: any[];
   deck?: Card[];
   discardPile?: Card[];
   chatMessages?: ChatMessage[];

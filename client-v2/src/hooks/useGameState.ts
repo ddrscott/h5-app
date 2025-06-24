@@ -81,16 +81,24 @@ export const useGameState = () => {
       const deckCount = Math.max(0, 52 - totalDistributed);
       
       // Convert trick melds to arrays
-      const trickMelds = state.trickMelds ? 
+      const trickMelds: Meld[] = state.trickMelds ? 
         Array.from(state.trickMelds).map((meld: any) => ({
-          cards: Array.from(meld.cards),
+          cards: Array.from(meld.cards).map((card: any) => ({
+            suit: card.suit,
+            rank: card.rank,
+            code: card.code
+          })),
           type: meld.type,
           playerId: meld.playerId
         })) : [];
         
-      const lastTrickMelds = state.lastTrickMelds ? 
+      const lastTrickMelds: Meld[] = state.lastTrickMelds ? 
         Array.from(state.lastTrickMelds).map((meld: any) => ({
-          cards: Array.from(meld.cards),
+          cards: Array.from(meld.cards).map((card: any) => ({
+            suit: card.suit,
+            rank: card.rank,
+            code: card.code
+          })),
           type: meld.type,
           playerId: meld.playerId
         })) : [];
