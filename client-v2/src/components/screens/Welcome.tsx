@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Banner } from '../ui/Banner';
+import { Tutor } from './Tutor';
 
 interface WelcomeProps {
   onJoinGame: (playerName: string, roomId?: string) => void;
@@ -9,6 +10,7 @@ interface WelcomeProps {
 export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
+  const [showTutor, setShowTutor] = useState(false);
 
   // Check URL for room parameter and load saved name on mount
   useEffect(() => {
@@ -126,8 +128,21 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
             <div className="mt-6 text-center text-gray-400 text-sm landscape:hidden">
               <p>2-6 players • Strategic card game • Win by going out first!</p>
             </div>
+
+            {/* How to Play button */}
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setShowTutor(true)}
+                className="text-sm text-gray-400 hover:text-gold underline transition-colors"
+              >
+                How to Play
+              </button>
+            </div>
           </div>
         </div>
+
+      {/* Tutor Modal */}
+      {showTutor && <Tutor onClose={() => setShowTutor(false)} />}
     </div>
   );
 };
