@@ -24,14 +24,14 @@ export const Card: React.FC<CardProps> = ({
       'D': '♦',
       'C': '♣',
       'S': '♠',
-      'J': '🃏'
+      'J': '🤡'
     };
     return symbols[suit] || '';
   };
 
   const getRankDisplay = () => {
     if (suit === 'J') {
-      return rank === 16 ? 'JK' : 'JK';
+      return rank === 16 ? 'jj' : 'JJ';
     }
     if (rank === 15) return '2';
     if (rank === 14) return 'A';
@@ -42,7 +42,16 @@ export const Card: React.FC<CardProps> = ({
   };
 
   const getSuitColor = () => {
-    return suit === 'H' || suit === 'D' ? 'text-card-red' : 'text-card-black';
+    return suit === 'H' || suit === 'D' || rank === 17 ? 'text-card-red' : 'text-card-black';
+  };
+
+  const isHeartOfFive = suit === 'H' && rank === 5;
+  
+  const getCardBackground = () => {
+    if (isHeartOfFive) {
+      return 'bg-gray-700 border border-gray-800 text-red-400';
+    }
+    return '';
   };
 
   if (isBack) {
@@ -55,17 +64,18 @@ export const Card: React.FC<CardProps> = ({
 
   return (
     <div 
-      className={`card-base ${getSuitColor()} ${selected ? 'ring-4 ring-gold shadow-glow' : ''} ${className}`}
+      className={`card-base ${getCardBackground()} ${isHeartOfFive ? 'text-red-500' : getSuitColor()} ${selected ? 'ring-4 ring-gold shadow-glow' : ''} ${className}`}
       onClick={onClick}
       style={style}
     >
       <div className="absolute top-0 left-1 text-center leading-none">
         <div className="text-sm font-bold">{getRankDisplay()}</div>
-        <div className="text-md">{getSuitSymbol()}</div>
+        <div className="text-[.8em]">{getSuitSymbol()}</div>
       </div>
+      
       <div className="absolute bottom-0 right-1 text-center leading-none rotate-180">
         <div className="text-sm font-bold">{getRankDisplay()}</div>
-        <div className="text-md">{getSuitSymbol()}</div>
+        <div className="text-[.8em]">{getSuitSymbol()}</div>
       </div>
     </div>
   );
