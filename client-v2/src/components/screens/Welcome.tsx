@@ -65,7 +65,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
           <div className="flex-1 min-w-0">
             <div className="bg-gray-800 rounded-lg p-4 sm:p-6 shadow-2xl">
               {/* Name input */}
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="block text-xs sm:text-sm font-medium mb-2">Your Name</label>
                 <input
                   type="text"
@@ -78,7 +78,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
               </div>
 
               {/* Action buttons - keep vertical */}
-              <div className="flex flex-col space-y-3">
+              <div className="flex flex-col space-y-2">
                   <button
                       onClick={handleCreateRoom}
                       disabled={!playerName.trim()}
