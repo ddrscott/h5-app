@@ -49,7 +49,7 @@ RUN npm ci --only=production
 COPY --from=server-builder /app/build ./build
 
 # Copy built client files from client-builder to be served statically
-COPY --from=client-builder /app/client-v2/dist
+COPY --from=client-builder /app/client-v2/dist ./client-v2/dist
 
 # Copy any other necessary files
 # COPY .env.example .env
