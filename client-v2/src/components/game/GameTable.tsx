@@ -219,8 +219,8 @@ export const GameTable: React.FC<GameTableProps> = ({
 
         {/* Swept Cards - Off to the side */}
         {lastTrickMelds.length > 0 && (
-          <div className="absolute top-1/2 left-10 transform -translate-y-1/2">
-            <p className="text-xs text-gray-400 mb-1">Last Trick:</p>
+          <div className="absolute bottom-10 left-0">
+            <p className="text-xs text-gray-400 -mb-[8em]">Discards</p>
             <div className="relative w-32 h-24">
               {lastTrickMelds.map((meld, meldIndex) => (
                 <div
@@ -246,12 +246,12 @@ export const GameTable: React.FC<GameTableProps> = ({
                       <Card
                         key={`swept-${meldIndex}-${card.suit}-${card.rank}-${cardIndex}`}
                         {...card}
-                        className="absolute transform scale-50"
+                        className="absolute transform scale-50 cursor-default"
                         style={{ 
                           transform: `rotate(${rotation}deg) scale(0.3)`,
                           top: `${ySpread}px`,
                           left: `${xSpread}px`,
-                          zIndex: globalIndex,
+                          zIndex: -10,
                           filter: 'brightness(0.3) contrast(0.7)' // Same darkening as older melds
                         }}
                       />
@@ -264,12 +264,18 @@ export const GameTable: React.FC<GameTableProps> = ({
         )}
 
         {/* Center Play Area - Messy Stack */}
-        <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ${
+        <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${
           isSweeping ? 'translate-x-[-200%] opacity-0' : ''
         }`}>
+          <div className="relative">{/* Add relative container for proper centering */}
           {/* All center melds stacked messily */}
           {trickMelds.map((meld, meldIndex) => {
             const isCurrentMeld = meldIndex === trickMelds.length - 1;
+            
+            // Sort cards by rank for the current meld only
+            const cardsToDisplay = isCurrentMeld 
+              ? [...meld.cards].sort((a, b) => a.rank - b.rank)
+              : meld.cards;
             
             return (
               <div
@@ -282,13 +288,15 @@ export const GameTable: React.FC<GameTableProps> = ({
                   filter: isCurrentMeld ? 'none' : 'brightness(0.3) contrast(0.7)', // Darken and reduce contrast for older melds
                 }}
               >
-                {meld.cards.map((card, cardIndex) => (
+                {cardsToDisplay.map((card, cardIndex) => (
                   <Card
                     key={`center-${meldIndex}-${card.suit}-${card.rank}-${cardIndex}`}
                     {...card}
-                    className="absolute transform hover:z-10 transition-all"
+                    className="absolute transform transition-all cursor-default"
                     style={{ 
-                      transform: `translateX(${(cardIndex - meld.cards.length / 2) * 30}px) rotate(${(cardIndex - meld.cards.length / 2) * 5}deg) scale(0.9)`,
+                      transform: `translate(-50%, -50%) translateX(${(cardIndex - cardsToDisplay.length / 2) * 30}px) rotate(${(cardIndex - cardsToDisplay.length / 2) * 5}deg) scale(0.9)`,
+                      top: '50%',
+                      left: '50%',
                       animation: isCurrentMeld ? 'tossCard 0.3s ease-out' : 'none'
                     }}
                   />
@@ -323,6 +331,7 @@ export const GameTable: React.FC<GameTableProps> = ({
               )}
             </div>
           )}
+          </div>{/* Close relative container */}
         </div>
 
         {/* Important Notification - Center of screen */}
