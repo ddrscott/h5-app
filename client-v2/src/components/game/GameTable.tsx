@@ -207,7 +207,7 @@ export const GameTable: React.FC<GameTableProps> = ({
                       suit="" 
                       rank={0} 
                       isBack 
-                      className="absolute inset-0 w-full h-full scale-75"
+                      className="absolute inset-0 w-full h-full"
                     />
                   </div>
                 ))}
