@@ -2,6 +2,8 @@ import React from 'react';
 import type { Player } from '../../types/game';
 import { Card } from '../ui/Card';
 import { PlayerPlaceholders } from './PlayerPlaceholders';
+import { BOT_CONFIGS } from '../../bots/configs';
+import BotManagerSingleton from '../../bots/BotManagerSingleton';
 
 interface LobbyProps {
   roomId: string;
@@ -20,12 +22,65 @@ export const Lobby: React.FC<LobbyProps> = ({
 }) => {
   const canStart = players.length >= 2 && players.length <= 6;
   const [copiedText, setCopiedText] = React.useState<string | null>(null);
+  const [selectedBot, setSelectedBot] = React.useState<string>(Object.keys(BOT_CONFIGS)[0]);
+  const [isAddingBot, setIsAddingBot] = React.useState(false);
+  
+  // Get singleton instance of BotManager
+  const botManager = BotManagerSingleton.getInstance();
+  
+  // Track previous room ID to detect actual room changes
+  const previousRoomIdRef = React.useRef<string>(roomId);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopiedText(label);
     setTimeout(() => setCopiedText(null), 2000);
   };
+
+  const handleAddBot = async () => {
+    setIsAddingBot(true);
+    try {
+      const config = BOT_CONFIGS[selectedBot as keyof typeof BOT_CONFIGS];
+      await botManager.createBot(config, roomId);
+    } catch (error) {
+      console.error('Failed to add bot:', error);
+    }
+    setIsAddingBot(false);
+  };
+
+  const handleLeaveRoom = () => {
+    // Clean up bots when explicitly leaving the room
+    const botsInRoom = botManager.getBotsInRoom(roomId);
+    if (botsInRoom.length > 0) {
+      console.log(`Leaving room ${roomId}: removing ${botsInRoom.length} bots`);
+      botsInRoom.forEach(bot => botManager.removeBot(bot.id));
+    }
+    onLeaveRoom();
+  };
+
+  // Only cleanup bots when we actually change rooms
+  React.useEffect(() => {
+    const previousRoomId = previousRoomIdRef.current;
+    
+    // If room changed, clean up bots from the previous room
+    if (previousRoomId && previousRoomId !== roomId) {
+      const botsInPreviousRoom = botManager.getBotsInRoom(previousRoomId);
+      if (botsInPreviousRoom.length > 0) {
+        console.log(`Leaving room ${previousRoomId}: removing ${botsInPreviousRoom.length} bots`);
+        botsInPreviousRoom.forEach(bot => botManager.removeBot(bot.id));
+      }
+    }
+    
+    // Update ref for next render
+    previousRoomIdRef.current = roomId;
+    
+    // Cleanup on actual unmount (when user navigates away)
+    return () => {
+      // This cleanup will be called by StrictMode, but we only want to clean up
+      // when the component is truly unmounting (navigating away from the game)
+      // The BotManagerSingleton persists across re-renders, so bots will stay connected
+    };
+  }, [roomId]); // Only depend on roomId
 
   return (
     <div className="min-h-screen felt-texture p-4 landscape:p-2 flex flex-col relative">
@@ -42,19 +97,20 @@ export const Lobby: React.FC<LobbyProps> = ({
         {/* Header */}
         <div className="flex justify-between items-center mb-4 landscape:mb-2">
           <h1 className="text-2xl landscape:text-xl font-bold text-gold">Game Lobby</h1>
-          <button onClick={onLeaveRoom} className="btn-secondary text-sm landscape:text-xs py-1 px-3">
+          <button onClick={handleLeaveRoom} className="btn-secondary text-sm landscape:text-xs py-1 px-3">
             Leave Room
           </button>
         </div>
 
         {/* Table Preview - Full screen */}
         <div className="flex-1 flex flex-col">
-          <div className="flex-1 relative felt-texture rounded-lg">
-              {/* Player positions and placeholders */}
+          <div className="flex-1 flex items-center gap-4 portrait:flex-col">
+            {/* Left side - Player placeholders */}
+            <div className="flex-1 relative felt-texture rounded-lg min-h-[300px]">
               <PlayerPlaceholders players={players} />
-              {/* Center content - Start Game and Room Code */}
+              
+              {/* Center content - Room Code */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-                {/* Room Code with Copy */}
                 <div className="mb-3">
                   <p className="text-xs text-gray-400 mb-1">Room Code</p>
                   <div className="bg-gray-900/80 rounded-lg px-4 py-2 flex items-center gap-2">
@@ -84,27 +140,70 @@ export const Lobby: React.FC<LobbyProps> = ({
                     </button>
                   </div>
                 </div>
-                
-                {/* Game Controls */}
+              </div>
+            </div>
+            
+            {/* Right side - Game controls and bot panel */}
+            <div className="flex-1 max-w-md w-full">
+              <div className="bg-gray-800 rounded-lg p-6 shadow-2xl">
                 {isHost ? (
-                  <button
-                    onClick={onStartGame}
-                    disabled={!canStart}
-                    className={`${
-                      canStart ? 'btn-primary' : 'bg-gray-600 text-gray-400 py-2 px-6 rounded-lg cursor-not-allowed'
-                    }`}
-                  >
-                    {!canStart
-                      ? `Need ${2 - players.length} more`
-                      : 'Start Game'}
-                  </button>
+                  <>
+                    {/* Bot Controls - Only for host */}
+                    {players.length < 6 && (
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium mb-2">Add Bot Player</label>
+                        <div className="flex gap-2">
+                          <select
+                            value={selectedBot}
+                            onChange={(e) => setSelectedBot(e.target.value)}
+                            className="flex-1 bg-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold"
+                          >
+                            {Object.entries(BOT_CONFIGS).map(([key, config]) => (
+                              <option key={key} value={key}>
+                                {config.avatar} {config.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={handleAddBot}
+                            disabled={isAddingBot || players.length >= 6}
+                            className="btn-secondary py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isAddingBot ? 'Adding...' : 'Add'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Start Game Button - Only for host */}
+                    <div className="space-y-3">
+                      <button
+                        onClick={onStartGame}
+                        disabled={!canStart}
+                        className={`w-full ${
+                          canStart ? 'btn-primary' : 'bg-gray-600 text-gray-400 py-2 px-6 rounded-lg cursor-not-allowed'
+                        }`}
+                      >
+                        {!canStart
+                          ? `Need ${2 - players.length} more`
+                          : 'Start Game'}
+                      </button>
+                      {!canStart && (
+                        <p className="text-xs text-gray-400 text-center">
+                          Minimum 2 players required
+                        </p>
+                      )}
+                    </div>
+                  </>
                 ) : (
-                  <p className="text-gray-300 text-sm bg-gray-900/80 rounded px-3 py-2">
-                    Waiting for host...
-                  </p>
+                  /* Non-host players see this */
+                  <div className="text-center">
+                    <div className="text-4xl mb-4 animate-spin">⏳</div>
+                    <p className="text-gray-300">Waiting for host to start game...</p>
+                  </div>
                 )}
               </div>
-
+            </div>
           </div>
           
           <p className="text-xs text-gray-400 text-center py-2">

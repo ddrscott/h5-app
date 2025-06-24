@@ -195,7 +195,7 @@ export const GameTable: React.FC<GameTableProps> = ({
 
         {/* Swept Cards - Off to the side */}
         {lastTrickMelds.length > 0 && (
-          <div className="absolute bottom-[20vh] left-2">
+            <div className="absolute bottom-[20vh] left-[10vw] landscape:left-[20vw] landscape:bottom-[40vh]">
             <div className="relative">
               {lastTrickMelds.map((meld, meldIndex) => (
                 <div
