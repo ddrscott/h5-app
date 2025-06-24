@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/Card';
+import { Banner } from '../ui/Banner';
 
 interface WelcomeProps {
   onJoinGame: (playerName: string, roomId?: string) => void;
@@ -57,23 +57,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
         {/* Simple landscape layout - just side by side */}
           <div className="flex items-center gap-4 portrait:flex-col">
           {/* Left side - Title and Cards */}
-          <div className="flex-1">
-            {/* Decorative cards */}
-            <div className="flex justify-center mb-4 space-x-2">
-              <Card suit="H" rank={5} className="transform -rotate-12 scale-75" />
-              <Card suit="H" rank={5} className="transform rotate-6 scale-75" />
-              <Card suit="H" rank={5} className="transform -rotate-6 scale-75" />
-              <Card suit="H" rank={5} className="transform rotate-12 scale-75" />
-            </div>
-
-            {/* Title */}
-            <h1 className="text-3xl font-bold text-center mb-2 text-gold">
-              Heart of Five
-            </h1>
-            <p className="text-center text-gray-300 mb-6 text-2xl">
-              红心五
-            </p>
-          </div>
+          <Banner className="flex-1" />
 
           {/* Right side - Form */}
           <div className="flex-1">

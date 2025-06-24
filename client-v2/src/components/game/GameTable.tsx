@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import type { Card as CardType, Player, Meld } from '../../types/game';
 import { Card } from '../ui/Card';
+import { PlayerHand } from './PlayerHand';
+import { OtherHand } from './OtherHand';
 
 interface GameTableProps {
   players: Map<string, Player>;
@@ -181,39 +183,13 @@ export const GameTable: React.FC<GameTableProps> = ({
           const isLeaderPlayer = leadPlayerId === opponent.id;
 
           return (
-            <div
+            <OtherHand
               key={opponent.id}
-              className="absolute flex flex-col items-center"
-              style={position}
-            >
-              {/* Player info */}
-              <div className={`
-                bg-gray-800/90 rounded-lg px-3 py-2 mb-1 transition-all duration-300
-                ${isCurrentTurn ? 'ring-2 ring-gold shadow-glow' : ''}
-              `}>
-                <p className="text-xs font-medium text-center">
-                  {isLeaderPlayer && '👑 '}
-                  {opponent.player.name}
-                  <span className="font-bold ml-1">({opponent.player.wins}-{opponent.player.losses})</span>
-                  {isCurrentTurn && ' 🎯'}
-                </p>
-              </div>
-              
-              {/* Card stack - only showing top portion */}
-              <div className="flex -space-x-12 justify-center">
-                {Array.from({ length: Math.min(opponent.player.handCount, 13) }).map((_, i) => (
-                  <div key={i} className="relative h-12 w-8">
-                    <Card 
-                      suit="" 
-                      rank={0} 
-                      isBack 
-                      className="absolute inset-0 w-full h-full"
-                    />
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-gray-400 mt-1">{opponent.player.handCount} cards</p>
-            </div>
+              opponent={opponent}
+              position={position}
+              isCurrentTurn={isCurrentTurn}
+              isLeader={isLeaderPlayer}
+            />
           );
         })}
 
@@ -392,34 +368,12 @@ export const GameTable: React.FC<GameTableProps> = ({
         )}
       </div>
 
-      {/* Player Hand - Bottom of screen, CSS Grid layout */}
-      <div className="absolute bottom-0 left-0 right-0 px-4 overflow-x-auto overflow-y-hidden">
-        <div 
-          className="player-hand justify-center"
-          style={{
-            gridTemplateColumns: `repeat(${myHand.length}, 1.5em)`,
-            minWidth: 'fit-content'
-          }}
-        >
-          {myHand.map((card, index) => {
-            const cardKey = card.code || `${card.suit}${card.rank}`;
-            const isSelected = selectedCards.has(cardKey);
-
-            return (
-              <Card
-                key={cardKey}
-                {...card}
-                onClick={() => onCardSelect(cardKey)}
-                selected={isSelected}
-                className={`player-card ${isSelected ? 'selected' : ''}`}
-                style={{
-                  zIndex: index,
-                }}
-              />
-            );
-          })}
-        </div>
-      </div>
+      {/* Player Hand - Bottom of screen */}
+      <PlayerHand 
+        hand={myHand}
+        selectedCards={selectedCards}
+        onCardSelect={onCardSelect}
+      />
     </div>
   );
 };
