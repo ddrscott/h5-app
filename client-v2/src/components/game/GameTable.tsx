@@ -195,9 +195,8 @@ export const GameTable: React.FC<GameTableProps> = ({
 
         {/* Swept Cards - Off to the side */}
         {lastTrickMelds.length > 0 && (
-          <div className="absolute bottom-10 left-0">
-            <p className="text-xs text-gray-400 -mb-[8em]">Discards</p>
-            <div className="relative w-32 h-24">
+          <div className="absolute bottom-[20vh] left-2">
+            <div className="relative">
               {lastTrickMelds.map((meld, meldIndex) => (
                 <div
                   key={`swept-${meldIndex}`}
@@ -207,16 +206,17 @@ export const GameTable: React.FC<GameTableProps> = ({
                     // Create more natural, less uniform positions
                     const cardTotal = lastTrickMelds.reduce((sum, m) => sum + m.cards.length, 0);
                     const globalIndex = lastTrickMelds.slice(0, meldIndex).reduce((sum, m) => sum + m.cards.length, 0) + cardIndex;
+                    // console.log('globalIndex:', globalIndex, 'cardTotal:', cardTotal, meldIndex, cardIndex);
                     
                     // More chaotic positioning using different patterns
-                    const seed1 = globalIndex * 2.7;
-                    const seed2 = globalIndex * 1.9;
-                    const seed3 = globalIndex * 3.3;
+                    const seed1 = globalIndex * 1;
+                    const seed2 = globalIndex * 1;
+                    const seed3 = globalIndex * 1;
                     
                     // Mix different functions for less predictable patterns
-                    const xSpread = (Math.sin(seed1) * 30 + Math.cos(seed2 * 0.5) * 20) + 40; // More varied X
-                    const ySpread = (Math.sin(seed2) * 25 + Math.sin(seed3) * 15) + 20; // More varied Y
-                    const rotation = Math.sin(seed1) * 30 + Math.cos(seed3) * 20; // Mix of rotations
+                    const xSpread  = Math.sin(seed1) * 20 + Math.cos(seed2) * 20; // More varied X
+                    const ySpread  = Math.sin(seed2) * 20 + Math.sin(seed3) * 20 - 25; // More varied Y
+                    const rotation = Math.sin(seed1) * 20 + Math.cos(seed3) * 20; // Mix of rotations
                     
                     return (
                       <Card
@@ -227,8 +227,7 @@ export const GameTable: React.FC<GameTableProps> = ({
                           transform: `rotate(${rotation}deg) scale(0.3)`,
                           top: `${ySpread}px`,
                           left: `${xSpread}px`,
-                          zIndex: -10,
-                          filter: 'brightness(0.3) contrast(0.7)' // Same darkening as older melds
+                          filter: 'brightness(0.3)' // Same darkening as older melds
                         }}
                       />
                     );
@@ -236,6 +235,10 @@ export const GameTable: React.FC<GameTableProps> = ({
                 </div>
               ))}
             </div>
+            {/* Label painted on felt below cards */}
+              <p className="text-center text-xs mt-2 text-yellow-100/40
+                  font-serif tracking-wider
+                  border border-yellow-200/20 rounded-lg p-6">Discards</p>
           </div>
         )}
 
