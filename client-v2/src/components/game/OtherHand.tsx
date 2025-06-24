@@ -23,18 +23,18 @@ export const OtherHand: React.FC<OtherHandProps> = ({
       className="absolute flex flex-col items-center"
       style={position}
     >
-      {/* Player info */}
-      <div className={`
-        bg-gray-800/90 rounded-lg px-3 py-2 mb-1 transition-all duration-300
-        ${isCurrentTurn ? 'ring-2 ring-gold shadow-glow' : ''}
+      {/* Player info - painted on felt style */}
+      <p className={`
+        text-center text-xs text-yellow-100/40
+        font-serif tracking-wider
+        border border-dotted border-yellow-200/20 rounded-lg px-4 py-2 mb-1
+        ${isCurrentTurn ? 'text-yellow-100/60 border-yellow-200/40' : ''}
       `}>
-        <p className="text-xs font-medium text-center">
-          {isLeader && '👑 '}
-          {opponent.player.name}
-          <span className="font-bold ml-1">({opponent.player.wins}-{opponent.player.losses})</span>
-          {isCurrentTurn && ' 🎯'}
-        </p>
-      </div>
+        {isLeader && '👑 '}
+        {opponent.player.name}
+        <span className="font-bold ml-1">({opponent.player.wins}-{opponent.player.losses})</span>
+        {isCurrentTurn && ' 🎯'}
+      </p>
       
       {/* Card stack - only showing top portion */}
       <div className="flex -space-x-12 justify-center">

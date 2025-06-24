@@ -62,13 +62,11 @@ function App() {
   };
 
   const handleLeaveRoom = () => {
+    // Leave the room and redirect to root
     leaveRoom();
     setAppState('welcome');
-  };
-
-  const handleLeaveGame = () => {
-    // Just go back to lobby view, don't actually leave the room
-    setAppState('lobby');
+    // Clear any room parameter from URL
+    window.history.replaceState({}, '', window.location.pathname);
   };
 
   // Show error message if any
@@ -169,7 +167,7 @@ function App() {
           onCardSelect={gameState.toggleCardSelection}
           onPlayCards={gameState.playCards}
           onPass={gameState.pass}
-          onLeaveGame={handleLeaveGame}
+          onLeaveGame={handleLeaveRoom}
         />
       );
     

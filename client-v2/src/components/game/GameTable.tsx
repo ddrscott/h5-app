@@ -131,21 +131,19 @@ export const GameTable: React.FC<GameTableProps> = ({
 
   return (
     <div className="fixed inset-0 felt-texture overflow-hidden">
-      {/* Score Panel with Game Title */}
-      <div className="absolute top-1 right-2 p-3 z-20">
-        <h3 className="text-sm font-bold text-gold mb-1">Heart of Five</h3>
+      {/* Header - Game Title and Leave Button */}
+      <div className="absolute top-2 left-2 right-2 flex justify-between items-center z-20">
+        <h3 className="text-lg font-bold text-gold px-3">Heart of Five</h3>
+        <button
+          onClick={() => setShowLeaveConfirm(true)}
+          className="bg-gray-900/90 backdrop-blur-sm rounded-full p-2 shadow-xl hover:bg-gray-800 transition-colors"
+          title="Leave Game"
+        >
+          <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+        </button>
       </div>
-
-      {/* Leave Game Icon */}
-      <button
-        onClick={() => setShowLeaveConfirm(true)}
-        className="absolute top-2 left-2 bg-gray-900/90 backdrop-blur-sm rounded-full p-2 shadow-xl z-20 hover:bg-gray-800 transition-colors"
-        title="Leave Game"
-      >
-        <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-        </svg>
-      </button>
 
       {/* Leave Confirmation Modal */}
       {showLeaveConfirm && (
@@ -239,7 +237,7 @@ export const GameTable: React.FC<GameTableProps> = ({
             {/* Label painted on felt below cards */}
               <p className="text-center text-xs mt-2 text-yellow-100/40
                   font-serif tracking-wider
-                  border border-yellow-200/20 rounded-lg p-6">Discards</p>
+                  border border-dotted border-yellow-200/20 rounded-lg p-6">Discards</p>
           </div>
 
         {/* Center Play Area - Messy Stack */}
@@ -374,17 +372,17 @@ export const GameTable: React.FC<GameTableProps> = ({
       {/* Current Player Nameplate - Bottom center above hand */}
       {myPlayer && (
         <div className="absolute bottom-[3.2em] left-1/2 transform -translate-x-1/2">
-          <div className={`
-            bg-gray-800/90 rounded-lg px-3 py-2 transition-all duration-300
-            ${isMyTurn ? 'ring-2 ring-gold shadow-glow' : ''}
+          <p className={`
+            text-center text-xs text-yellow-100/40
+            font-serif tracking-wider
+            border border-dotted border-yellow-200/20 rounded-lg px-4 py-2
+            ${isMyTurn ? 'text-yellow-100/60 border-yellow-200/40' : ''}
           `}>
-            <p className="text-xs font-medium text-center">
-              {isLeader && '👑 '}
-              {myPlayer.name} (You)
-              <span className="font-bold ml-1">({myPlayer.wins}-{myPlayer.losses})</span>
-              {isMyTurn && ' 🎯'}
-            </p>
-          </div>
+            {isLeader && '👑 '}
+            {myPlayer.name} (You)
+            <span className="font-bold ml-1">({myPlayer.wins}-{myPlayer.losses})</span>
+            {isMyTurn && ' 🎯'}
+          </p>
         </div>
       )}
 

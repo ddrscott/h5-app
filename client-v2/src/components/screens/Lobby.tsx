@@ -24,6 +24,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   const [copiedText, setCopiedText] = React.useState<string | null>(null);
   const [selectedBot, setSelectedBot] = React.useState<string>(Object.keys(BOT_CONFIGS)[0]);
   const [isAddingBot, setIsAddingBot] = React.useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = React.useState(false);
   
   // Get singleton instance of BotManager
   const botManager = BotManagerSingleton.getInstance();
@@ -97,8 +98,14 @@ export const Lobby: React.FC<LobbyProps> = ({
         {/* Header */}
         <div className="flex justify-between items-center mb-4 landscape:mb-2">
           <h1 className="text-2xl landscape:text-xl font-bold text-gold">Game Lobby</h1>
-          <button onClick={handleLeaveRoom} className="btn-secondary text-sm landscape:text-xs py-1 px-3">
-            Leave Room
+          <button 
+            onClick={() => setShowLeaveConfirm(true)} 
+            className="bg-gray-800/90 hover:bg-gray-700 rounded-full p-2 transition-colors"
+            title="Leave Room"
+          >
+            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
           </button>
         </div>
 
@@ -112,9 +119,9 @@ export const Lobby: React.FC<LobbyProps> = ({
               {/* Center content - Room Code */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
                 <div className="mb-3">
-                  <p className="text-xs text-gray-400 mb-1">Room Code</p>
+                  <p className="text-sm text-gray-400 mb-1">Room Code</p>
                   <div className="bg-gray-900/80 rounded-lg px-4 py-2 flex items-center gap-2">
-                    <p className="text-3xl font-mono font-bold text-gold">{roomId}</p>
+                    <p className="text-xl font-mono font-bold text-gold">{roomId}</p>
                     <button
                       onClick={() => copyToClipboard(roomId, "Room code")}
                       className="p-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
@@ -151,7 +158,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                     {/* Bot Controls - Only for host */}
                     {players.length < 6 && (
                       <div className="mb-6">
-                        <label className="block text-sm font-medium mb-2">Add Bot Player</label>
+                        <label className="block text-sm font-medium mb-2">Need Player? Try adding a bot...</label>
                         <div className="flex gap-2">
                           <select
                             value={selectedBot}
@@ -169,7 +176,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                             disabled={isAddingBot || players.length >= 6}
                             className="btn-secondary py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            {isAddingBot ? 'Adding...' : 'Add'}
+                            {isAddingBot ? 'Adding...' : 'Add Bot'}
                           </button>
                         </div>
                       </div>
@@ -185,7 +192,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                         }`}
                       >
                         {!canStart
-                          ? `Need ${2 - players.length} more`
+                          ? `Need ${2 - players.length} more Player or Bot`
                           : 'Start Game'}
                       </button>
                       {!canStart && (
@@ -211,6 +218,33 @@ export const Lobby: React.FC<LobbyProps> = ({
           </p>
         </div>
       </div>
+
+      {/* Leave Confirmation Modal */}
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-sm">
+            <h3 className="text-lg font-bold mb-3">Leave Room?</h3>
+            <p className="text-gray-300 mb-4">Are you sure you want to leave the room?</p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowLeaveConfirm(false);
+                  handleLeaveRoom();
+                }}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition-colors"
+              >
+                Leave
+              </button>
+              <button
+                onClick={() => setShowLeaveConfirm(false)}
+                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
