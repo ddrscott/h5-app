@@ -13,19 +13,31 @@
     -webkit-user-select: none;
     user-select: none;
   }
+  
+  /* Larger base font size for bigger screens */
+  @media (min-width: 768px) {
+    html {
+      font-size: 16px;
+    }
+  }
+  @media (min-width: 1024px) {
+    html {
+      font-size: 24px;
+    }
+  }
 }
 
 /* Card styles */
 @layer components {
   .card-base {
-    @apply w-[70px] h-[100px] bg-white rounded-lg shadow-card 
+    @apply w-[4.375em] h-[6.25em] bg-white rounded-lg shadow-card 
            flex items-center justify-center relative text-2xl font-bold 
            cursor-pointer transition-all duration-200;
   }
   
   .card-back {
     @apply border border-red-800 shadow-md;
-      --s: 10px; /* control the size*/
+      --s: 0.625em; /* control the size*/
       --c1: #a53131;
       --c2: #dad6ca;
       
@@ -171,17 +183,17 @@
 
 /* Scrollbar styling for player hand */
 .overflow-x-auto::-webkit-scrollbar {
-  height: 6px;
+  height: 0.375em;
 }
 
 .overflow-x-auto::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
+  border-radius: 0.1875em;
 }
 
 .overflow-x-auto::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
+  border-radius: 0.1875em;
 }
 
 .overflow-x-auto::-webkit-scrollbar-thumb:hover {

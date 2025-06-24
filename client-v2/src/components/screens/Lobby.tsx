@@ -106,7 +106,7 @@ export const Lobby: React.FC<LobbyProps> = ({
         <div className="flex-1 flex flex-col">
           <div className="flex-1 flex items-center gap-4 portrait:flex-col">
             {/* Left side - Player placeholders */}
-            <div className="flex-1 relative felt-texture rounded-lg min-h-[300px]">
+            <div className="flex-1 relative felt-texture rounded-lg min-h-[18.75em]">
               <PlayerPlaceholders players={players} />
               
               {/* Center content - Room Code */}
