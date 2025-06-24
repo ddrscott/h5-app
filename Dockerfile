@@ -1,14 +1,22 @@
 # Build stage for client
 FROM node:20-alpine AS client-builder
 
-WORKDIR /app/client
+# Accept build arguments for client configuration
+ARG VITE_WEB_URL
+ARG VITE_SERVER_URL
+
+WORKDIR /app/client-v2
 
 # Copy client package files
-COPY client/package*.json ./
+COPY client-v2/package*.json ./
 RUN npm ci
 
 # Copy client source files
-COPY client/ ./
+COPY client-v2/ ./
+
+# Set environment variables for the build
+ENV VITE_WEB_URL=${VITE_WEB_URL}
+ENV VITE_SERVER_URL=${VITE_SERVER_URL}
 
 # Build the client (Vite)
 RUN npm run build
@@ -41,7 +49,7 @@ RUN npm ci --only=production
 COPY --from=server-builder /app/build ./build
 
 # Copy built client files from client-builder to be served statically
-COPY --from=client-builder /app/client/dist ./client/dist
+COPY --from=client-builder /app/client-v2/dist ./client/dist
 
 # Copy any other necessary files
 # COPY .env.example .env
