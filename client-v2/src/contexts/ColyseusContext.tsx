@@ -128,6 +128,7 @@ export const ColyseusProvider: React.FC<ColyseusProviderProps> = ({
     }
   };
 
+
   // Clean up on unmount
   useEffect(() => {
     return () => {

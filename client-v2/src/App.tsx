@@ -41,11 +41,14 @@ function App() {
     setAppState('connecting');
     
     try {
-      if (roomIdInput) {
-        // If room ID is explicitly provided, use it
+      if (roomIdInput === '') {
+        // Empty string means join random room (joinOrCreate)
+        await joinRoom(name);
+      } else if (roomIdInput) {
+        // If room ID is explicitly provided, join that specific room
         await joinRoom(name, roomIdInput);
       } else {
-        // Otherwise, always create a new room (ignore URL params)
+        // Otherwise, create a new room
         await createRoom(name);
       }
     } catch (err) {

@@ -40,6 +40,14 @@ export class HeartOfFive extends Room<GameState> {
     const playerName = options.name || `Player ${this.state.players.size + 1}`;
     this.state.addPlayer(client.sessionId, playerName);
 
+    // If this is the first player, they're the room creator
+    if (this.state.players.size === 1) {
+      this.setMetadata({
+        creatorName: playerName,
+        createdAt: Date.now()
+      });
+    }
+
     // client.view = new StateView();
     // client.view.add(this.state.players);
     

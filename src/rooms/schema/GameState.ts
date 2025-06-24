@@ -418,8 +418,8 @@ export class GameState extends Schema {
   dealCards() {
     this.phase = GamePhase.DEALING;
     const playerIds = Array.from(this.players.keys());
-    const cardsPerPlayer = Math.floor(this.deck.length / playerIds.length);
     
+    // Clear player hands
     playerIds.forEach(playerId => {
       const player = this.players.get(playerId);
       player.hand.clear();
@@ -428,10 +428,21 @@ export class GameState extends Schema {
       player.hasPassed = false;
     });
     
+    // Calculate how many cards to deal
+    let cardsToDeal = this.deck.length;
+    if (playerIds.length === 2) {
+      // For 2 players, only deal 2/3 of the deck
+      cardsToDeal = Math.floor(this.deck.length * 2 / 3);
+      console.log(`2 player game: dealing ${cardsToDeal} out of ${this.deck.length} cards`);
+    }
+    
+    const cardsPerPlayer = Math.floor(cardsToDeal / playerIds.length);
+    
     let cardIndex = 0;
+    // Deal cards evenly first
     for (let i = 0; i < cardsPerPlayer; i++) {
       playerIds.forEach(playerId => {
-        if (cardIndex < this.deck.length) {
+        if (cardIndex < cardsToDeal) {
           const player = this.players.get(playerId);
           player.addCard(this.deck[cardIndex]);
           cardIndex++;
@@ -439,7 +450,8 @@ export class GameState extends Schema {
       });
     }
     
-    while (cardIndex < this.deck.length) {
+    // Deal remaining cards one by one
+    while (cardIndex < cardsToDeal) {
       const playerIndex = cardIndex % playerIds.length;
       const player = this.players.get(playerIds[playerIndex]);
       player.addCard(this.deck[cardIndex]);
