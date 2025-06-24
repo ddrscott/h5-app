@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Player } from '../../types/game';
 import { Card } from '../ui/Card';
-import { User } from 'lucide-react';
+import { PlayerPlaceholders } from './PlayerPlaceholders';
 
 interface LobbyProps {
   roomId: string;
@@ -50,6 +50,8 @@ export const Lobby: React.FC<LobbyProps> = ({
         {/* Table Preview - Full screen */}
         <div className="flex-1 flex flex-col">
           <div className="flex-1 relative felt-texture rounded-lg">
+              {/* Player positions and placeholders */}
+              <PlayerPlaceholders players={players} />
               {/* Center content - Start Game and Room Code */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
                 {/* Room Code with Copy */}
@@ -103,45 +105,6 @@ export const Lobby: React.FC<LobbyProps> = ({
                 )}
               </div>
 
-              {/* Player positions and placeholders */}
-              {Array.from({ length: 6 }).map((_, index) => {
-                const player = players[index];
-                // Position first spot at bottom, others distributed around
-                const angle = index === 0 ? 90 : ((index - 1) * 360) / 5 - 90;
-                const radius = 140;
-                const x = Math.cos((angle * Math.PI) / 180) * radius;
-                const y = Math.sin((angle * Math.PI) / 180) * radius;
-
-                return (
-                  <div
-                    key={index}
-                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-                    style={{
-                      left: `calc(50% + ${x}px)`,
-                      top: `calc(50% + ${y}px)`,
-                    }}
-                  >
-                    {player ? (
-                      <div className="bg-gray-800/90 rounded-lg px-3 py-2 shadow-lg">
-                        <div className="flex items-center space-x-1">
-                          <User size={14} className="text-gray-300" />
-                          <span className="text-sm font-medium">{player.name}</span>
-                        </div>
-                        {index === 0 && (
-                          <span className="text-xs text-gold">HOST</span>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="border-2 border-dashed border-gray-600 rounded-lg px-3 py-2">
-                        <div className="flex items-center space-x-1">
-                          <User size={14} className="text-gray-500" />
-                          <span className="text-sm text-gray-500">Empty</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
           </div>
           
           <p className="text-xs text-gray-400 text-center py-2">
