@@ -393,11 +393,12 @@ export const GameTable: React.FC<GameTableProps> = ({
       </div>
 
       {/* Player Hand - Bottom of screen, CSS Grid layout */}
-      <div className="absolute bottom-0 left-0 right-0 px-4">
+      <div className="absolute bottom-0 left-0 right-0 px-4 overflow-x-auto overflow-y-hidden">
         <div 
           className="player-hand justify-center"
           style={{
-            gridTemplateColumns: `repeat(${myHand.length}, 1.5em)`
+            gridTemplateColumns: `repeat(${myHand.length}, 1.5em)`,
+            minWidth: 'fit-content'
           }}
         >
           {myHand.map((card, index) => {
