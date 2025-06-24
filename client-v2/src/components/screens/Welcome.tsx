@@ -55,32 +55,32 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
   return (
     <div className="min-h-screen felt-texture flex items-center justify-center p-4">
         {/* Simple landscape layout - just side by side */}
-          <div className="flex items-center gap-4 portrait:flex-col">
+          <div className="flex items-center gap-4 portrait:flex-col max-w-7xl mx-auto w-full">
           {/* Left side - Title and Cards */}
           <Banner className="flex-1" />
 
           {/* Right side - Form */}
-          <div className="flex-1">
-            <div className="bg-gray-800 rounded-lg p-6 shadow-2xl">
+          <div className="flex-1 min-w-0">
+            <div className="bg-gray-800 rounded-lg p-4 sm:p-6 shadow-2xl">
               {/* Name input */}
               <div className="mb-6">
-                <label className="block text-sm font-medium mb-2">Your Name</label>
+                <label className="block text-xs sm:text-sm font-medium mb-2">Your Name</label>
                 <input
                   type="text"
                   value={playerName}
                   onChange={handleNameChange}
                   placeholder="Enter your name"
-                  className="w-full px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold"
+                  className="w-full px-3 sm:px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold text-sm sm:text-base"
                   maxLength={20}
                 />
               </div>
 
               {/* Action buttons - keep vertical */}
-              <div className="space-y-3">
+              <div className="flex flex-col space-y-3">
                   <button
                       onClick={handleCreateRoom}
                       disabled={!playerName.trim()}
-                      className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                   >
                       Create New Room
                   </button>
@@ -88,7 +88,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
                   <button
                       onClick={handleJoinRandomRoom}
                       disabled={!playerName.trim()}
-                      className="w-full btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                   >
                       Join Random Room
                   </button>
@@ -102,19 +102,19 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
                     </div>
                   </div>
                   
-                  <div className="flex space-x-2">
+                  <div className="flex gap-2">
                       <input
                           type="text"
                           value={roomCode}
                           onChange={(e) => setRoomCode(e.target.value)}
                           placeholder="Enter room code"
-                          className="flex-1 px-3 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold text-center"
+                          className="flex-1 min-w-0 px-2 sm:px-3 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold text-center text-sm sm:text-base"
                           maxLength={10}
                       />
                       <button
                           onClick={handleJoinSpecificRoom}
                           disabled={!playerName.trim() || !roomCode.trim()}
-                          className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed px-4"
+                          className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed px-3 sm:px-4 text-sm sm:text-base flex-shrink-0"
                       >
                           Join
                       </button>
