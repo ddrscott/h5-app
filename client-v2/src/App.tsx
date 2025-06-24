@@ -41,14 +41,11 @@ function App() {
     setAppState('connecting');
     
     try {
-      // Check URL for room ID if not provided
-      const urlParams = new URLSearchParams(window.location.search);
-      const roomFromUrl = urlParams.get('room');
-      const targetRoomId = roomIdInput || roomFromUrl || undefined;
-      
-      if (targetRoomId) {
-        await joinRoom(name, targetRoomId);
+      if (roomIdInput) {
+        // If room ID is explicitly provided, use it
+        await joinRoom(name, roomIdInput);
       } else {
+        // Otherwise, always create a new room (ignore URL params)
         await createRoom(name);
       }
     } catch (err) {
@@ -73,14 +70,40 @@ function App() {
 
   // Show error message if any
   if (error) {
+    const isRoomLocked = error.includes('is locked');
+    
     return (
       <div className="min-h-screen felt-texture flex items-center justify-center">
         <div className="bg-gray-800 rounded-lg p-8 max-w-md">
           <h2 className="text-xl font-bold text-red-500 mb-4">Connection Error</h2>
           <p className="text-gray-300 mb-4">{error}</p>
-          <button onClick={() => window.location.reload()} className="btn-primary">
-            Try Again
-          </button>
+          <div className="space-y-3">
+            {isRoomLocked ? (
+              <>
+                <p className="text-sm text-gray-400">This room has a game in progress. You can:</p>
+                <button 
+                  onClick={() => {
+                    // Clear the URL parameter and go back to welcome
+                    window.history.replaceState({}, '', window.location.pathname);
+                    window.location.reload();
+                  }} 
+                  className="btn-primary w-full"
+                >
+                  Create New Room
+                </button>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="btn-secondary w-full"
+                >
+                  Try Again
+                </button>
+              </>
+            ) : (
+              <button onClick={() => window.location.reload()} className="btn-primary w-full">
+                Try Again
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

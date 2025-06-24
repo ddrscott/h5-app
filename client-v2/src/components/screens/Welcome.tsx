@@ -9,9 +9,18 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
 
+  // Check URL for room parameter on mount
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomFromUrl = urlParams.get('room');
+    if (roomFromUrl) {
+      setRoomCode(roomFromUrl);
+    }
+  }, []);
+
   const handleCreateRoom = () => {
     if (playerName.trim()) {
-      onJoinGame(playerName);
+      onJoinGame(playerName); // Always pass only playerName, no roomCode
     }
   };
 
