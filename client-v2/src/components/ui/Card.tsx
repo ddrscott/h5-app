@@ -23,11 +23,11 @@ export const Card: React.FC<CardProps> = ({
   if (suit === 'J') {
     return (
       <div
-        className={`relative ${selected ? 'card-selected' : ''} ${className}`}
+        className={`relative ${className}`}
         onClick={onClick}
         style={style}
       >
-        <CardFace suit="J" rank={rank} />
+        <CardFace suit="J" rank={rank} selected={selected} />
       </div>
     );
   }
@@ -35,11 +35,11 @@ export const Card: React.FC<CardProps> = ({
   if (isBack) {
     return (
       <div
-        className={`relative ${selected ? 'card-selected' : ''} ${className}`}
+        className={`relative ${className}`}
         onClick={onClick}
         style={style}
       >
-        <div className="card-base card-back">
+        <div className={`card-base card-back ${selected ? 'card-selected' : ''}`}>
           {/* Card back pattern is handled by CSS */}
         </div>
       </div>
@@ -60,11 +60,11 @@ export const Card: React.FC<CardProps> = ({
 
   return (
     <div
-      className={`relative ${selected ? 'card-selected' : ''} ${className}`}
+      className={`relative ${className}`}
       onClick={onClick}
       style={style}
     >
-      <CardFace suit={validSuit} rank={displayRank} />
+      <CardFace suit={validSuit} rank={displayRank} selected={selected} />
     </div>
   );
 };

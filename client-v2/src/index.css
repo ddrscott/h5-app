@@ -112,31 +112,19 @@
     color: #000000;
   }
   
-  .card-selected {
-    box-shadow: 0 0 0 2px #ffd700;
+  .cards-dimmed {
+    @apply brightness-[0.3]
   }
 }
 
 /* Card animations */
-@keyframes tossCard {
-  0% {
-    transform: translateY(100px) scale(0.8) rotate(0deg);
-    opacity: 0;
-  }
-  50% {
-    transform: translateY(-20px) scale(1.1) rotate(10deg);
-  }
-  100% {
-    transform: translateY(0) scale(0.9) rotate(var(--rotation, 0deg));
-    opacity: 1;
-  }
-}
+/* Removed tossCard animation - testing new animations */
 
-/* Player hand grid layout */
+/* Card animations now use CSS transitions instead of keyframes */
+
+/* Player hand layout */
 .player-hand {
-  display: grid;
-  grid-gap: 0;
-  transition: all 0.2s ease;
+  position: relative;
 }
 
 .player-card {
@@ -144,18 +132,11 @@
   height: 6em;
   position: relative;
   cursor: pointer;
-  transform: translateY(50%);
   transition: all 0.2s ease;
 }
 
 .player-card:hover {
-  transform: translateY(40%) scale(1.05);
-  z-index: 100;
   filter: brightness(1.05);
-}
-
-.player-card.selected {
-  transform: translateY(30%);
 }
 
 /* Toast Animation */

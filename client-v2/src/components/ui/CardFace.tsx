@@ -4,6 +4,7 @@ interface CardFaceProps {
   suit: 'H' | 'D' | 'C' | 'S' | 'J';
   rank: number;
   className?: string;
+  selected?: boolean;
 }
 
 const SUIT_SYMBOLS = {
@@ -27,7 +28,7 @@ const getSuitColor = (suit: 'H' | 'D' | 'C' | 'S'): string => {
   return suit === 'H' || suit === 'D' ? 'var(--card-red)' : '#000000';
 };
 
-export const CardFace: React.FC<CardFaceProps> = React.memo(({ suit, rank, className = '' }) => {
+export const CardFace: React.FC<CardFaceProps> = React.memo(({ suit, rank, className = '', selected = false }) => {
   const rankDisplay = getRankDisplay(rank);
   const isSpecialCard = suit === 'H' && rank === 5; // Heart 5 is special
   const suitColor = isSpecialCard ? '#fbbf24' : getSuitColor(suit);
@@ -45,7 +46,14 @@ export const CardFace: React.FC<CardFaceProps> = React.memo(({ suit, rank, class
           xmlns="http://www.w3.org/2000/svg"
         >
           {/* Card background */}
-          <rect width="70" height="100" rx="4" fill={isBlackJoker ? '#f5f5f5' : 'white'} />
+          <rect 
+            width="70" 
+            height="100" 
+            rx="4" 
+            fill={isBlackJoker ? '#f5f5f5' : 'white'} 
+            stroke={selected ? '#ffd700' : 'none'}
+            strokeWidth={selected ? '4' : '0'}
+          />
           
           {/* Top left Joker text - vertically stacked */}
           <g transform="translate(4, 5)">
@@ -205,7 +213,14 @@ export const CardFace: React.FC<CardFaceProps> = React.memo(({ suit, rank, class
         xmlns="http://www.w3.org/2000/svg"
       >
         {/* Card background */}
-        <rect width="70" height="100" rx="4" fill={isSpecialCard ? "#374151" : "white"} />
+        <rect 
+          width="70" 
+          height="100" 
+          rx="4" 
+          fill={isSpecialCard ? "#374151" : "white"} 
+          stroke={selected ? '#ffd700' : 'none'}
+          strokeWidth={selected ? '4' : '0'}
+        />
         
         
         {/* Top left rank and suit */}

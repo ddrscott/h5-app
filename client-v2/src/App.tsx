@@ -3,11 +3,13 @@ import { Welcome } from './components/screens/Welcome';
 import { Lobby } from './components/screens/Lobby';
 import { GameTable } from './components/game/GameTable';
 import { CardGallery } from './components/screens/CardGallery';
+import { AnimationTest } from './components/screens/AnimationTest';
+import { LayoutTest } from './components/screens/LayoutTest';
 import { useColyseus } from './contexts/ColyseusContext';
 import { useGameState } from './hooks/useGameState';
 import { GamePhase } from './types/game';
 
-type AppState = 'welcome' | 'connecting' | 'lobby' | 'game' | 'cardGallery';
+type AppState = 'welcome' | 'connecting' | 'lobby' | 'game' | 'cardGallery' | 'animationTest' | 'layoutTest';
 
 function App() {
   const [appState, setAppState] = useState<AppState>('welcome');
@@ -24,6 +26,10 @@ function App() {
     
     if (pathname === '/cards' || pathname.endsWith('/cards')) {
       setAppState('cardGallery');
+    } else if (pathname === '/animation' || pathname.endsWith('/animation')) {
+      setAppState('animationTest');
+    } else if (pathname === '/layouts' || pathname.endsWith('/layouts')) {
+      setAppState('layoutTest');
     } else if (roomFromUrl && appState === 'welcome') {
       // Room ID in URL, prepare to join
       console.log('Found room ID in URL:', roomFromUrl);
@@ -188,6 +194,12 @@ function App() {
           }}
         />
       );
+    
+    case 'animationTest':
+      return <AnimationTest />;
+    
+    case 'layoutTest':
+      return <LayoutTest />;
     
     default:
       return null;

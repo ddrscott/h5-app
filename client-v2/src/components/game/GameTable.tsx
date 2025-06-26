@@ -355,8 +355,7 @@ export const GameTable: React.FC<GameTableProps> = ({
                     style={{ 
                       transform: `translate(-50%, -50%) translateX(${(cardIndex - cardsToDisplay.length / 2) * 15}px) rotate(${(cardIndex - cardsToDisplay.length / 2) * 3}deg) scale(0.9)`,
                       top: '50%',
-                      left: '50%',
-                      animation: isCurrentMeld ? 'tossCard 0.3s ease-out' : 'none'
+                      left: '50%'
                     }}
                   />
                 ))}
