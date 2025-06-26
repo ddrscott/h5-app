@@ -77,7 +77,7 @@ export const GameTable: React.FC<GameTableProps> = ({
     if (total === 1) {
       // Single opponent at top
       return { 
-        top: '5%', 
+        top: '-4.5em', 
         left: '50%', 
         transform: 'translateX(-50%)'
       };
@@ -85,13 +85,13 @@ export const GameTable: React.FC<GameTableProps> = ({
       // Two opponents: one top, one right (for 3-player game)
       return index === 0 
         ? { 
-            top: '5%', 
-            left: '50%', 
-            transform: 'translateX(-50%)'
+            top: '50%', 
+            left: '-1em', 
+            transform: 'translateY(-50%) rotate(90deg)'
           }
         : { 
             top: '50%', 
-            right: '2%', 
+            right: '-3em',
             transform: 'translateY(-50%) rotate(90deg)'
           };
     } else if (total === 3) {
@@ -99,19 +99,19 @@ export const GameTable: React.FC<GameTableProps> = ({
       if (index === 0) {
         return { 
           top: '50%', 
-          left: '2%', 
+          left: '-3em', 
           transform: 'translateY(-50%) rotate(-90deg)'
         };
       } else if (index === 1) {
         return { 
-          top: '5%', 
+          top: '-4em', 
           left: '50%', 
           transform: 'translateX(-50%)'
         };
       } else {
         return { 
           top: '50%', 
-          right: '2%', 
+          right: '-3em', 
           transform: 'translateY(-50%) rotate(90deg)'
         };
       }
@@ -120,7 +120,62 @@ export const GameTable: React.FC<GameTableProps> = ({
       const spacing = 100 / (total + 1);
       const position = spacing * (index + 1);
       return { 
-        top: '5%', 
+        top: '-4.5em',
+        left: `${position}%`, 
+        transform: 'translateX(-50%)'
+      };
+    }
+  };
+
+  // Position player names toward the middle of the table
+  const getPlayerNamePosition = (index: number, total: number) => {
+    if (total === 1) {
+      // Single opponent name below their cards
+      return { 
+        top: '2em',
+        left: 'calc(50% - 6em)', 
+        transform: 'translateY(50%)'
+      };
+    } else if (total === 2) {
+      // Two opponents
+      return index === 0 
+        ? { 
+            top: '50%', 
+            left: '-1em', 
+            transform: 'translateY(-50%) rotate(-90deg)'
+          }
+        : { 
+            top: '50%', 
+            right: '-1em',
+            transform: 'translateY(-50%) rotate(90deg)'
+          };
+    } else if (total === 3) {
+      // Three opponents
+      if (index === 0) {
+        return { 
+          top: '50%', 
+          left: '-1em', 
+          transform: 'translateY(-50%) rotate(-90deg)'
+        };
+      } else if (index === 1) {
+        return { 
+          top: '2em', 
+          left: 'calc(50% - 6em)', 
+          transform: 'translateX(-50%)'
+        };
+      } else {
+        return { 
+          top: '50%', 
+          right: '-1em', 
+          transform: 'translateY(-50%) rotate(90deg)'
+        };
+      }
+    } else {
+      // 4+ players: distribute along top
+      const spacing = 100 / (total + 1);
+      const position = spacing * (index + 1);
+      return { 
+        top: '2em',
         left: `${position}%`, 
         transform: 'translateX(-50%)'
       };
@@ -174,7 +229,7 @@ export const GameTable: React.FC<GameTableProps> = ({
 
       {/* Game Table Area */}
       <div className="absolute inset-0">
-        {/* Other Players */}
+        {/* Other Players Cards */}
         {otherPlayers.map((opponent, index) => {
           const position = getPlayerPosition(index, otherPlayers.length);
           const isCurrentTurn = currentTurnPlayerId === opponent.id;
@@ -188,6 +243,33 @@ export const GameTable: React.FC<GameTableProps> = ({
               isCurrentTurn={isCurrentTurn}
               isLeader={isLeaderPlayer}
             />
+          );
+        })}
+
+        {/* Other Players Names - positioned toward center */}
+        {otherPlayers.map((opponent, index) => {
+          const namePosition = getPlayerNamePosition(index, otherPlayers.length);
+          const isCurrentTurn = currentTurnPlayerId === opponent.id;
+          const isLeaderPlayer = leadPlayerId === opponent.id;
+
+          return (
+            <div
+              key={`name-${opponent.id}`}
+              className="absolute"
+              style={namePosition}
+            >
+              <p className={`
+                text-center text-xs text-yellow-100/40
+                font-serif tracking-wider
+                border border-dotted border-yellow-200/20 rounded-lg px-4 py-2
+                ${isCurrentTurn ? 'text-yellow-100/60 border-yellow-200/40' : ''}
+              `}>
+                {isLeaderPlayer && '👑 '}
+                {opponent.player.name}
+                <span className="font-bold ml-1">({opponent.player.wins}-{opponent.player.losses})</span>
+                {isCurrentTurn && ' 🎯'}
+              </p>
+            </div>
           );
         })}
 
@@ -271,7 +353,7 @@ export const GameTable: React.FC<GameTableProps> = ({
                     {...card}
                     className="absolute transform transition-all cursor-default"
                     style={{ 
-                      transform: `translate(-50%, -50%) translateX(${(cardIndex - cardsToDisplay.length / 2) * 30}px) rotate(${(cardIndex - cardsToDisplay.length / 2) * 5}deg) scale(0.9)`,
+                      transform: `translate(-50%, -50%) translateX(${(cardIndex - cardsToDisplay.length / 2) * 15}px) rotate(${(cardIndex - cardsToDisplay.length / 2) * 3}deg) scale(0.9)`,
                       top: '50%',
                       left: '50%',
                       animation: isCurrentMeld ? 'tossCard 0.3s ease-out' : 'none'
@@ -333,7 +415,7 @@ export const GameTable: React.FC<GameTableProps> = ({
 
         {/* Action Buttons - Above Cards */}
         {isMyTurn && (
-          <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 flex space-x-3 z-30">
+          <div className="absolute bottom-[5em] left-1/2 transform -translate-x-1/2 flex space-x-3 z-30">
             <button
               onClick={onPlayCards}
               disabled={selectedCards.size === 0}
@@ -371,7 +453,7 @@ export const GameTable: React.FC<GameTableProps> = ({
 
       {/* Current Player Nameplate - Bottom center above hand */}
       {myPlayer && (
-        <div className="absolute bottom-[3.2em] left-1/2 transform -translate-x-1/2">
+        <div className="absolute bottom-[8em] left-1/2 transform -translate-x-1/2">
           <p className={`
             text-center text-xs text-yellow-100/40
             font-serif tracking-wider

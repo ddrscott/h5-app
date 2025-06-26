@@ -23,19 +23,6 @@ export const OtherHand: React.FC<OtherHandProps> = ({
       className="absolute flex flex-col items-center"
       style={position}
     >
-      {/* Player info - painted on felt style */}
-      <p className={`
-        text-center text-xs text-yellow-100/40
-        font-serif tracking-wider
-        border border-dotted border-yellow-200/20 rounded-lg px-4 py-2 mb-1
-        ${isCurrentTurn ? 'text-yellow-100/60 border-yellow-200/40' : ''}
-      `}>
-        {isLeader && '👑 '}
-        {opponent.player.name}
-        <span className="font-bold ml-1">({opponent.player.wins}-{opponent.player.losses})</span>
-        {isCurrentTurn && ' 🎯'}
-      </p>
-      
       {/* Card stack - only showing top portion */}
       <div className="flex -space-x-12 justify-center">
         {Array.from({ length: Math.min(opponent.player.handCount, 13) }).map((_, i) => (

@@ -4,6 +4,10 @@
 
 /* Global styles */
 @layer base {
+  :root {
+    --card-red: #d9373f;
+  }
+  
   html, body {
     @apply bg-gray-900 text-white h-full w-full max-w-full max-h-full;
     font-family: Georgia, serif;
@@ -44,8 +48,8 @@
 /* Card styles */
 @layer components {
   .card-base {
-    @apply w-[4.375em] h-[6.25em] bg-white rounded-lg shadow-card 
-           flex items-center justify-center relative text-2xl font-bold 
+    @apply w-[4.375em] h-[6.25em] rounded-lg shadow-card 
+           flex items-center justify-center relative 
            cursor-pointer transition-all duration-200;
   }
   
@@ -108,12 +112,8 @@
     color: #000000;
   }
   
-  .shadow-glow {
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.7);
-  }
-  
-  .ring-gold {
-    box-shadow: 0 0 0 4px #ffd700;
+  .card-selected {
+    box-shadow: 0 0 0 2px #ffd700;
   }
 }
 
@@ -149,13 +149,13 @@
 }
 
 .player-card:hover {
-  transform: translateY(50%);
+  transform: translateY(40%) scale(1.05);
   z-index: 100;
+  filter: brightness(1.05);
 }
 
 .player-card.selected {
   transform: translateY(30%);
-  z-index: 101;
 }
 
 /* Toast Animation */
@@ -216,4 +216,9 @@
 .overflow-x-auto {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Card Gallery Grid */
+.grid-rows-6 {
+  grid-template-rows: repeat(6, minmax(0, 1fr));
 }

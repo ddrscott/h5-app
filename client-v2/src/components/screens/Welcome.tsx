@@ -5,9 +5,10 @@ import { Tutor } from './Tutor';
 interface WelcomeProps {
   onJoinGame: (playerName: string, roomId?: string) => void;
   getAvailableRooms?: () => Promise<any[]>;
+  onViewCards?: () => void;
 }
 
-export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
+export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame, onViewCards }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [showTutor, setShowTutor] = useState(false);
@@ -129,14 +130,22 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
               <p>2-6 players • Strategic card game • Win by going out first!</p>
             </div>
 
-            {/* How to Play button */}
-            <div className="mt-4 text-center">
+            {/* How to Play and View Cards buttons */}
+            <div className="mt-4 text-center space-x-4">
               <button
                 onClick={() => setShowTutor(true)}
                 className="text-sm text-gray-400 hover:text-gold underline transition-colors"
               >
                 How to Play
               </button>
+              {onViewCards && (
+                <button
+                  onClick={onViewCards}
+                  className="text-sm text-gray-400 hover:text-gold underline transition-colors"
+                >
+                  View Cards
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card } from './Card';
+import { CardFace } from './CardFace';
 
 interface BannerProps {
   className?: string;
@@ -9,11 +10,11 @@ export const Banner: React.FC<BannerProps> = ({ className = '' }) => {
     return (
       <div className={className}>
         {/* Decorative cards */}
-        <div className="flex justify-center mb-1 sm:mb-2 space-x-1">
-          <Card suit="H" rank={5} className="transform -rotate-12 scale-[0.4] sm:scale-50" />
-          <Card suit="H" rank={5} className="transform rotate-6 scale-[0.4] sm:scale-50" />
-          <Card suit="H" rank={5} className="transform -rotate-6 scale-[0.4] sm:scale-50" />
-          <Card suit="H" rank={5} className="transform rotate-12 scale-[0.4] sm:scale-50" />
+        <div className="flex justify-center mb-1 md:mb-8 space-x-4">
+          <Card suit="H" rank={5} className="transform -rotate-12 scale-[0.8] md:scale-100" />
+          <Card suit="H" rank={5} className="transform rotate-6 scale-[0.8] md:scale-100" />
+          <Card suit="H" rank={5} className="transform -rotate-6 scale-[0.8] md:scale-100" />
+          <Card suit="H" rank={5} className="transform rotate-12 scale-[0.8] md:scale-100" />
         </div>
 
         {/* Title */}

@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { Welcome } from './components/screens/Welcome';
 import { Lobby } from './components/screens/Lobby';
 import { GameTable } from './components/game/GameTable';
+import { CardGallery } from './components/screens/CardGallery';
 import { useColyseus } from './contexts/ColyseusContext';
 import { useGameState } from './hooks/useGameState';
 import { GamePhase } from './types/game';
 
-type AppState = 'welcome' | 'connecting' | 'lobby' | 'game';
+type AppState = 'welcome' | 'connecting' | 'lobby' | 'game' | 'cardGallery';
 
 function App() {
   const [appState, setAppState] = useState<AppState>('welcome');
@@ -15,11 +16,15 @@ function App() {
   const { room, roomId, myPlayerId, isConnected, error, createRoom, joinRoom, leaveRoom } = useColyseus();
   const gameState = useGameState();
 
-  // Check URL for room ID on load
+  // Check URL for room ID or cards route on load
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const roomFromUrl = urlParams.get('room');
-    if (roomFromUrl && appState === 'welcome') {
+    const pathname = window.location.pathname;
+    
+    if (pathname === '/cards' || pathname.endsWith('/cards')) {
+      setAppState('cardGallery');
+    } else if (roomFromUrl && appState === 'welcome') {
       // Room ID in URL, prepare to join
       console.log('Found room ID in URL:', roomFromUrl);
     }
@@ -112,7 +117,10 @@ function App() {
 
   switch (appState) {
     case 'welcome':
-      return <Welcome onJoinGame={handleJoinGame} />;
+      return <Welcome onJoinGame={handleJoinGame} onViewCards={() => {
+        setAppState('cardGallery');
+        window.history.pushState({}, '', '/cards');
+      }} />;
     
     case 'connecting':
       return (
@@ -168,6 +176,16 @@ function App() {
           onPlayCards={gameState.playCards}
           onPass={gameState.pass}
           onLeaveGame={handleLeaveRoom}
+        />
+      );
+    
+    case 'cardGallery':
+      return (
+        <CardGallery 
+          onClose={() => {
+            setAppState('welcome');
+            window.history.pushState({}, '', '/');
+          }}
         />
       );
     

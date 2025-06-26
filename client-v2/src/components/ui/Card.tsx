@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Card as CardType } from '../../types/game';
+import { CardFace } from './CardFace';
 
 interface CardProps extends Partial<CardType> {
   className?: string;
@@ -18,65 +19,52 @@ export const Card: React.FC<CardProps> = ({
   selected = false,
   style
 }) => {
-  const getSuitSymbol = () => {
-    const symbols: Record<string, string> = {
-      'H': '♥',
-      'D': '♦',
-      'C': '♣',
-      'S': '♠',
-      'J': '🤡'
-    };
-    return symbols[suit] || '';
-  };
-
-  const getRankDisplay = () => {
-    if (suit === 'J') {
-      return rank === 16 ? 'jj' : 'JJ';
-    }
-    if (rank === 15) return '2';
-    if (rank === 14) return 'A';
-    if (rank === 13) return 'K';
-    if (rank === 12) return 'Q';
-    if (rank === 11) return 'J';
-    return rank.toString();
-  };
-
-  const getSuitColor = () => {
-    return suit === 'H' || suit === 'D' || rank === 17 ? 'text-card-red' : 'text-card-black';
-  };
-
-  const isHeartOfFive = suit === 'H' && rank === 5;
-  
-  const getCardBackground = () => {
-    if (isHeartOfFive) {
-      return 'bg-gray-700 border border-gray-800 text-red-400';
-    }
-    return '';
-  };
-
-  if (isBack) {
+  // Handle joker cards
+  if (suit === 'J') {
     return (
-      <div className={`card-base card-back ${className}`} onClick={onClick} style={style}>
-        {/* Card back pattern is handled by CSS */}
+      <div
+        className={`relative ${selected ? 'card-selected' : ''} ${className}`}
+        onClick={onClick}
+        style={style}
+      >
+        <CardFace suit="J" rank={rank} />
       </div>
     );
   }
 
+  if (isBack) {
+    return (
+      <div
+        className={`relative ${selected ? 'card-selected' : ''} ${className}`}
+        onClick={onClick}
+        style={style}
+      >
+        <div className="card-base card-back">
+          {/* Card back pattern is handled by CSS */}
+        </div>
+      </div>
+    );
+  }
+
+  // Convert rank values - assuming the game uses different rank values
+  const convertRank = () => {
+    if (rank === 15) return 2;  // 2 is highest in this game
+    if (rank === 14) return 1;  // Ace
+    if (rank >= 3 && rank <= 13) return rank;
+    return rank;
+  };
+
+  // Validate suit
+  const validSuit = ['H', 'D', 'C', 'S'].includes(suit) ? suit as 'H' | 'D' | 'C' | 'S' : 'H';
+  const displayRank = convertRank();
+
   return (
-    <div 
-      className={`card-base ${getCardBackground()} ${isHeartOfFive ? 'text-red-500' : getSuitColor()} ${selected ? 'ring-4 ring-gold shadow-glow' : ''} ${className}`}
+    <div
+      className={`relative ${selected ? 'card-selected' : ''} ${className}`}
       onClick={onClick}
       style={style}
     >
-      <div className="absolute top-0 left-1 text-center leading-none">
-        <div className="text-sm font-bold">{getRankDisplay()}</div>
-        <div className="text-[.8em]">{getSuitSymbol()}</div>
-      </div>
-      
-      <div className="absolute bottom-0 right-1 text-center leading-none rotate-180">
-        <div className="text-sm font-bold">{getRankDisplay()}</div>
-        <div className="text-[.8em]">{getSuitSymbol()}</div>
-      </div>
+      <CardFace suit={validSuit} rank={displayRank} />
     </div>
   );
 };

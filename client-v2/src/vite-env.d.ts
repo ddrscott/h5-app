@@ -12,3 +12,8 @@ declare module 'virtual:pwa-register' {
 
   export function registerSW(options?: RegisterSWOptions): (reloadPage?: boolean) => Promise<void>
 }
+
+declare module '*.svg?raw' {
+  const content: string
+  export default content
+}
