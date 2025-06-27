@@ -20,6 +20,7 @@ interface AnimatedCardsProps {
   groupRotation?: number;
   onAnimationComplete?: () => void;
   dimmed?: boolean;
+  zIndex?: number;
 }
 
 export const AnimatedCards: React.FC<AnimatedCardsProps> = ({
@@ -33,6 +34,7 @@ export const AnimatedCards: React.FC<AnimatedCardsProps> = ({
   groupRotation = 0,
   onAnimationComplete,
   dimmed = false,
+  zIndex = 40,
 }) => {
   // Calculate arc positions for cards if arrangeAsArc is true
   const getCardEndOffset = (index: number, total: number) => {
@@ -101,7 +103,7 @@ export const AnimatedCards: React.FC<AnimatedCardsProps> = ({
   
   return (
     <>
-      <div className={`fixed inset-0 pointer-events-none z-40 ${dimmed ? 'cards-dimmed' : ''}`}>
+      <div className={`fixed inset-0 pointer-events-none ${dimmed ? 'cards-dimmed' : ''}`} style={{ zIndex }}>
         {cards.map((card, index) => {
             const endOffset = getCardEndOffset(index, cards.length);
             const animationDelay = delay + (index * stagger);
@@ -134,7 +136,7 @@ export const AnimatedCards: React.FC<AnimatedCardsProps> = ({
           })}
       </div>
       
-      <style jsx>{`
+      <style>{`
         @keyframes cardSlideIn {
           from {
             left: calc(var(--start-x) - 2rem);

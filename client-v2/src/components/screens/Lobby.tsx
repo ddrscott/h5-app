@@ -111,10 +111,12 @@ export const Lobby: React.FC<LobbyProps> = ({
 
         {/* Table Preview - Full screen */}
         <div className="flex-1 flex flex-col">
-          <div className="flex-1 flex items-center gap-4 portrait:flex-col">
+          <div className="flex-grow flex items-center gap-4 portrait:flex-col">
             {/* Left side - Player placeholders */}
-            <div className="flex-1 relative felt-texture rounded-lg min-h-[18.75em]">
-              <PlayerPlaceholders players={players} />
+              <div className="flex-grow relative
+                  rounded-lg landscape:min-h-full"
+              >
+                  <PlayerPlaceholders players={players} />
               
               {/* Center content - Room Code */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
@@ -151,7 +153,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             </div>
             
             {/* Right side - Game controls and bot panel */}
-            <div className="flex-1 max-w-md w-full">
+            <div className="flex-shrink-0 w-full max-w-sm portrait:max-w-md">
               <div className="bg-gray-800 rounded-lg p-6 shadow-2xl">
                 {isHost ? (
                   <>
@@ -212,7 +214,6 @@ export const Lobby: React.FC<LobbyProps> = ({
               </div>
             </div>
           </div>
-          
           <p className="text-xs text-gray-400 text-center py-2">
             {players.length}/6 Players • {players.length === 6 ? 'Room is full!' : `${6 - players.length} spots available`}
           </p>

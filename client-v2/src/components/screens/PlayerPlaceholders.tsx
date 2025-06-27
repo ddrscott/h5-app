@@ -54,7 +54,7 @@ export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
         return (
           <div
             key={index}
-            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
             style={{
               left: `calc(50% + ${x}px)`,
               top: `calc(50% + ${y}px)`,

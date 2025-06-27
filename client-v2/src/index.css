@@ -50,7 +50,7 @@
   .card-base {
     @apply w-[4.375em] h-[6.25em] rounded-lg shadow-card 
            flex items-center justify-center relative 
-           cursor-pointer transition-all duration-200;
+           transition-all duration-200;
   }
   
   .card-back {
@@ -131,7 +131,6 @@
   width: 4em;
   height: 6em;
   position: relative;
-  cursor: pointer;
   transition: all 0.2s ease;
 }
 

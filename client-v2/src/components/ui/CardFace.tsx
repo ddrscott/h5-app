@@ -24,14 +24,15 @@ const getRankDisplay = (rank: number): string => {
 };
 
 // Get suit color
-const getSuitColor = (suit: 'H' | 'D' | 'C' | 'S'): string => {
+const getSuitColor = (suit: 'H' | 'D' | 'C' | 'S' | 'J'): string => {
+  if (suit === 'J') return 'var(--card-red)'; // Jokers are red by default
   return suit === 'H' || suit === 'D' ? 'var(--card-red)' : '#000000';
 };
 
 export const CardFace: React.FC<CardFaceProps> = React.memo(({ suit, rank, className = '', selected = false }) => {
   const rankDisplay = getRankDisplay(rank);
   const isSpecialCard = suit === 'H' && rank === 5; // Heart 5 is special
-  const suitColor = isSpecialCard ? '#fbbf24' : getSuitColor(suit);
+  const suitColor = isSpecialCard ? '#fbbf24' : suit === 'J' ? 'var(--card-red)' : getSuitColor(suit as 'H' | 'D' | 'C' | 'S');
 
   // Handle Joker cards
   if (suit === 'J') {

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Card as CardType, Player, Meld } from '../../types/game';
 import { Card } from '../ui/Card';
 import { PlayerHand } from './PlayerHand';
 import { OtherHand } from './OtherHand';
+import { AnimatedCards } from '../animations/AnimatedCards';
 
 interface GameTableProps {
   players: Map<string, Player>;
@@ -47,22 +48,69 @@ export const GameTable: React.FC<GameTableProps> = ({
 }) => {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isSweeping, setIsSweeping] = useState(false);
+  const [animatedMelds, setAnimatedMelds] = useState<Map<string, { cards: CardType[], playerId: string, rotation: number, isNew: boolean }>>(new Map());
+  const [sweepingMelds, setSweepingMelds] = useState<Array<{ cards: CardType[], rotation: number, key: string }>>([]);
   const isMyTurn = currentTurnPlayerId === myPlayerId;
   const isLeader = leadPlayerId === myPlayerId;
   const canPass = isLeader ? !!currentMeld : true; // Leader can only pass if there's a meld to beat
 
+  // Handle playing cards with animation
+  const handlePlayCards = () => {
+    if (selectedCards.size === 0) return;
+    
+    // Play cards immediately so game state updates
+    onPlayCards();
+  };
+
   // Detect when cards should sweep (when trickMelds becomes empty after having cards)
   const prevTrickMeldsLength = React.useRef(0);
   
+  
+  // Sync trickMelds with our animated display
+  useEffect(() => {
+    setAnimatedMelds(prevAnimatedMelds => {
+      const newAnimatedMelds = new Map<string, { cards: CardType[], playerId: string, rotation: number, isNew: boolean }>();
+      
+      trickMelds.forEach((meld, index) => {
+        const meldKey = `${meld.playerId}-${index}`;
+        const existingMeld = prevAnimatedMelds.get(meldKey);
+        
+        if (existingMeld) {
+          // Keep existing meld but mark as not new
+          newAnimatedMelds.set(meldKey, { ...existingMeld, isNew: false });
+        } else {
+          // New meld - needs animation
+          const rotation = Math.sin(index * 2.3) * 20 + Math.cos(index * 1.7) * 15;
+          newAnimatedMelds.set(meldKey, {
+            cards: meld.cards,
+            playerId: meld.playerId,
+            rotation,
+            isNew: true // Will trigger animation
+          });
+        }
+      });
+      
+      return newAnimatedMelds;
+    });
+  }, [trickMelds]);
+  
   React.useEffect(() => {
-    console.log('trickMelds:', trickMelds);
-    console.log('trickMelds length:', trickMelds.length);
     if (prevTrickMeldsLength.current > 0 && trickMelds.length === 0) {
       // Cards were cleared, trigger sweep animation
-      setIsSweeping(true);
+      // Move current animated melds to sweeping state
+      const meldsToSweep = Array.from(animatedMelds.values()).map((meld, index) => ({
+        cards: meld.cards,
+        rotation: meld.rotation,
+        key: `sweep-${Date.now()}-${index}`
+      }));
+      
+      setSweepingMelds(meldsToSweep);
+      setAnimatedMelds(new Map());
+      
+      // Clear sweeping melds after animation completes
       setTimeout(() => {
-        setIsSweeping(false);
-      }, 500);
+        setSweepingMelds([]);
+      }, 800); // Longer than animation duration
     }
     prevTrickMeldsLength.current = trickMelds.length;
   }, [trickMelds]);
@@ -184,6 +232,33 @@ export const GameTable: React.FC<GameTableProps> = ({
 
   const myPlayer = players.get(myPlayerId);
 
+  // Get animation start position based on player
+  const getAnimationStartPosition = (playerId: string) => {
+    if (playerId === myPlayerId) {
+      // Player's own cards - from bottom
+      return { bottom: '1em', left: '50%' };
+    }
+    
+    // Find the player's position among other players
+    const otherPlayers = Array.from(players.entries())
+      .filter(([id]) => id !== myPlayerId)
+      .sort((a, b) => (a[1].position || 0) - (b[1].position || 0));
+    
+    const playerIndex = otherPlayers.findIndex(([id]) => id === playerId);
+    if (playerIndex === -1) return { left: '50%', top: '50%' }; // Fallback to center
+    
+    const position = getPlayerPosition(playerIndex, otherPlayers.length);
+    
+    // Convert the position to animation start position
+    if ('right' in position) {
+      return { right: '2em', top: '50%' };
+    } else if (position.top === '50%') {
+      return { left: '2em', top: '50%' };
+    } else {
+      return { top: '2em', left: position.left || '50%' };
+    }
+  };
+
   return (
     <div className="fixed inset-0 felt-texture overflow-hidden">
       {/* Header - Game Title and Leave Button */}
@@ -273,63 +348,83 @@ export const GameTable: React.FC<GameTableProps> = ({
           );
         })}
 
-        {/* Swept Cards - Off to the side */}
-            <div className="absolute bottom-[20vh] left-[10vw] landscape:left-[20vw] landscape:bottom-[40vh]">
-            {lastTrickMelds.length > 0 && (
-            <div className="relative">
-              {lastTrickMelds.map((meld, meldIndex) => (
-                <div
-                  key={`swept-${meldIndex}`}
-                  className="absolute inset-0"
-                >
-                  {meld.cards.map((card, cardIndex) => {
-                    // Create more natural, less uniform positions
-                    const cardTotal = lastTrickMelds.reduce((sum, m) => sum + m.cards.length, 0);
-                    const globalIndex = lastTrickMelds.slice(0, meldIndex).reduce((sum, m) => sum + m.cards.length, 0) + cardIndex;
-                    // console.log('globalIndex:', globalIndex, 'cardTotal:', cardTotal, meldIndex, cardIndex);
-                    
-                    // More chaotic positioning using different patterns
-                    const seed1 = globalIndex * 1;
-                    const seed2 = globalIndex * 1;
-                    const seed3 = globalIndex * 1;
-                    
-                    // Mix different functions for less predictable patterns
-                    const xSpread  = Math.sin(seed1) * 20 + Math.cos(seed2) * 20; // More varied X
-                    const ySpread  = Math.sin(seed2) * 20 + Math.sin(seed3) * 20 - 25; // More varied Y
-                    const rotation = Math.sin(seed1) * 20 + Math.cos(seed3) * 20; // Mix of rotations
-                    
-                    return (
-                      <Card
-                        key={`swept-${meldIndex}-${card.suit}-${card.rank}-${cardIndex}`}
-                        {...card}
-                        className="absolute transform scale-50 cursor-default"
-                        style={{ 
-                          transform: `rotate(${rotation}deg) scale(0.3)`,
-                          top: `${ySpread}px`,
-                          left: `${xSpread}px`,
-                          filter: 'brightness(0.3)' // Same darkening as older melds
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              ))}
+        {/* Discard Pile Area */}
+        <div className="absolute bottom-[15vh] left-[5vw] landscape:left-[10vw] landscape:bottom-[35vh]">
+          {/* Sweeping cards animation */}
+          {sweepingMelds.map((meld, meldIndex) => {
+            // Add some randomness to where cards land in the pile
+            const landingVariation = {
+              x: Math.random() * 30 - 15, // -15 to +15 pixels
+              y: Math.random() * 20 - 10  // -10 to +10 pixels
+            };
+            
+            return (
+              <AnimatedCards
+                key={meld.key}
+                cards={meld.cards}
+                startPosition={{ left: '50%', top: '50%' }}
+                endPosition={{ 
+                  left: `calc(10vw + ${landingVariation.x}px)`, 
+                  bottom: `calc(35vh + ${landingVariation.y}px)` 
+                }}
+                duration={0.6}
+                stagger={0.02}
+                arrangeAsArc={false}
+                groupRotation={meld.rotation + Math.random() * 40 - 20}
+                dimmed={true}
+                zIndex={45}
+              />
+            );
+          })}
+          
+          {/* Static discarded cards - messy pile like real table */}
+          {lastTrickMelds.length > 0 && (
+            <div className="relative w-48 h-32">
+              {lastTrickMelds.flatMap((meld, meldIndex) => 
+                meld.cards.map((card, cardIndex) => {
+                  // Create a unique but deterministic position for each card
+                  const totalIndex = lastTrickMelds
+                    .slice(0, meldIndex)
+                    .reduce((sum, m) => sum + m.cards.length, 0) + cardIndex;
+                  
+                  // Use multiple sine waves for natural randomness
+                  const seed = totalIndex * 2.7;
+                  const x = Math.sin(seed * 1.3) * 60 + Math.cos(seed * 0.7) * 40;
+                  const y = Math.cos(seed * 0.9) * 40 + Math.sin(seed * 1.1) * 30;
+                  const rotation = Math.sin(seed * 0.5) * 45 + Math.cos(seed * 1.7) * 30;
+                  
+                  // Older cards get pushed down slightly
+                  const ageOffset = Math.min(totalIndex * 0.5, 20);
+                  
+                  return (
+                    <Card
+                      key={`swept-${meldIndex}-${card.suit}-${card.rank}-${cardIndex}`}
+                      {...card}
+                      className="absolute transform cursor-default transition-all duration-300"
+                      style={{ 
+                        transform: `translate(${x}px, ${y + ageOffset}px) rotate(${rotation}deg) scale(0.3)`,
+                        filter: 'brightness(0.5)',
+                        zIndex: totalIndex // Newer cards on top
+                      }}
+                    />
+                  );
+                })
+              )}
             </div>
-            )}
-            {/* Label painted on felt below cards */}
-              <p className="text-center text-xs mt-2 text-yellow-100/40
-                  font-serif tracking-wider
-                  border border-dotted border-yellow-200/20 rounded-lg p-6">Discards</p>
-          </div>
+          )}
+          
+          {/* Label below the piles */}
+          <p className="text-center text-xs mt-16 text-yellow-100/40
+              font-serif tracking-wider
+              border border-dotted border-yellow-200/20 rounded-lg px-3 py-2">Discards</p>
+        </div>
 
         {/* Center Play Area - Messy Stack */}
-        <div className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${
-          isSweeping ? 'translate-x-[-200%] opacity-0' : ''
-        }`}>
+        <div className="absolute inset-0 flex items-center justify-center">
           <div className="relative">{/* Add relative container for proper centering */}
-          {/* All center melds stacked messily */}
-          {trickMelds.map((meld, meldIndex) => {
-            const isCurrentMeld = meldIndex === trickMelds.length - 1;
+          {/* All center melds using AnimatedCards */}
+          {Array.from(animatedMelds.entries()).map(([key, meld], index) => {
+            const isCurrentMeld = index === animatedMelds.size - 1;
             
             // Sort cards by rank for the current meld only
             const cardsToDisplay = isCurrentMeld 
@@ -337,29 +432,18 @@ export const GameTable: React.FC<GameTableProps> = ({
               : meld.cards;
             
             return (
-              <div
-                key={`center-${meldIndex}`}
-                className="absolute"
-                style={{
-                  // More varied rotation using different patterns
-                  transform: `rotate(${Math.sin(meldIndex * 2.3) * 20 + Math.cos(meldIndex * 1.7) * 15}deg)`,
-                  zIndex: meldIndex * 100,
-                  filter: isCurrentMeld ? 'none' : 'brightness(0.3) contrast(0.7)', // Darken and reduce contrast for older melds
-                }}
-              >
-                {cardsToDisplay.map((card, cardIndex) => (
-                  <Card
-                    key={`center-${meldIndex}-${card.suit}-${card.rank}-${cardIndex}`}
-                    {...card}
-                    className="absolute transform transition-all cursor-default"
-                    style={{ 
-                      transform: `translate(-50%, -50%) translateX(${(cardIndex - cardsToDisplay.length / 2) * 15}px) rotate(${(cardIndex - cardsToDisplay.length / 2) * 3}deg) scale(0.9)`,
-                      top: '50%',
-                      left: '50%'
-                    }}
-                  />
-                ))}
-              </div>
+              <AnimatedCards
+                key={key}
+                cards={cardsToDisplay}
+                startPosition={meld.isNew ? getAnimationStartPosition(meld.playerId) : { left: '50%', top: '50%' }}
+                endPosition={{ left: '50%', top: '50%' }}
+                duration={meld.isNew ? 0.5 : 0}
+                stagger={meld.isNew ? 0.05 : 0}
+                arrangeAsArc={true}
+                groupRotation={meld.rotation}
+                dimmed={!isCurrentMeld}
+                zIndex={40 + index}
+              />
             );
           })}
           
@@ -377,15 +461,48 @@ export const GameTable: React.FC<GameTableProps> = ({
           
           {/* Deck and Discard indicators */}
           {!currentMeld && !isLeader && (
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-12">
+              {/* Deck - neat stacked appearance */}
               <div className="relative">
-                <Card suit="" rank={0} isBack className="w-16 h-24" />
-                <span className="absolute left-1/2 transform -translate-x-1/2 text-xs bg-gray-800/90 px-2 py-1 rounded">
+                {/* Shadow cards for depth */}
+                <div className="absolute w-16 h-24 bg-gray-800/60 rounded-lg transform translate-x-2 translate-y-2" />
+                <div className="absolute w-16 h-24 bg-gray-700/80 rounded-lg transform translate-x-1 translate-y-1" />
+                
+                {/* Top card */}
+                <Card suit="" rank={0} isBack className="w-16 h-24 relative z-10 shadow-xl" />
+                
+                {/* Card count badge */}
+                <span className="absolute -top-2 -right-2 bg-gray-900 text-gold font-bold px-2 py-1 rounded-full text-xs z-20 border border-gold/50 shadow-lg">
                   {deckCount}
                 </span>
+                
+                {/* Label */}
+                <p className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-yellow-100/40
+                    font-serif tracking-wider">
+                  Draw Pile
+                </p>
               </div>
+              
+              {/* Center discard indicator - shows last played */}
               {discardTop && (
-                <Card {...discardTop} className="w-16 h-24" />
+                <div className="relative">
+                  {/* Small pile effect */}
+                  <div className="absolute w-16 h-24 opacity-20 transform translate-x-1 translate-y-1">
+                    <Card {...discardTop} className="w-full h-full transform rotate-8" />
+                  </div>
+                  <div className="absolute w-16 h-24 opacity-30 transform translate-x-0.5 translate-y-0.5">
+                    <Card {...discardTop} className="w-full h-full transform -rotate-4" />
+                  </div>
+                  
+                  {/* Top card */}
+                  <Card {...discardTop} className="w-16 h-24 relative z-10 transform rotate-2 shadow-lg" />
+                  
+                  {/* Label */}
+                  <p className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-yellow-100/40
+                      font-serif tracking-wider">
+                    Last Played
+                  </p>
+                </div>
               )}
             </div>
           )}
@@ -414,24 +531,24 @@ export const GameTable: React.FC<GameTableProps> = ({
 
         {/* Action Buttons - Above Cards */}
         {isMyTurn && (
-          <div className="absolute bottom-[5em] left-1/2 transform -translate-x-1/2 flex space-x-3 z-30">
-            <button
-              onClick={onPlayCards}
-              disabled={selectedCards.size === 0}
-              className={`min-w-48 ${
-                selectedCards.size > 0 ? 'bg-gold hover:bg-gold-dark text-gray-900' : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              } px-6 py-2 text-sm font-bold rounded-lg transition-all shadow-lg`}
-            >
-              Play Cards ({selectedCards.size})
-            </button>
+          <div className="absolute bottom-[1em] left-1/2 transform -translate-x-1/2 flex space-x-3 z-30">
             <button
               onClick={onPass}
               disabled={!canPass}
-              className={`${
+              className={`flex-shrink ${
                 canPass ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-600 text-gray-400 cursor-not-allowed'
               } px-6 py-2 text-sm font-bold rounded-lg transition-all shadow-lg`}
             >
               Pass
+            </button>
+            <button
+              onClick={handlePlayCards}
+              disabled={selectedCards.size === 0}
+              className={`flex-grow min-w-[12rem] ${
+                selectedCards.size > 0 ? 'bg-gold hover:bg-gold-dark text-gray-900' : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              } px-6 py-2 text-sm font-bold rounded-lg transition-all shadow-lg`}
+            >
+              Play Selected ({selectedCards.size})
             </button>
           </div>
         )}

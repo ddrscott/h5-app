@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card } from '../ui/Card';
 import { AnimatedCards } from '../animations/AnimatedCards';
 import { useAnimatedCards } from '../../hooks/useAnimatedCards';
@@ -101,9 +102,9 @@ export const AnimationTest: React.FC = () => {
         {/* Header */}
         <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-20">
           <h1 className="text-2xl font-bold text-gold">Animation Test Lab - Reusable Component</h1>
-          <a href="/" className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm">
-            Back to Game
-          </a>
+          <Link to="/" className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm">
+            Back to Home
+          </Link>
         </div>
         
         {/* Center Play Area */}

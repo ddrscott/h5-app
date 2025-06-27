@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Banner } from '../ui/Banner';
 import { Tutor } from './Tutor';
 
@@ -138,14 +139,18 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame, onViewCards }) => 
               >
                 How to Play
               </button>
-              {onViewCards && (
-                <button
-                  onClick={onViewCards}
-                  className="text-sm text-gray-400 hover:text-gold underline transition-colors"
-                >
-                  View Cards
-                </button>
-              )}
+              <Link
+                to="/cards"
+                className="text-sm text-gray-400 hover:text-gold underline transition-colors"
+              >
+                View Cards
+              </Link>
+              <Link
+                to="/"
+                className="text-sm text-gray-400 hover:text-gold underline transition-colors"
+              >
+                Back to Home
+              </Link>
             </div>
           </div>
         </div>

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card } from '../ui/Card';
 
 interface CardGalleryProps {
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 interface CardInfo {
@@ -50,15 +51,15 @@ export const CardGallery: React.FC<CardGalleryProps> = ({ onClose }) => {
       {/* Header */}
       <div className="sticky top-0 z-40 bg-green-800/95 backdrop-blur-sm p-2 sm:p-4 flex justify-between items-center border-b border-green-700">
         <h1 className="text-lg sm:text-2xl font-bold text-gold">Card Gallery</h1>
-        <button
-          onClick={onClose}
-          className="bg-gray-800/90 hover:bg-gray-700 rounded-full p-2 transition-colors"
-          title="Close Gallery"
+        <Link
+          to="/"
+          className="bg-gray-800/90 hover:bg-gray-700 rounded-full p-2 transition-colors inline-block"
+          title="Back to Home"
         >
           <svg className="w-5 h-5 sm:w-6 sm:h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
-        </button>
+        </Link>
       </div>
 
       {/* Main Content - scrollable on mobile */}
