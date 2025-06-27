@@ -298,6 +298,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                 zIndex: index,
                 transform: `translateX(${translateX}px) translateY(${totalTranslateY}px) rotate(${rotate}deg) ${isHovered ? 'scale(1.05)' : ''}`,
                 transformOrigin: 'center bottom',
+                cursor: 'pointer',
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out', // Smooth transitions when not dragging
               }}
               onMouseEnter={() => setHoveredIndex(index)}

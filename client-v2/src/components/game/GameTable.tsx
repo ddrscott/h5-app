@@ -4,6 +4,7 @@ import { Card } from '../ui/Card';
 import { PlayerHand } from './PlayerHand';
 import { OtherHand } from './OtherHand';
 import { AnimatedCards } from '../animations/AnimatedCards';
+import { CircleText } from '../ui/CircleText';
 
 interface GameTableProps {
   players: Map<string, Player>;
@@ -207,8 +208,8 @@ export const GameTable: React.FC<GameTableProps> = ({
         };
       } else if (index === 1) {
         return { 
-          top: '2em', 
-          left: 'calc(50% - 6em)', 
+          top: '3em', 
+          left: '50%', 
           transform: 'translateX(-50%)'
         };
       } else {
@@ -261,9 +262,12 @@ export const GameTable: React.FC<GameTableProps> = ({
 
   return (
     <div className="fixed inset-0 felt-texture overflow-hidden">
+        <CircleText className="absolute inset-0 pointer-events-none" />
+
+
       {/* Header - Game Title and Leave Button */}
       <div className="absolute top-2 left-2 right-2 flex justify-between items-center z-20">
-        <h3 className="text-lg font-bold text-gold px-3">Heart of Five</h3>
+          <h3 className="text-lg font-bold text-gold px-3">H<sup>5</sup></h3>
         <button
           onClick={() => setShowLeaveConfirm(true)}
           className="bg-gray-900/90 backdrop-blur-sm rounded-full p-2 shadow-xl hover:bg-gray-800 transition-colors"
@@ -422,6 +426,21 @@ export const GameTable: React.FC<GameTableProps> = ({
         {/* Center Play Area - Messy Stack */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="relative">{/* Add relative container for proper centering */}
+          
+          {/* Curved Text SVG */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 1 }}>
+            <svg width="300" height="300" viewBox="0 0 300 300" className="opacity-40">
+              <defs>
+                <path id="circlePath" d="M 150, 150 m -80, 0 a 80,80 0 0,1 160,0 a 80,80 0 0,1 -160,0" />
+              </defs>
+              <g>
+                <use xlinkHref="#circlePath" fill="none" />
+                <text fill="#8b7355" fontSize="16" fontFamily="Georgia, serif" fontWeight="600">
+                  <textPath xlinkHref="#circlePath">Heart of 5 ★ Is Da Bomb ★ Heart of 5 ★ Is Da Bomb ★ </textPath>
+                </text>
+              </g>
+            </svg>
+          </div>
           {/* All center melds using AnimatedCards */}
           {Array.from(animatedMelds.entries()).map(([key, meld], index) => {
             const isCurrentMeld = index === animatedMelds.size - 1;
