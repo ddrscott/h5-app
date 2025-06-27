@@ -51,6 +51,9 @@ export const GameTable: React.FC<GameTableProps> = ({
   const [isSweeping, setIsSweeping] = useState(false);
   const [animatedMelds, setAnimatedMelds] = useState<Map<string, { cards: CardType[], playerId: string, rotation: number, isNew: boolean }>>(new Map());
   const [sweepingMelds, setSweepingMelds] = useState<Array<{ cards: CardType[], rotation: number, key: string }>>([]);
+  const [handRotationOffset, setHandRotationOffset] = useState(0);
+  const [isDraggingHand, setIsDraggingHand] = useState(false);
+  const animationRef = React.useRef<number | null>(null);
   const isMyTurn = currentTurnPlayerId === myPlayerId;
   const isLeader = leadPlayerId === myPlayerId;
   const canPass = isLeader ? !!currentMeld : true; // Leader can only pass if there's a meld to beat
@@ -61,6 +64,71 @@ export const GameTable: React.FC<GameTableProps> = ({
     
     // Play cards immediately so game state updates
     onPlayCards();
+  };
+
+  // Hand rotation limits and helpers
+  const maxRotationLeft = -20;
+  const maxRotationRight = 20;
+  const elasticOverflow = 8;
+
+  const applyElasticResistance = (targetRotation: number) => {
+    if (targetRotation < maxRotationLeft) {
+      const overflow = maxRotationLeft - targetRotation;
+      const resistance = Math.min(overflow * 0.3, elasticOverflow);
+      return maxRotationLeft - resistance;
+    } else if (targetRotation > maxRotationRight) {
+      const overflow = targetRotation - maxRotationRight;
+      const resistance = Math.min(overflow * 0.3, elasticOverflow);
+      return maxRotationRight + resistance;
+    }
+    return targetRotation;
+  };
+
+  const animateToRotation = (targetRotation: number, duration: number = 300) => {
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+
+    const startRotation = handRotationOffset;
+    const startTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const currentRotation = startRotation + (targetRotation - startRotation) * easeOut;
+      
+      setHandRotationOffset(currentRotation);
+
+      if (progress < 1) {
+        animationRef.current = requestAnimationFrame(animate);
+      } else {
+        animationRef.current = null;
+      }
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+  };
+
+  // Global wheel handler for player hand rotation
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const sensitivity = 0.3;
+    const deltaRotation = e.deltaX * sensitivity;
+    const targetRotation = handRotationOffset + deltaRotation;
+    const newRotation = applyElasticResistance(targetRotation);
+    
+    setHandRotationOffset(newRotation);
+    
+    // Smooth bounce back from elastic zone after a brief delay
+    setTimeout(() => {
+      const currentRotation = handRotationOffset + deltaRotation;
+      if (currentRotation < maxRotationLeft || currentRotation > maxRotationRight) {
+        const bounceTarget = Math.max(maxRotationLeft, Math.min(maxRotationRight, currentRotation));
+        animateToRotation(bounceTarget, 200);
+      }
+    }, 100);
   };
 
   // Detect when cards should sweep (when trickMelds becomes empty after having cards)
@@ -260,8 +328,25 @@ export const GameTable: React.FC<GameTableProps> = ({
     }
   };
 
+  // Keyboard handler for resetting hand view
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || (e.key === 'c' && e.ctrlKey)) {
+        animateToRotation(0, 400);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 felt-texture overflow-hidden">
+    <div className="fixed inset-0 felt-texture overflow-hidden" onWheel={handleWheel}>
         <CircleText className="absolute inset-0 pointer-events-none" />
 
 
@@ -608,6 +693,12 @@ export const GameTable: React.FC<GameTableProps> = ({
         hand={myHand}
         selectedCards={selectedCards}
         onCardSelect={onCardSelect}
+        rotationOffset={handRotationOffset}
+        setRotationOffset={setHandRotationOffset}
+        isDragging={isDraggingHand}
+        setIsDragging={setIsDraggingHand}
+        animateToRotation={animateToRotation}
+        applyElasticResistance={applyElasticResistance}
       />
     </div>
   );

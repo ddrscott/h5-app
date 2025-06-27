@@ -6,92 +6,37 @@ interface PlayerHandProps {
   hand: CardType[];
   selectedCards: Set<string>;
   onCardSelect: (cardKey: string) => void;
+  rotationOffset: number;
+  setRotationOffset: (rotation: number) => void;
+  isDragging: boolean;
+  setIsDragging: (dragging: boolean) => void;
+  animateToRotation: (targetRotation: number, duration?: number) => void;
+  applyElasticResistance: (targetRotation: number) => number;
 }
 
 export const PlayerHand: React.FC<PlayerHandProps> = ({
   hand,
   selectedCards,
-  onCardSelect
+  onCardSelect,
+  rotationOffset,
+  setRotationOffset,
+  isDragging,
+  setIsDragging,
+  animateToRotation,
+  applyElasticResistance
 }) => {
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
   const [containerWidth, setContainerWidth] = React.useState(window.innerWidth);
   const [cardScale, setCardScale] = React.useState(1);
-  const [rotationOffset, setRotationOffset] = React.useState(0);
   const containerRef = React.useRef<HTMLDivElement>(null);
-  
-  // Carousel rotation limits - adjust these for better UX
-  const maxRotationLeft = -20; // Maximum rotation to the left (negative degrees)
-  const maxRotationRight = 20;  // Maximum rotation to the right (positive degrees)
-  const elasticOverflow = 8; // How far beyond limits we allow during gestures (elastic effect)
   
   // Touch/swipe state
   const [touchStart, setTouchStart] = React.useState<{ x: number; time: number } | null>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
   const [lastTap, setLastTap] = React.useState<number>(0);
-  const animationRef = React.useRef<number | null>(null);
   
-  // Apply elastic resistance when going beyond rotation limits
-  const applyElasticResistance = (targetRotation: number) => {
-    if (targetRotation < maxRotationLeft) {
-      // Beyond left limit - apply elastic resistance
-      const overflow = maxRotationLeft - targetRotation;
-      const resistance = Math.min(overflow * 0.3, elasticOverflow); // Diminishing returns
-      return maxRotationLeft - resistance;
-    } else if (targetRotation > maxRotationRight) {
-      // Beyond right limit - apply elastic resistance
-      const overflow = targetRotation - maxRotationRight;
-      const resistance = Math.min(overflow * 0.3, elasticOverflow); // Diminishing returns
-      return maxRotationRight + resistance;
-    }
-    return targetRotation; // Within normal limits
-  };
-
-  // Smooth animation to target rotation
-  const animateToRotation = (targetRotation: number, duration: number = 300) => {
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
-
-    const startRotation = rotationOffset;
-    const startTime = performance.now();
-
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Ease-out cubic for smooth deceleration
-      const easeOut = 1 - Math.pow(1 - progress, 3);
-      const currentRotation = startRotation + (targetRotation - startRotation) * easeOut;
-      
-      setRotationOffset(currentRotation);
-
-      if (progress < 1) {
-        animationRef.current = requestAnimationFrame(animate);
-      } else {
-        animationRef.current = null;
-      }
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-  };
-  
-  // Keyboard handler for resetting view
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || (e.key === 'c' && e.ctrlKey)) {
-        animateToRotation(0, 400);
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      // Clean up any running animations
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, []);
+  // Carousel rotation limits - adjust these for better UX
+  const maxRotationLeft = -20; // Maximum rotation to the left (negative degrees)
+  const maxRotationRight = 20;  // Maximum rotation to the right (positive degrees);
 
   React.useEffect(() => {
     const updateDimensions = () => {
@@ -231,26 +176,6 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
     setIsDragging(false);
   };
 
-  // Mouse wheel handler for desktop
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const sensitivity = 0.3; // Reduced sensitivity for better control
-    const deltaRotation = e.deltaX * sensitivity;
-    const targetRotation = rotationOffset + deltaRotation;
-    const newRotation = applyElasticResistance(targetRotation);
-    
-    setRotationOffset(newRotation);
-    
-    // Smooth bounce back from elastic zone after a brief delay
-    setTimeout(() => {
-      const currentRotation = rotationOffset + deltaRotation;
-      if (currentRotation < maxRotationLeft || currentRotation > maxRotationRight) {
-        const bounceTarget = Math.max(maxRotationLeft, Math.min(maxRotationRight, currentRotation));
-        animateToRotation(bounceTarget, 200); // Quick, smooth bounce
-      }
-    }, 100);
-  };
-
   // Calculate the transform origin to match the circle center used for positioning
   const circleRadius = 500 * 0.8; // Same as in getCardTransform
   const circleCenterY = window.innerHeight + circleRadius * 0.95;
@@ -271,7 +196,6 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onWheel={handleWheel}
       >
         {hand.map((card, index) => {
           const cardKey = card.code || `${card.suit}-${card.rank}`;

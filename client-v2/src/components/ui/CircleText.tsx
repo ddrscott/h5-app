@@ -18,7 +18,7 @@ export const CircleText = ({className = ''}: {className?: string}) => {
                     fontWeight="900"
                     letter-spacing="2"
                 >
-                    <textPath xlinkHref="#circlePath">Heart of 5 ★ Is Da Bomb ★ </textPath>
+                    <textPath xlinkHref="#circlePath">Heart of 5 ★ It's Da Bomb ★ </textPath>
                 </text>
             </g>
         </svg>
