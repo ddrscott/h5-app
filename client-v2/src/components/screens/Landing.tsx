@@ -100,8 +100,9 @@ export const Landing: React.FC = () => {
                   as players must decide when to use this trump card.
                 </p>
                 <p>
-                  Perfect for 2-6 players, games typically last 15-30 minutes, making it 
-                  ideal for quick sessions or tournament play.
+                  Each game continues until all players except one are out of cards. The first 
+                  player out wins, while the last player with cards loses. You can play multiple 
+                  games in a session with cumulative win/loss tracking - play as long as you want!
                 </p>
               </div>
               
@@ -130,7 +131,7 @@ export const Landing: React.FC = () => {
               <div className="text-4xl mb-4">⚡</div>
               <h3 className="text-xl font-bold text-gold">Fast-Paced</h3>
               <p className="text-gray-400">
-                Quick 15-30 minute games perfect for breaks or extended sessions
+                Quick games with no set limit - play one game or many in a session
               </p>
             </div>
             
@@ -167,7 +168,7 @@ export const Landing: React.FC = () => {
                 <ul className="space-y-2 text-gray-300">
                   <li className="flex items-start">
                     <span className="text-gold mr-2">•</span>
-                    Be the first to play all your cards to win
+                    Be the first to play all your cards to win the game
                   </li>
                   <li className="flex items-start">
                     <span className="text-gold mr-2">•</span>
@@ -180,6 +181,10 @@ export const Landing: React.FC = () => {
                   <li className="flex items-start">
                     <span className="text-gold mr-2">•</span>
                     The Heart 5 beats everything - use it wisely!
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-gold mr-2">•</span>
+                    Last player with cards loses - track wins/losses across games
                   </li>
                 </ul>
               </div>

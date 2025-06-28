@@ -253,6 +253,7 @@ export class HeartOfFive extends Room<GameState> {
 
   private handleGameEnd() {
     console.log('[handleGameEnd] Called. Current phase:', this.state.phase);
+    console.log('[handleGameEnd] Number of connected clients:', this.clients.length);
     
     // Ensure we're in GAME_END phase
     if (this.state.phase !== GamePhase.GAME_END) {
@@ -289,7 +290,14 @@ export class HeartOfFive extends Room<GameState> {
     };
     
     console.log('[handleGameEnd] Broadcasting game_ended with data:', JSON.stringify(gameEndData, null, 2));
-    this.broadcast("game_ended", gameEndData);
+    console.log('[handleGameEnd] About to broadcast to', this.clients.length, 'clients');
+    
+    try {
+      this.broadcast("game_ended", gameEndData);
+      console.log('[handleGameEnd] Broadcast completed successfully');
+    } catch (error) {
+      console.error('[handleGameEnd] Error broadcasting game_ended:', error);
+    }
     
     if (winner) {
       this.state.addSystemMessage(`🎉 Game Over! ${winner.name} won with ${winner.wins} rounds!`, "success");
@@ -424,7 +432,7 @@ export class HeartOfFive extends Room<GameState> {
     });
     
     // Add system message for game started
-    this.state.addSystemMessage(`🎮 Game started! Round ${this.state.currentRound}`, "success");
+    this.state.addSystemMessage(`🎮 Game ${this.state.currentRound} started!`, "success");
     
   }
 
@@ -446,8 +454,8 @@ export class HeartOfFive extends Room<GameState> {
       round: this.state.currentRound
     });
     
-    // Add system message for round started
-    this.state.addSystemMessage(`🎮 Round ${this.state.currentRound} started!`, "success");
+    // Add system message for game started
+    this.state.addSystemMessage(`🎮 Game ${this.state.currentRound} started!`, "success");
   }
 
   private parseCards(cardCodes: string[], player: any): Card[] | null {
@@ -481,17 +489,41 @@ export class HeartOfFive extends Room<GameState> {
     // Add system message for round ended
     const winner = this.state.players.get(this.state.roundWinnerId);
     if (winner) {
-      this.state.addSystemMessage(`🏆 Round ended! ${winner.name} won and will lead the next round!`, "info");
+      this.state.addSystemMessage(`🏆 Game ended! ${winner.name} won! Play again?`, "info");
     }
     
-    // Handle game end if needed
+    // Always send game_ended message when a round ends (since round = game in correct terminology)
+    const gameEndData = {
+      winner: winner ? {
+        id: winner.id,
+        name: winner.name,
+        wins: winner.wins
+      } : null,
+      finalStandings: Array.from(this.state.players.values()).map(p => ({
+        playerId: p.id,
+        name: p.name,
+        wins: p.wins,
+        losses: p.losses
+      })).sort((a, b) => b.wins - a.wins)
+    };
+    
+    console.log('[handleRoundEnd] Broadcasting game_ended with data:', JSON.stringify(gameEndData, null, 2));
+    
+    try {
+      this.broadcast("game_ended", gameEndData);
+      console.log('[handleRoundEnd] Broadcast completed successfully');
+    } catch (error) {
+      console.error('[handleRoundEnd] Error broadcasting game_ended:', error);
+    }
+    
+    // Handle game end if needed (legacy - for when targetWins is reached)
     if (isGameEnding) {
-      console.log('[handleRoundEnd] Game has ended, calling handleGameEnd immediately');
-      // Call handleGameEnd immediately instead of with delay
+      console.log('[handleRoundEnd] Game has ended (targetWins reached), calling handleGameEnd');
+      // Call handleGameEnd for legacy support
       this.handleGameEnd();
     } else {
-      // Don't auto-start next round - wait for player action
-      this.state.addSystemMessage(`Ready for round ${this.state.currentRound + 1}! Click "Start Next Round" to continue.`, "info");
+      // Don't auto-start next game - wait for player action
+      this.state.addSystemMessage(`Ready for next game! Click "Play Again" to continue.`, "info");
     }
   }
 

@@ -21,15 +21,15 @@ export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, onPl
     <DialogBox className="max-w-md w-full mx-8">
       {/* Winner Announcement */}
       <div className="text-center mb-6">
-        <h1 className="text-4xl font-bold mb-2 text-gold">💥 Boom!</h1>
+        <h1 className="text-4xl font-bold mb-2 text-gold">Game Over!</h1>
         <p className="text-lg text-gray-300">
-          {winner.name} wins in {winner.wins} rounds!
+          {winner.name} wins this game!
         </p>
       </div>
 
-      {/* Final Standings */}
+      {/* Session Stats */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-3 text-center text-gray-200">Final Standings</h2>
+        <h2 className="text-lg font-semibold mb-3 text-center text-gray-200">Session Stats</h2>
         <div className="bg-gray-700 rounded p-3">
           <table className="w-full text-sm">
             <thead>

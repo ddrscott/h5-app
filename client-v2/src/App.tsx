@@ -8,6 +8,7 @@ import { CardGallery } from './components/screens/CardGallery';
 import { AnimationTest } from './components/screens/AnimationTest';
 import { LayoutTest } from './components/screens/LayoutTest';
 import { TestGameApp } from './components/screens/TestGameApp';
+import { OfflineNotification } from './components/ui/OfflineNotification';
 import { useColyseus } from './contexts/ColyseusContext';
 import { useGameState } from './hooks/useGameState';
 import { GamePhase } from './types/game';
@@ -195,6 +196,7 @@ function GameApp() {
 function App() {
   return (
     <Router>
+      <OfflineNotification />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/play" element={<GameApp />} />

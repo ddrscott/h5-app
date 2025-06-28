@@ -187,6 +187,33 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
       )
     },
     {
+      title: "Game Structure",
+      content: (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <h3 className="font-bold text-gold">Understanding Game Flow</h3>
+            <ul className="list-disc list-inside text-sm space-y-2">
+              <li><span className="text-yellow-400">Trick:</span> One play sequence from leader to new leader</li>
+              <li><span className="text-yellow-400">Game:</span> Multiple tricks until all but one player are out of cards</li>
+              <li><span className="text-yellow-400">Session:</span> Multiple games with cumulative stats</li>
+            </ul>
+          </div>
+          <div className="space-y-2">
+            <h3 className="font-bold text-gold">How Games End</h3>
+            <ul className="list-disc list-inside text-sm space-y-1">
+              <li>First player out of cards wins the game (gets a win)</li>
+              <li>Last player with cards loses the game (gets a loss)</li>
+              <li>Other players just continue to the next game</li>
+              <li>No target number of games - play as long as you want!</li>
+            </ul>
+          </div>
+          <div className="mt-4 p-3 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+            <p className="text-sm text-blue-300">💡 After each game, you'll see cumulative stats and can choose to play again or leave.</p>
+          </div>
+        </div>
+      )
+    },
+    {
       title: "Strategy Tips",
       content: (
         <div className="space-y-4">

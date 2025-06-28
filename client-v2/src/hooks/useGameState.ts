@@ -125,6 +125,14 @@ export const useGameState = () => {
         // Debug log phase changes
         if (prev.phase !== newPhase) {
           console.log('[useGameState] Phase changing from', prev.phase, 'to', newPhase);
+          if (!import.meta.env.DEV) {
+            console.warn('PRODUCTION DEBUG: Phase change in state sync', {
+              oldPhase: prev.phase,
+              newPhase: newPhase,
+              hasWinner: !!prev.winner,
+              preservingWinner: !!prev.winner
+            });
+          }
         }
         
         return {
@@ -141,8 +149,9 @@ export const useGameState = () => {
           isMyTurn,
           chatMessages,
           deckCount,
-          // Preserve winner and finalStandings if we have them and are still in GAME_END phase
-          ...(newPhase === GamePhase.GAME_END && prev.winner ? { winner: prev.winner, finalStandings: prev.finalStandings } : {})
+          // Always preserve winner and finalStandings if we have them
+          ...(prev.winner ? { winner: prev.winner } : {}),
+          ...(prev.finalStandings ? { finalStandings: prev.finalStandings } : {})
         };
       });
     });
@@ -266,6 +275,15 @@ export const useGameState = () => {
       console.log('[useGameState] Winner:', JSON.stringify(data.winner));
       console.log('[useGameState] Final standings:', JSON.stringify(data.finalStandings));
       
+      // Force a visible alert in production for debugging
+      if (!import.meta.env.DEV) {
+        console.warn('PRODUCTION DEBUG: game_ended message received', {
+          winner: data.winner,
+          finalStandings: data.finalStandings,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       setGameState(prev => {
         console.log('[useGameState] Previous phase was:', prev.phase, 'Setting to GAME_END');
         console.log('[useGameState] Previous winner was:', prev.winner);
@@ -276,6 +294,17 @@ export const useGameState = () => {
           finalStandings: data.finalStandings
         };
         console.log('[useGameState] New state will have winner:', newState.winner);
+        console.log('[useGameState] New phase will be:', newState.phase);
+        
+        // Additional production debugging
+        if (!import.meta.env.DEV) {
+          console.warn('PRODUCTION DEBUG: State after game_ended', {
+            newPhase: newState.phase,
+            hasWinner: !!newState.winner,
+            hasFinalStandings: !!newState.finalStandings
+          });
+        }
+        
         return newState;
       });
     });

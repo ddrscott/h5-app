@@ -48,6 +48,11 @@ export default defineConfig({
         categories: ['games', 'entertainment']
       },
       workbox: {
+        // Skip waiting and claim clients immediately to ensure updates are applied
+        skipWaiting: true,
+        clientsClaim: true,
+        // Clean up outdated caches
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -89,15 +94,40 @@ export default defineConfig({
             }
           },
           {
+            // Use NetworkFirst for JS/CSS to always try network first
             urlPattern: /\.(?:js|css)$/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'assets-cache',
+              networkTimeoutSeconds: 3, // Wait max 3 seconds for network
               expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 // 1 hour fallback cache only
               }
             }
+          },
+          {
+            // HTML pages should always be fresh
+            urlPattern: /\.html$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages-cache',
+              networkTimeoutSeconds: 3,
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 // 1 hour fallback
+              }
+            }
+          },
+          {
+            // Never cache WebSocket connections
+            urlPattern: /^wss?:\/\/.*/i,
+            handler: 'NetworkOnly'
+          },
+          {
+            // Don't cache API calls to ensure fresh data
+            urlPattern: /\/api\/.*/i,
+            handler: 'NetworkOnly'
           }
         ]
       }

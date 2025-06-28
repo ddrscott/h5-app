@@ -794,12 +794,14 @@ export class GameState extends Schema {
     this.phase = GamePhase.ROUND_END;
     
     const winner = this.players.get(this.roundWinnerId);
-    if (winner && winner.wins >= this.targetWins) {
-      this.phase = GamePhase.GAME_END;
-      console.log(`[endRound] Game ended! Winner: ${winner.name} with ${winner.wins} wins (target was ${this.targetWins})`);
-    } else {
-      console.log(`[endRound] Round ${this.currentRound} ended. Winner: ${this.roundWinnerId}, wins: ${winner?.wins || 0}/${this.targetWins}`);
-    }
+    console.log(`[endRound] Game ${this.currentRound} ended. Winner: ${winner?.name || 'Unknown'}, wins: ${winner?.wins || 0}`);
+    
+    // Clear current turn since the game is over
+    this.currentTurnPlayerId = null;
+    this.leadPlayerId = null;
+    
+    // Note: We no longer check targetWins - games continue indefinitely
+    // The GAME_END phase is now legacy and only used if targetWins is explicitly set
     
     // Don't automatically start new round - wait for player action
     console.log(`[endRound] Phase is now: ${this.phase}`);

@@ -324,7 +324,7 @@ export const GameTable: React.FC<GameTableProps> = ({
   // Compute winner and standings if needed
   const computedWinner = (() => {
     if (winner) return winner;
-    if (phase !== GamePhase.GAME_END) return null;
+    if (phase !== GamePhase.GAME_END && phase !== GamePhase.ROUND_END) return null;
     
     let maxWins = 0;
     let topPlayer: Player | undefined;
@@ -346,7 +346,7 @@ export const GameTable: React.FC<GameTableProps> = ({
   })();
 
   const computedStandings = finalStandings || (() => {
-    if (phase !== GamePhase.GAME_END) return null;
+    if (phase !== GamePhase.GAME_END && phase !== GamePhase.ROUND_END) return null;
     return Array.from(players.values()).map(p => ({
       playerId: p.id,
       name: p.name,
@@ -354,6 +354,21 @@ export const GameTable: React.FC<GameTableProps> = ({
       losses: p.losses
     })).sort((a, b) => b.wins - a.wins);
   })();
+  
+  // Production debugging for GameOver rendering
+  useEffect(() => {
+    if (!import.meta.env.DEV && (phase === GamePhase.GAME_END || phase === GamePhase.ROUND_END)) {
+      console.warn('PRODUCTION DEBUG: GameTable END state', {
+        phase,
+        hasWinner: !!winner,
+        hasComputedWinner: !!computedWinner,
+        hasFinalStandings: !!finalStandings,
+        hasComputedStandings: !!computedStandings,
+        willShowGameOver: !!((phase === GamePhase.GAME_END || phase === GamePhase.ROUND_END) && computedWinner && computedStandings),
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [phase, winner, computedWinner, finalStandings, computedStandings]);
 
   // Get animation start position based on player
   const getAnimationStartPosition = (playerId: string) => {
@@ -758,14 +773,33 @@ export const GameTable: React.FC<GameTableProps> = ({
       />
 
       {/* Game Over Dialog */}
-      {phase === GamePhase.GAME_END && computedWinner && computedStandings && (
-        <GameOver
-          winner={computedWinner}
-          finalStandings={computedStandings}
-          onPlayAgain={onPlayAgain}
-          onLeaveGame={onLeaveGame}
-        />
-      )}
+      {(() => {
+        // Debug logging for production
+        if ((phase === GamePhase.GAME_END || phase === GamePhase.ROUND_END) && !import.meta.env.DEV) {
+          console.warn('PRODUCTION DEBUG: GameTable END state', {
+            phase,
+            hasComputedWinner: !!computedWinner,
+            computedWinner,
+            hasComputedStandings: !!computedStandings,
+            computedStandings,
+            winner: winner,
+            finalStandings: finalStandings
+          });
+        }
+        
+        // Show GameOver on ROUND_END (which is when a game actually ends)
+        if ((phase === GamePhase.GAME_END || phase === GamePhase.ROUND_END) && computedWinner && computedStandings) {
+          return (
+            <GameOver
+              winner={computedWinner}
+              finalStandings={computedStandings}
+              onPlayAgain={onPlayAgain}
+              onLeaveGame={onLeaveGame}
+            />
+          );
+        }
+        return null;
+      })()}
     </div>
   );
 };
