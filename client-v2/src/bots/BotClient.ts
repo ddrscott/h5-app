@@ -293,6 +293,8 @@ export class BotClient implements IBotClient {
     // Debug log leader changes
     if (isLeader && (!this.gameContext || !this.gameContext.isLeader)) {
       console.log(`[${this.config.name}] I just became the leader! leadPlayerId=${state.leadPlayerId}, mySessionId=${this.room.sessionId}`);
+    } else if (!isLeader && this.gameContext && this.gameContext.isLeader) {
+      console.log(`[${this.config.name}] I'm no longer the leader. New leader=${state.leadPlayerId}, mySessionId=${this.room.sessionId}`);
     }
   }
 
@@ -340,6 +342,16 @@ export class BotClient implements IBotClient {
       
       console.log(`[${this.config.name}] Decision received:`, decision);
       
+      // Validate decision - leaders shouldn't pass when there's no current meld
+      if (decision.action === 'pass' && this.gameContext.isLeader && !this.gameContext.currentMeld) {
+        console.error(`[${this.config.name}] Strategy returned invalid pass decision for leader!`);
+        console.error(`[${this.config.name}] Context at decision time:`, {
+          isLeader: this.gameContext.isLeader,
+          currentMeld: this.gameContext.currentMeld,
+          validPlaysFound: decision.reasoning
+        });
+      }
+      
       // Execute the decision
       if (decision.action === 'play' && decision.cards && decision.cards.length > 0) {
         this.playCards(decision.cards);
@@ -380,6 +392,28 @@ export class BotClient implements IBotClient {
 
   private pass(): void {
     if (!this.room) return;
+    
+    // Final validation before passing - check current state
+    const currentState = this.room.state as any;
+    const isCurrentlyLeader = currentState?.leadPlayerId === this.room.sessionId;
+    const hasCurrentMeld = !!currentState?.currentMeld;
+    
+    if (isCurrentlyLeader && !hasCurrentMeld) {
+      console.error(`[${this.config.name}] CRITICAL: About to pass as leader with no meld! Preventing pass.`);
+      console.error(`[${this.config.name}] State details:`, {
+        leadPlayerId: currentState?.leadPlayerId,
+        mySessionId: this.room.sessionId,
+        currentMeld: currentState?.currentMeld,
+        phase: currentState?.phase
+      });
+      // Force play instead
+      if (this.myHand.length > 0) {
+        console.log(`[${this.config.name}] Emergency: Playing lowest card instead of passing`);
+        const sortedHand = [...this.myHand].sort((a, b) => a.rank - b.rank);
+        this.playCards([sortedHand[0]]);
+        return;
+      }
+    }
     
     console.log(`Bot ${this.config.name} passing`);
     
