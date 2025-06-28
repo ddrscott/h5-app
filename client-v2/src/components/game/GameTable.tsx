@@ -132,7 +132,7 @@ export const GameTable: React.FC<GameTableProps> = ({
   };
 
   // Global wheel handler for player hand rotation
-  const handleWheel = (e: React.WheelEvent) => {
+  const handleWheel = React.useCallback((e: WheelEvent) => {
     e.preventDefault();
     const sensitivity = 0.3;
     const deltaRotation = e.deltaX * sensitivity;
@@ -149,7 +149,7 @@ export const GameTable: React.FC<GameTableProps> = ({
         animateToRotation(bounceTarget, 200);
       }
     }, 100);
-  };
+  }, [handRotationOffset, animateToRotation, applyElasticResistance, maxRotationLeft, maxRotationRight]);
 
   // Detect when cards should sweep (when trickMelds becomes empty after having cards)
   const prevTrickMeldsLength = React.useRef(0);
@@ -414,8 +414,21 @@ export const GameTable: React.FC<GameTableProps> = ({
     };
   }, []);
 
+  // Wheel event handler with passive: false
+  React.useEffect(() => {
+    const container = document.querySelector('.felt-texture');
+    if (!container) return;
+
+    // Add wheel event with passive: false to allow preventDefault
+    container.addEventListener('wheel', handleWheel as EventListener, { passive: false });
+    
+    return () => {
+      container.removeEventListener('wheel', handleWheel as EventListener);
+    };
+  }, [handleWheel]);
+
   return (
-    <div className="fixed inset-0 felt-texture overflow-hidden" onWheel={handleWheel}>
+    <div className="fixed inset-0 felt-texture overflow-hidden">
         <CircleText className="absolute inset-0 pointer-events-none" />
 
 
@@ -705,7 +718,7 @@ export const GameTable: React.FC<GameTableProps> = ({
         )}
 
         {/* Action Buttons - Above Cards */}
-        {isMyTurn && (
+        {isMyTurn && phase === GamePhase.PLAYING && (
           <div className="absolute bottom-[1em] left-1/2 transform -translate-x-1/2 flex space-x-3 z-30">
             <button
               onClick={onPass}
@@ -729,7 +742,7 @@ export const GameTable: React.FC<GameTableProps> = ({
         )}
 
         {/* Turn Indicator */}
-        {!isMyTurn && currentTurnPlayerId && (
+        {!isMyTurn && currentTurnPlayerId && phase === GamePhase.PLAYING && (
           <div className="absolute bottom-28 left-1/2 transform -translate-x-1/2 z-30">
             <div className="bg-gray-900/90 backdrop-blur-sm px-4 py-2 rounded-lg">
               <p className="text-sm">
