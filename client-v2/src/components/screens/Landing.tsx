@@ -264,7 +264,12 @@ export const Landing: React.FC = () => {
                 style={{ border: 'none' }}
               />
             </div>
-            <p className="text-center text-sm text-gray-400">Play directly here →</p>
+            <Link 
+              to="/play" 
+              className="text-center text-sm text-gray-400 hover:text-gold transition-colors block"
+            >
+              Play directly here →
+            </Link>
           </div>
         </div>
       </div>
