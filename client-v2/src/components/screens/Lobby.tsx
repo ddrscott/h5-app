@@ -4,6 +4,7 @@ import { Card } from '../ui/Card';
 import { PlayerPlaceholders } from './PlayerPlaceholders';
 import { BOT_CONFIGS } from '../../bots/configs';
 import BotManagerSingleton from '../../bots/BotManagerSingleton';
+import { DialogBox } from '../ui/DialogBox';
 
 interface LobbyProps {
   roomId: string;
@@ -222,8 +223,10 @@ export const Lobby: React.FC<LobbyProps> = ({
 
       {/* Leave Confirmation Modal */}
       {showLeaveConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-sm">
+        <>
+          {/* Dimmed background for modal */}
+          <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowLeaveConfirm(false)} />
+          <DialogBox className="max-w-sm">
             <h3 className="text-lg font-bold mb-3">Leave Room?</h3>
             <p className="text-gray-300 mb-4">Are you sure you want to leave the room?</p>
             <div className="flex space-x-3">
@@ -243,8 +246,8 @@ export const Lobby: React.FC<LobbyProps> = ({
                 Cancel
               </button>
             </div>
-          </div>
-        </div>
+          </DialogBox>
+        </>
       )}
     </div>
   );

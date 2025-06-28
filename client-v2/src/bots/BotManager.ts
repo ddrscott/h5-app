@@ -63,6 +63,13 @@ export class BotManager {
   }
 
   /**
+   * Disconnect all bots (alias for removeAllBots)
+   */
+  disconnectAll(): void {
+    this.removeAllBots();
+  }
+
+  /**
    * Get all active bots
    */
   getBots(): BotClient[] {

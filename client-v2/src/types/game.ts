@@ -81,8 +81,8 @@ export interface ChatMessage {
 export interface GameState {
   phase: GamePhase;
   currentRound: number;
-  currentTurnPlayerId: string;
-  leadPlayerId: string;
+  currentTurnPlayerId: string | null;
+  leadPlayerId: string | null;
   players: Map<string, Player>;
   currentMeld: Meld | null;
   consecutivePasses: number;
@@ -91,6 +91,17 @@ export interface GameState {
   deck?: Card[];
   discardPile?: Card[];
   chatMessages?: ChatMessage[];
+  winner?: {
+    id: string;
+    name: string;
+    wins: number;
+  };
+  finalStandings?: {
+    playerId: string;
+    name: string;
+    wins: number;
+    losses: number;
+  }[];
 }
 
 // Common 3-4 letter names for random default

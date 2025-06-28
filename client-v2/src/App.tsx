@@ -7,6 +7,7 @@ import { GameTable } from './components/game/GameTable';
 import { CardGallery } from './components/screens/CardGallery';
 import { AnimationTest } from './components/screens/AnimationTest';
 import { LayoutTest } from './components/screens/LayoutTest';
+import { TestGameApp } from './components/screens/TestGameApp';
 import { useColyseus } from './contexts/ColyseusContext';
 import { useGameState } from './hooks/useGameState';
 import { GamePhase } from './types/game';
@@ -35,10 +36,15 @@ function GameApp() {
 
   // Update app state based on connection and game phase
   useEffect(() => {
+    console.log('[App] Phase update:', gameState.phase, 'isConnected:', isConnected, 'room:', !!room, 'appState:', appState);
     if (isConnected && room) {
-      if (gameState.phase === GamePhase.PLAYING) {
+      if (gameState.phase === GamePhase.PLAYING || 
+          gameState.phase === GamePhase.GAME_END ||
+          gameState.phase === GamePhase.ROUND_END) {
+        console.log('[App] Setting appState to game');
         setAppState('game');
       } else {
+        console.log('[App] Setting appState to lobby');
         setAppState('lobby');
       }
     }
@@ -170,10 +176,14 @@ function GameApp() {
         lastTrickMelds={gameState.lastTrickMelds}
         lastError={gameState.lastError}
         lastNotification={gameState.lastNotification}
+        phase={gameState.phase}
+        winner={gameState.winner}
+        finalStandings={gameState.finalStandings}
         onCardSelect={gameState.toggleCardSelection}
         onPlayCards={gameState.playCards}
         onPass={gameState.pass}
         onLeaveGame={handleLeaveRoom}
+        onPlayAgain={handleStartGame}
       />
     );
   }
@@ -193,6 +203,7 @@ function App() {
         } />
         <Route path="/animation" element={<AnimationTest />} />
         <Route path="/layouts" element={<LayoutTest />} />
+        <Route path="/test-01" element={<TestGameApp />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

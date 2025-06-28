@@ -7,20 +7,36 @@ export interface HeartOfFiveOptions {
   maxPlayers?: number;
   targetWins?: number;
   autoStart?: boolean;
+  testMode?: boolean;
+  testDeckSize?: number; // Number of cards per player for test mode
+  testDeck?: string; // Exact deck specification for test mode (e.g., "5H 6H 7H 8H 5C 3C 4C 5C")
 }
 
 export class HeartOfFive extends Room<GameState> {
   minPlayers: number = 4;
   maxClients: number = 8;
   autoStartTimeout: NodeJS.Timeout;
+  testMode: boolean = false;
+  testDeckSize: number = 0;
+  testDeck: string = "";
 
   onCreate(options: HeartOfFiveOptions) {
     this.minPlayers = options.minPlayers || 4;
     this.maxClients = options.maxPlayers || 8;
+    this.testMode = options.testMode || false;
+    this.testDeckSize = options.testDeckSize || 0;
+    this.testDeck = options.testDeck || "";
     
     this.state = new GameState();
     this.state.roomId = this.roomId;
     this.state.targetWins = options.targetWins || 10;
+    
+    // Pass test mode settings to GameState
+    if (this.testMode) {
+      this.state.targetWins = 2; // Quick games for testing
+      this.state.testDeckSize = this.testDeckSize;
+      this.state.testDeck = this.testDeck;
+    }
     
     this.setupMessageHandlers();
     this.setupStateMonitoring();
@@ -85,10 +101,18 @@ export class HeartOfFive extends Room<GameState> {
     });
 
     this.onMessage("startGame", (client, message) => {
-      // Allow starting a new round after ROUND_END
-      if (this.state.phase === GamePhase.ROUND_END || this.state.phase === GamePhase.WAITING) {
+      // Allow starting a new round/game after ROUND_END, GAME_END, or WAITING
+      if (this.state.phase === GamePhase.ROUND_END || 
+          this.state.phase === GamePhase.GAME_END ||
+          this.state.phase === GamePhase.WAITING) {
         if (this.state.players.size >= 2) {
-          console.log("Starting new round/game...");
+          console.log("Starting new round/game from phase:", this.state.phase);
+          
+          // If starting from GAME_END, reset the game completely
+          if (this.state.phase === GamePhase.GAME_END) {
+            this.resetGame();
+          }
+          
           this.startGame();
         } else {
           client.send("error", { message: "Need at least 2 players to start" });
@@ -97,7 +121,11 @@ export class HeartOfFive extends Room<GameState> {
     });
 
     this.onMessage("play", (client, message: { cards: string[] }) => {
-      if (this.state.phase !== GamePhase.PLAYING) return;
+      // Allow playing during PLAYING phase only
+      if (this.state.phase !== GamePhase.PLAYING) {
+        console.log('[play] Ignoring play - not in PLAYING phase, current phase:', this.state.phase);
+        return;
+      }
       
       const player = this.state.players.get(client.sessionId);
       if (!player || player.id !== this.state.currentTurnPlayerId) {
@@ -147,14 +175,21 @@ export class HeartOfFive extends Room<GameState> {
         this.state.addChatMessage(client.sessionId, `(played) ${cardCodes}`);
       }
       
-      // Check if the round ended after this play
-      if ((this.state.phase as GamePhase) === GamePhase.ROUND_END) {
+      // Check if the round or game ended after this play
+      // Note: The phase may have changed after playMeld()
+      const phaseAfterPlay = this.state.phase as GamePhase;
+      if (phaseAfterPlay === GamePhase.ROUND_END || phaseAfterPlay === GamePhase.GAME_END) {
+        console.log('[play] Round/game ended, phase is now:', phaseAfterPlay);
         this.handleRoundEnd();
       }
     });
 
     this.onMessage("pass", (client) => {
-      if (this.state.phase !== GamePhase.PLAYING) return;
+      // Allow passing during PLAYING phase only
+      if (this.state.phase !== GamePhase.PLAYING) {
+        console.log('[pass] Ignoring pass - not in PLAYING phase, current phase:', this.state.phase);
+        return;
+      }
       
       const previousLeader = this.state.leadPlayerId;
       const success = this.state.pass(client.sessionId);
@@ -194,8 +229,11 @@ export class HeartOfFive extends Room<GameState> {
         }
       }
       
-      // Check if the round ended after this pass
-      if ((this.state.phase as GamePhase) === GamePhase.ROUND_END) {
+      // Check if the round or game ended after this pass
+      // Note: The phase may have changed after pass()
+      const phaseAfterPass = this.state.phase as GamePhase;
+      if (phaseAfterPass === GamePhase.ROUND_END || phaseAfterPass === GamePhase.GAME_END) {
+        console.log('[pass] Round/game ended, phase is now:', phaseAfterPass);
         this.handleRoundEnd();
       }
     });
@@ -214,18 +252,29 @@ export class HeartOfFive extends Room<GameState> {
   }
 
   private handleGameEnd() {
+    console.log('[handleGameEnd] Called. Current phase:', this.state.phase);
+    
+    // Ensure we're in GAME_END phase
+    if (this.state.phase !== GamePhase.GAME_END) {
+      console.error('[handleGameEnd] Called but phase is not GAME_END:', this.state.phase);
+      return;
+    }
+    
     // Find the overall winner
     let winner: Player | null = null;
     let maxWins = 0;
     
     this.state.players.forEach(player => {
+      console.log(`[handleGameEnd] Player ${player.name}: ${player.wins} wins`);
       if (player.wins > maxWins) {
         maxWins = player.wins;
         winner = player;
       }
     });
     
-    this.broadcast("game_ended", {
+    console.log('[handleGameEnd] Winner:', winner?.name, 'with', winner?.wins, 'wins');
+    
+    const gameEndData = {
       winner: winner ? {
         id: winner.id,
         name: winner.name,
@@ -237,7 +286,10 @@ export class HeartOfFive extends Room<GameState> {
         wins: p.wins,
         losses: p.losses
       })).sort((a, b) => b.wins - a.wins)
-    });
+    };
+    
+    console.log('[handleGameEnd] Broadcasting game_ended with data:', JSON.stringify(gameEndData, null, 2));
+    this.broadcast("game_ended", gameEndData);
     
     if (winner) {
       this.state.addSystemMessage(`🎉 Game Over! ${winner.name} won with ${winner.wins} rounds!`, "success");
@@ -306,6 +358,23 @@ export class HeartOfFive extends Room<GameState> {
     }
   }
 
+  private resetGame() {
+    console.log("Resetting game for new game");
+    // Reset all player wins/losses
+    this.state.players.forEach(player => {
+      player.wins = 0;
+      player.losses = 0;
+      player.position = 0;
+    });
+    
+    // Reset round counter
+    this.state.currentRound = 0;
+    this.state.roundWinnerId = null;
+    
+    // Set phase to WAITING so startGame can proceed
+    this.state.phase = GamePhase.WAITING;
+  }
+
   private startGame() {
     // Allow starting from WAITING or ROUND_END phases
     if (this.state.phase !== GamePhase.WAITING && this.state.phase !== GamePhase.ROUND_END) {
@@ -332,7 +401,7 @@ export class HeartOfFive extends Room<GameState> {
     }
 
     this.state.initializeDeck();
-    this.state.dealCards();
+    this.state.dealCards(this.testDeckSize);
     
     // Send each player their own hand privately
     this.state.players.forEach((player, playerId) => {
@@ -394,6 +463,11 @@ export class HeartOfFive extends Room<GameState> {
   }
 
   private handleRoundEnd() {
+    console.log('[handleRoundEnd] Phase:', this.state.phase, 'RoundWinnerId:', this.state.roundWinnerId);
+    
+    // Check if game is ending BEFORE broadcasting round_ended
+    const isGameEnding = this.state.phase === GamePhase.GAME_END;
+    
     this.broadcast("round_ended", {
       winner: this.state.roundWinnerId,
       standings: Array.from(this.state.players.values()).map(p => ({
@@ -410,7 +484,10 @@ export class HeartOfFive extends Room<GameState> {
       this.state.addSystemMessage(`🏆 Round ended! ${winner.name} won and will lead the next round!`, "info");
     }
     
-    if (this.state.phase === GamePhase.GAME_END) {
+    // Handle game end if needed
+    if (isGameEnding) {
+      console.log('[handleRoundEnd] Game has ended, calling handleGameEnd immediately');
+      // Call handleGameEnd immediately instead of with delay
       this.handleGameEnd();
     } else {
       // Don't auto-start next round - wait for player action

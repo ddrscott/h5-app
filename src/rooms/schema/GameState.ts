@@ -363,10 +363,61 @@ export class GameState extends Schema {
   @type("boolean") bombPlayed: boolean = false;
   
   @type([ChatMessage]) chatMessages = new ArraySchema<ChatMessage>();
+  
+  // Test mode properties (not synced)
+  testDeckSize: number = 0;
+  testDeck: string = "";
 
   initializeDeck() {
     this.deck.clear();
     
+    // Test mode: use exact deck specification
+    if (this.testDeck) {
+      const cards = this.testDeck.split(' ');
+      for (const cardStr of cards) {
+        if (cardStr.length >= 2) {
+          const rankStr = cardStr.slice(0, -1);
+          const suitStr = cardStr.slice(-1);
+          
+          // Parse suit
+          let suit: Suit;
+          switch (suitStr) {
+            case 'H': suit = Suit.HEARTS; break;
+            case 'D': suit = Suit.DIAMONDS; break;
+            case 'C': suit = Suit.CLUBS; break;
+            case 'S': suit = Suit.SPADES; break;
+            default: continue; // Skip invalid cards
+          }
+          
+          // Parse rank
+          let rank: Rank;
+          switch (rankStr) {
+            case '3': rank = Rank.THREE; break;
+            case '4': rank = Rank.FOUR; break;
+            case '5': rank = Rank.FIVE; break;
+            case '6': rank = Rank.SIX; break;
+            case '7': rank = Rank.SEVEN; break;
+            case '8': rank = Rank.EIGHT; break;
+            case '9': rank = Rank.NINE; break;
+            case '10': rank = Rank.TEN; break;
+            case 'J': rank = Rank.JACK; break;
+            case 'Q': rank = Rank.QUEEN; break;
+            case 'K': rank = Rank.KING; break;
+            case 'A': rank = Rank.ACE; break;
+            case '2': rank = Rank.TWO; break;
+            default: continue; // Skip invalid cards
+          }
+          
+          this.deck.push(new Card(suit, rank));
+        }
+      }
+      
+      console.log(`Test deck created with ${this.deck.length} cards`);
+      // Don't shuffle test deck
+      return;
+    }
+    
+    // Normal deck creation
     for (let d = 0; d < this.numberOfDecks; d++) {
       // Add regular cards (exclude JOKER suit)
       for (const suit of [Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES]) {
@@ -415,7 +466,7 @@ export class GameState extends Schema {
     cards.forEach(card => this.deck.push(card));
   }
 
-  dealCards() {
+  dealCards(testDeckSize: number = 0) {
     this.phase = GamePhase.DEALING;
     const playerIds = Array.from(this.players.keys());
     
@@ -427,6 +478,47 @@ export class GameState extends Schema {
       player.isOut = false;
       player.hasPassed = false;
     });
+    
+    // Test mode: deal specific number of cards per player
+    if (testDeckSize > 0 || this.testDeck) {
+      const cardsPerPlayer = testDeckSize || Math.floor(this.deck.length / playerIds.length);
+      let cardIndex = 0;
+      
+      // Use turnOrder to ensure first player (human) gets first cards
+      const orderedPlayerIds = this.turnOrder.length > 0 ? 
+        Array.from(this.turnOrder) : playerIds;
+      
+      // Deal cards in order (first player gets first cards)
+      for (let i = 0; i < cardsPerPlayer; i++) {
+        orderedPlayerIds.forEach(playerId => {
+          const player = this.players.get(playerId);
+          if (player && cardIndex < this.deck.length) {
+            player.addCard(this.deck[cardIndex]);
+            cardIndex++;
+          }
+        });
+      }
+      
+      // Sort hands
+      orderedPlayerIds.forEach(playerId => {
+        const player = this.players.get(playerId);
+        if (player) {
+          player.sortHand();
+          console.log(`Player ${player.name} dealt: ${player.hand.map(c => c.code).join(' ')}`);
+        }
+      });
+      
+      // Move any remaining cards to discard pile
+      while (cardIndex < this.deck.length) {
+        this.discardPile.push(this.deck[cardIndex]);
+        cardIndex++;
+      }
+      
+      console.log(`Test mode: Dealt ${cardsPerPlayer} cards to each player`);
+      this.phase = GamePhase.PLAYING;
+      this.findStartingPlayer();
+      return;
+    }
     
     // Calculate how many cards to deal
     let cardsToDeal = this.deck.length;
@@ -484,6 +576,8 @@ export class GameState extends Schema {
       // For rounds > 0, the previous round winner leads
       startingPlayerId = this.roundWinnerId;
       console.log(`Round ${this.currentRound}: Previous winner ${startingPlayerId} will lead`);
+      // Clear roundWinnerId after using it so next round's winner can be properly tracked
+      this.roundWinnerId = null;
     }
     
     if (!startingPlayerId && this.turnOrder.length > 0) {
@@ -702,10 +796,13 @@ export class GameState extends Schema {
     const winner = this.players.get(this.roundWinnerId);
     if (winner && winner.wins >= this.targetWins) {
       this.phase = GamePhase.GAME_END;
+      console.log(`[endRound] Game ended! Winner: ${winner.name} with ${winner.wins} wins (target was ${this.targetWins})`);
+    } else {
+      console.log(`[endRound] Round ${this.currentRound} ended. Winner: ${this.roundWinnerId}, wins: ${winner?.wins || 0}/${this.targetWins}`);
     }
     
     // Don't automatically start new round - wait for player action
-    console.log(`Round ${this.currentRound} ended. Winner: ${this.roundWinnerId}`);
+    console.log(`[endRound] Phase is now: ${this.phase}`);
   }
 
   startNewRound() {
@@ -744,7 +841,7 @@ export class GameState extends Schema {
     console.log(`resetForNewRound: Preserving roundWinnerId=${this.roundWinnerId} for round ${this.currentRound}`);
     
     this.initializeDeck();
-    this.dealCards();
+    this.dealCards(this.testDeckSize);
     
     // dealCards() will set phase to PLAYING and call findStartingPlayer()
     // which will use the preserved roundWinnerId

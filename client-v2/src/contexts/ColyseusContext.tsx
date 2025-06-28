@@ -10,7 +10,7 @@ interface ColyseusContextType {
   myPlayerId: string | null;
   isConnected: boolean;
   error: string | null;
-  createRoom: (playerName: string) => Promise<void>;
+  createRoom: (playerName: string, options?: any) => Promise<void>;
   joinRoom: (playerName: string, roomId?: string) => Promise<void>;
   leaveRoom: () => void;
 }
@@ -62,17 +62,23 @@ export const ColyseusProvider: React.FC<ColyseusProviderProps> = ({
     setClient(colyseusClient);
   }, [serverUrl]);
 
-  const createRoom = async (playerName: string) => {
-    if (!client) return;
+  const createRoom = async (playerName: string, options: any = {}) => {
+    console.log('createRoom called with:', playerName, options, 'client exists:', !!client);
+    if (!client) {
+      console.error('No client available!');
+      return;
+    }
     
     try {
       setError(null);
-      const newRoom = await client.create<GameState>('heartoffive', { name: playerName });
-      console.log('Created room:', newRoom.roomId);
+      console.log('Calling client.create...');
+      const newRoom = await client.create<GameState>('heartoffive', { name: playerName, ...options });
+      console.log('Created room:', newRoom.roomId, 'sessionId:', newRoom.sessionId);
       setRoom(newRoom);
       setRoomId(newRoom.roomId);
       setMyPlayerId(newRoom.sessionId);
       setIsConnected(true);
+      console.log('Room state updated - should be connected now');
       
       // Update URL with room ID
       const url = new URL(window.location.href);

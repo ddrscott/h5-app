@@ -10,7 +10,20 @@ export const AnimationTest: React.FC = () => {
   const [handCount, setHandCount] = useState(0);
   const [allHands, setAllHands] = useState<Array<{cards: any[], rotation: number, key: string, isFromHand?: boolean, isOld?: boolean}>>([]);
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
+  const [handRotationOffset, setHandRotationOffset] = useState(0);
+  const [isDraggingHand, setIsDraggingHand] = useState(false);
   const { animatingCards, animationConfig, animateCards, clearAnimation } = useAnimatedCards();
+  
+  // Hand rotation helpers
+  const animateToRotation = (targetRotation: number, duration: number = 300) => {
+    // Simple version for animation test
+    setHandRotationOffset(targetRotation);
+  };
+  
+  const applyElasticResistance = (targetRotation: number) => {
+    // Simple version without elastic resistance
+    return targetRotation;
+  };
   
   // Sample hand of cards
   const hand = [
@@ -185,6 +198,12 @@ export const AnimationTest: React.FC = () => {
               return newSet;
             });
           }}
+          rotationOffset={handRotationOffset}
+          setRotationOffset={setHandRotationOffset}
+          isDragging={isDraggingHand}
+          setIsDragging={setIsDraggingHand}
+          animateToRotation={animateToRotation}
+          applyElasticResistance={applyElasticResistance}
         />
         
         {/* Animation Info */}

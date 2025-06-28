@@ -24,6 +24,17 @@ interface GameStateData {
   lastNotification: string | null;
   deckCount: number;
   discardTop: Card | null;
+  winner?: {
+    id: string;
+    name: string;
+    wins: number;
+  };
+  finalStandings?: {
+    playerId: string;
+    name: string;
+    wins: number;
+    losses: number;
+  }[];
 }
 
 export const useGameState = () => {
@@ -107,21 +118,33 @@ export const useGameState = () => {
         console.log('State has trickMelds:', trickMelds);
       }
       
-      setGameState(prev => ({
-        ...prev,
-        phase: state.phase,
-        currentRound: state.currentRound,
-        currentTurnPlayerId: state.currentTurnPlayerId,
-        leadPlayerId: state.leadPlayerId,
-        players: new Map(state.players),
-        currentMeld: state.currentMeld,
-        consecutivePasses: state.consecutivePasses,
-        trickMelds,
-        lastTrickMelds,
-        isMyTurn,
-        chatMessages,
-        deckCount,
-      }));
+      setGameState(prev => {
+        // Use the actual phase from state
+        const newPhase = state.phase;
+        
+        // Debug log phase changes
+        if (prev.phase !== newPhase) {
+          console.log('[useGameState] Phase changing from', prev.phase, 'to', newPhase);
+        }
+        
+        return {
+          ...prev,
+          phase: newPhase,
+          currentRound: state.currentRound,
+          currentTurnPlayerId: state.currentTurnPlayerId,
+          leadPlayerId: state.leadPlayerId,
+          players: new Map(state.players),
+          currentMeld: state.currentMeld,
+          consecutivePasses: state.consecutivePasses,
+          trickMelds,
+          lastTrickMelds,
+          isMyTurn,
+          chatMessages,
+          deckCount,
+          // Preserve winner and finalStandings if we have them and are still in GAME_END phase
+          ...(newPhase === GamePhase.GAME_END && prev.winner ? { winner: prev.winner, finalStandings: prev.finalStandings } : {})
+        };
+      });
     });
 
     // Listen for hand updates
@@ -154,7 +177,10 @@ export const useGameState = () => {
         leadPlayerId: data.leadPlayer,
         currentRound: data.round,
         phase: GamePhase.PLAYING,
-        isMyTurn: data.currentTurn === myPlayerId
+        isMyTurn: data.currentTurn === myPlayerId,
+        // Clear game end data when starting a new game
+        winner: undefined,
+        finalStandings: undefined
       }));
     });
 
@@ -204,6 +230,22 @@ export const useGameState = () => {
     room.onMessage('round_ended', (data: { winner: string, standings: any[] }) => {
       console.log('Round ended! Winner:', data.winner);
       console.log('Standings:', data.standings);
+      
+      // Update player wins/losses from standings
+      setGameState(prev => {
+        const updatedPlayers = new Map(prev.players);
+        data.standings.forEach(standing => {
+          const player = updatedPlayers.get(standing.playerId);
+          if (player) {
+            player.wins = standing.wins;
+            player.losses = standing.losses;
+          }
+        });
+        return {
+          ...prev,
+          players: updatedPlayers
+        };
+      });
     });
 
     // Listen for new round
@@ -219,11 +261,23 @@ export const useGameState = () => {
 
     // Listen for game ended
     room.onMessage('game_ended', (data: { winner: any, finalStandings: any[] }) => {
-      console.log('Game ended!', data);
-      setGameState(prev => ({
-        ...prev,
-        phase: GamePhase.GAME_END
-      }));
+      console.log('[useGameState] *** GAME_ENDED MESSAGE RECEIVED ***');
+      console.log('[useGameState] Game ended! Setting phase to GAME_END', data);
+      console.log('[useGameState] Winner:', JSON.stringify(data.winner));
+      console.log('[useGameState] Final standings:', JSON.stringify(data.finalStandings));
+      
+      setGameState(prev => {
+        console.log('[useGameState] Previous phase was:', prev.phase, 'Setting to GAME_END');
+        console.log('[useGameState] Previous winner was:', prev.winner);
+        const newState = {
+          ...prev,
+          phase: GamePhase.GAME_END,
+          winner: data.winner,
+          finalStandings: data.finalStandings
+        };
+        console.log('[useGameState] New state will have winner:', newState.winner);
+        return newState;
+      });
     });
 
     // Listen for reconnection game state

@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import type { Card as CardType, Player, Meld } from '../../types/game';
+import { GamePhase } from '../../types/game';
 import { Card } from '../ui/Card';
 import { PlayerHand } from './PlayerHand';
 import { OtherHand } from './OtherHand';
 import { AnimatedCards } from '../animations/AnimatedCards';
 import { CircleText } from '../ui/CircleText';
+import { GameOver } from './GameOver';
+import { DialogBox } from '../ui/DialogBox';
 
 interface GameTableProps {
   players: Map<string, Player>;
@@ -12,8 +15,8 @@ interface GameTableProps {
   myHand: CardType[];
   selectedCards: Set<string>;
   currentMeld?: Meld | null;
-  currentTurnPlayerId: string;
-  leadPlayerId: string;
+  currentTurnPlayerId: string | null;
+  leadPlayerId: string | null;
   deckCount: number;
   discardTop?: CardType;
   consecutivePasses: number;
@@ -21,10 +24,23 @@ interface GameTableProps {
   lastTrickMelds: Meld[];
   lastError?: string | null;
   lastNotification?: string | null;
+  phase: GamePhase;
+  winner?: {
+    id: string;
+    name: string;
+    wins: number;
+  };
+  finalStandings?: {
+    playerId: string;
+    name: string;
+    wins: number;
+    losses: number;
+  }[];
   onCardSelect: (cardKey: string) => void;
   onPlayCards: () => void;
   onPass: () => void;
   onLeaveGame: () => void;
+  onPlayAgain: () => void;
 }
 
 export const GameTable: React.FC<GameTableProps> = ({
@@ -42,10 +58,14 @@ export const GameTable: React.FC<GameTableProps> = ({
   lastTrickMelds,
   lastError,
   lastNotification,
+  phase,
+  winner,
+  finalStandings,
   onCardSelect,
   onPlayCards,
   onPass,
   onLeaveGame,
+  onPlayAgain,
 }) => {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isSweeping, setIsSweeping] = useState(false);
@@ -301,6 +321,40 @@ export const GameTable: React.FC<GameTableProps> = ({
 
   const myPlayer = players.get(myPlayerId);
 
+  // Compute winner and standings if needed
+  const computedWinner = (() => {
+    if (winner) return winner;
+    if (phase !== GamePhase.GAME_END) return null;
+    
+    let maxWins = 0;
+    let topPlayer: Player | undefined;
+    players.forEach(player => {
+      if (player.wins > maxWins) {
+        maxWins = player.wins;
+        topPlayer = player;
+      }
+    });
+    
+    if (!topPlayer) return null;
+    
+    const tp = topPlayer; // Create a const binding
+    return {
+      id: tp.id,
+      name: tp.name,
+      wins: tp.wins
+    };
+  })();
+
+  const computedStandings = finalStandings || (() => {
+    if (phase !== GamePhase.GAME_END) return null;
+    return Array.from(players.values()).map(p => ({
+      playerId: p.id,
+      name: p.name,
+      wins: p.wins,
+      losses: p.losses
+    })).sort((a, b) => b.wins - a.wins);
+  })();
+
   // Get animation start position based on player
   const getAnimationStartPosition = (playerId: string) => {
     if (playerId === myPlayerId) {
@@ -366,8 +420,10 @@ export const GameTable: React.FC<GameTableProps> = ({
 
       {/* Leave Confirmation Modal */}
       {showLeaveConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-sm">
+        <>
+          {/* Dimmed background for modal */}
+          <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowLeaveConfirm(false)} />
+          <DialogBox className="max-w-sm">
             <h3 className="text-lg font-bold mb-3">Leave Game?</h3>
             <p className="text-gray-300 mb-4">Are you sure you want to leave the game?</p>
             <div className="flex space-x-3">
@@ -387,8 +443,8 @@ export const GameTable: React.FC<GameTableProps> = ({
                 Cancel
               </button>
             </div>
-          </div>
-        </div>
+          </DialogBox>
+        </>
       )}
 
       {/* Game Table Area */}
@@ -658,7 +714,7 @@ export const GameTable: React.FC<GameTableProps> = ({
         )}
 
         {/* Turn Indicator */}
-        {!isMyTurn && (
+        {!isMyTurn && currentTurnPlayerId && (
           <div className="absolute bottom-28 left-1/2 transform -translate-x-1/2 z-30">
             <div className="bg-gray-900/90 backdrop-blur-sm px-4 py-2 rounded-lg">
               <p className="text-sm">
@@ -700,6 +756,16 @@ export const GameTable: React.FC<GameTableProps> = ({
         animateToRotation={animateToRotation}
         applyElasticResistance={applyElasticResistance}
       />
+
+      {/* Game Over Dialog */}
+      {phase === GamePhase.GAME_END && computedWinner && computedStandings && (
+        <GameOver
+          winner={computedWinner}
+          finalStandings={computedStandings}
+          onPlayAgain={onPlayAgain}
+          onLeaveGame={onLeaveGame}
+        />
+      )}
     </div>
   );
 };
