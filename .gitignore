@@ -5,3 +5,4 @@ build
 
 client/playwright-report
 client/test-results
+client-v2/dist

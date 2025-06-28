@@ -215,10 +215,10 @@ export const useGameState = () => {
           ? "🎯 You are the new leader!" 
           : `🎯 ${leaderName} is the new leader!`;
         
-        // Clear notification after 7 seconds (longer for better visibility)
+        // Clear notification after 1 second
         setTimeout(() => {
           setGameState(p => ({ ...p, lastNotification: null }));
-        }, 7000);
+        }, 2000);
         
         return { 
           ...prev, 

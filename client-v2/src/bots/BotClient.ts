@@ -342,6 +342,20 @@ export class BotClient implements IBotClient {
       
       console.log(`[${this.config.name}] Decision received:`, decision);
       
+      // Re-check if it's still our turn after async operation
+      const currentState = this.room.state as any;
+      if (currentState?.currentTurnPlayerId !== this.room.sessionId) {
+        console.log(`[${this.config.name}] Turn changed during decision making, aborting`);
+        return;
+      }
+      
+      // Re-check phase
+      const phaseStr = String(currentState?.phase).toUpperCase();
+      if (phaseStr !== 'PLAYING') {
+        console.log(`[${this.config.name}] Phase changed during decision making, aborting`);
+        return;
+      }
+      
       // Validate decision - leaders shouldn't pass when there's no current meld
       if (decision.action === 'pass' && this.gameContext.isLeader && !this.gameContext.currentMeld) {
         console.error(`[${this.config.name}] Strategy returned invalid pass decision for leader!`);
@@ -384,6 +398,20 @@ export class BotClient implements IBotClient {
   private playCards(cards: Card[]): void {
     if (!this.room) return;
     
+    // Validate we're still in PLAYING phase and it's still our turn
+    const currentState = this.room.state as any;
+    const phaseStr = String(currentState?.phase).toUpperCase();
+    
+    if (phaseStr !== 'PLAYING') {
+      console.log(`[${this.config.name}] Cannot play - game phase is ${currentState?.phase}, not PLAYING`);
+      return;
+    }
+    
+    if (currentState?.currentTurnPlayerId !== this.room.sessionId) {
+      console.log(`[${this.config.name}] Cannot play - not my turn anymore (current: ${currentState?.currentTurnPlayerId})`);
+      return;
+    }
+    
     const cardCodes = cards.map(c => c.code);
     console.log(`Bot ${this.config.name} playing:`, cardCodes);
     
@@ -393,8 +421,21 @@ export class BotClient implements IBotClient {
   private pass(): void {
     if (!this.room) return;
     
-    // Final validation before passing - check current state
+    // Validate we're still in PLAYING phase and it's still our turn
     const currentState = this.room.state as any;
+    const phaseStr = String(currentState?.phase).toUpperCase();
+    
+    if (phaseStr !== 'PLAYING') {
+      console.log(`[${this.config.name}] Cannot pass - game phase is ${currentState?.phase}, not PLAYING`);
+      return;
+    }
+    
+    if (currentState?.currentTurnPlayerId !== this.room.sessionId) {
+      console.log(`[${this.config.name}] Cannot pass - not my turn anymore (current: ${currentState?.currentTurnPlayerId})`);
+      return;
+    }
+    
+    // Final validation before passing - check current state
     const isCurrentlyLeader = currentState?.leadPlayerId === this.room.sessionId;
     const hasCurrentMeld = !!currentState?.currentMeld;
     

@@ -170,8 +170,10 @@ export class Meld extends Schema {
     if (!groupSizes.every(size => size === groupSize)) return false;
     
     // Check if ranks are consecutive
-    // For sisters, A and 2 are NOT consecutive (unlike in runs)
+    // For sisters, A (14) and 2 (15) ARE consecutive, making A-2 the highest possible sisters
     const sortedRanks = Array.from(rankGroups.keys()).sort((a, b) => a - b);
+    
+    // Check for normal consecutive ranks
     for (let i = 1; i < sortedRanks.length; i++) {
       if (sortedRanks[i] !== sortedRanks[i - 1] + 1) return false;
     }
@@ -186,10 +188,23 @@ export class Meld extends Schema {
     const ranks = [...new Set(this.cards.map(c => c.rank))];
     if (ranks.length !== this.cards.length) return false;
     
+    // Special case first: A-2-3-4-5 (wheel/steel wheel)
+    // This is the ONLY run that can contain a 2
+    if (ranks.includes(Rank.TWO)) {
+      // Check if we have exactly A-2-3-4-5
+      const wheelRanks = [Rank.ACE, Rank.TWO, Rank.THREE, Rank.FOUR, Rank.FIVE];
+      if (ranks.length === 5 && ranks.every(r => wheelRanks.includes(r))) {
+        return true;
+      }
+      // Any other run containing a 2 is invalid
+      return false;
+    }
+    
     // Sort ranks to check for consecutive sequence
     const sortedRanks = [...ranks].sort((a, b) => a - b);
     
     // Check if it's a normal consecutive run (e.g., 3-4-5-6-7 or 10-J-Q-K-A)
+    // Note: Cannot include 2 (already checked above)
     let isConsecutive = true;
     for (let i = 1; i < sortedRanks.length; i++) {
       if (sortedRanks[i] !== sortedRanks[i - 1] + 1) {
@@ -198,20 +213,7 @@ export class Meld extends Schema {
       }
     }
     
-    if (isConsecutive) return true;
-    
-    // Special case: A-2-3-4-5 (wheel/steel wheel)
-    // Check if we have A (14) and 2 (15) along with 3,4,5
-    if (ranks.includes(Rank.ACE) && ranks.includes(Rank.TWO) && 
-        ranks.includes(Rank.THREE) && ranks.includes(Rank.FOUR) && ranks.includes(Rank.FIVE)) {
-      // Make sure it's exactly these 5 cards
-      const wheelRanks = [Rank.ACE, Rank.TWO, Rank.THREE, Rank.FOUR, Rank.FIVE];
-      if (ranks.length === 5 && ranks.every(r => wheelRanks.includes(r))) {
-        return true;
-      }
-    }
-    
-    return false;
+    return isConsecutive;
   }
 
   private isStraightFlush(): boolean {
@@ -590,15 +592,40 @@ export class GameState extends Schema {
     this.leadPlayerId = startingPlayerId;
   }
 
-  playMeld(playerId: string, cards: Card[]): boolean {
-    const player = this.players.get(playerId);
-    if (!player || player.id !== this.currentTurnPlayerId) return false;
-    
-    // Players who are out cannot play
-    if (player.isOut) {
-      console.error(`Player ${playerId} is out but tried to play`);
+  canPlayerPlay(playerId: string): boolean {
+    // Must be in PLAYING phase
+    if (this.phase !== GamePhase.PLAYING) {
+      console.log(`[canPlayerPlay] Player ${playerId} cannot play - phase is ${this.phase}`);
       return false;
     }
+    
+    // Must be player's turn
+    if (this.currentTurnPlayerId !== playerId) {
+      console.log(`[canPlayerPlay] Player ${playerId} cannot play - not their turn (current: ${this.currentTurnPlayerId})`);
+      return false;
+    }
+    
+    // Player must exist and not be out
+    const player = this.players.get(playerId);
+    if (!player) {
+      console.log(`[canPlayerPlay] Player ${playerId} cannot play - player not found`);
+      return false;
+    }
+    
+    if (player.isOut) {
+      console.log(`[canPlayerPlay] Player ${playerId} cannot play - player is out`);
+      return false;
+    }
+    
+    return true;
+  }
+
+  playMeld(playerId: string, cards: Card[]): boolean {
+    if (!this.canPlayerPlay(playerId)) {
+      return false;
+    }
+    
+    const player = this.players.get(playerId);
     
     const meld = new Meld();
     meld.setCards(cards);
@@ -674,8 +701,22 @@ export class GameState extends Schema {
   }
 
   pass(playerId: string): boolean {
+    // Use same validation as play (except leader check comes later)
+    if (this.phase !== GamePhase.PLAYING) {
+      console.log(`[pass] Player ${playerId} cannot pass - phase is ${this.phase}`);
+      return false;
+    }
+    
+    if (this.currentTurnPlayerId !== playerId) {
+      console.log(`[pass] Player ${playerId} cannot pass - not their turn (current: ${this.currentTurnPlayerId})`);
+      return false;
+    }
+    
     const player = this.players.get(playerId);
-    if (!player || player.id !== this.currentTurnPlayerId) return false;
+    if (!player) {
+      console.log(`[pass] Player ${playerId} cannot pass - player not found`);
+      return false;
+    }
     
     // Players who are out cannot pass (they should be skipped)
     if (player.isOut) {
@@ -791,14 +832,16 @@ export class GameState extends Schema {
   }
 
   private endRound() {
+    // Immediately clear turn to prevent any more plays
+    const previousTurn = this.currentTurnPlayerId;
+    this.currentTurnPlayerId = null;
+    this.leadPlayerId = null;
+    
     this.phase = GamePhase.ROUND_END;
     
     const winner = this.players.get(this.roundWinnerId);
     console.log(`[endRound] Game ${this.currentRound} ended. Winner: ${winner?.name || 'Unknown'}, wins: ${winner?.wins || 0}`);
-    
-    // Clear current turn since the game is over
-    this.currentTurnPlayerId = null;
-    this.leadPlayerId = null;
+    console.log(`[endRound] Cleared turn from ${previousTurn} to null`);
     
     // Note: We no longer check targetWins - games continue indefinitely
     // The GAME_END phase is now legacy and only used if targetWins is explicitly set

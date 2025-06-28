@@ -635,18 +635,6 @@ export const GameTable: React.FC<GameTableProps> = ({
             );
           })}
           
-          {/* Leader message when center is empty */}
-          {!currentMeld && isMyTurn && isLeader && (
-            <div className="bg-gold/20 backdrop-blur-sm border-2 border-gold px-6 py-4 rounded-lg">
-              <p className="text-lg text-gold font-bold text-center">
-                You are the leader
-              </p>
-              <p className="text-sm text-gold text-center mt-1">
-                You may lead with any type
-              </p>
-            </div>
-          )}
-          
           {/* Deck and Discard indicators */}
           {!currentMeld && !isLeader && (
             <div className="flex items-center space-x-12">
@@ -743,7 +731,7 @@ export const GameTable: React.FC<GameTableProps> = ({
 
         {/* Turn Indicator */}
         {!isMyTurn && currentTurnPlayerId && phase === GamePhase.PLAYING && (
-          <div className="absolute bottom-28 left-1/2 transform -translate-x-1/2 z-30">
+          <div className="absolute bottom-[11em] left-1/2 transform -translate-x-1/2 z-30">
             <div className="bg-gray-900/90 backdrop-blur-sm px-4 py-2 rounded-lg">
               <p className="text-sm">
                 Waiting for <span className="text-gold font-bold">
@@ -751,6 +739,20 @@ export const GameTable: React.FC<GameTableProps> = ({
                 </span>
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Leader message when center is empty */}
+        {!currentMeld && isMyTurn && isLeader && (
+          <div className="absolute bottom-[11em] left-1/2 transform -translate-x-1/2 z-30">
+          <div className="bg-gold/20 backdrop-blur-sm border-2 border-gold px-6 py-4 rounded-lg">
+            <p className="text-lg text-gold font-bold text-center">
+              You are the leader
+            </p>
+            <p className="text-sm text-gold text-center mt-1">
+              You may lead with any type
+            </p>
+          </div>
           </div>
         )}
       </div>

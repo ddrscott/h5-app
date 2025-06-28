@@ -121,17 +121,17 @@ export class HeartOfFive extends Room<GameState> {
     });
 
     this.onMessage("play", (client, message: { cards: string[] }) => {
-      // Allow playing during PLAYING phase only
-      if (this.state.phase !== GamePhase.PLAYING) {
-        console.log('[play] Ignoring play - not in PLAYING phase, current phase:', this.state.phase);
+      // Use centralized validation
+      if (!this.state.canPlayerPlay(client.sessionId)) {
+        const errorMsg = this.state.phase !== GamePhase.PLAYING 
+          ? `Cannot play - game is in ${this.state.phase} phase`
+          : "Not your turn!";
+        client.send("error", { message: errorMsg });
+        console.log(`[play] Rejected play from ${client.sessionId}: ${errorMsg}`);
         return;
       }
       
       const player = this.state.players.get(client.sessionId);
-      if (!player || player.id !== this.state.currentTurnPlayerId) {
-        client.send("error", { message: "Not your turn!" });
-        return;
-      }
       
       const cards = this.parseCards(message.cards, player);
       if (!cards) {
