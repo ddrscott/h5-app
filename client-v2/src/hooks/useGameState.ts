@@ -321,6 +321,20 @@ export const useGameState = () => {
       }));
     });
 
+    // Listen for your turn notifications
+    room.onMessage('your_turn', (data: { 
+      isLeader: boolean; 
+      canPlayAnything: boolean;
+      currentMeld: any;
+      consecutivePasses: number;
+      message: string 
+    }) => {
+      console.log('[your_turn] Received turn notification:', data);
+      
+      // Could show a notification or update UI based on this
+      // For now, just log it for debugging
+    });
+
     // Listen for errors
     room.onMessage('error', (error: { message: string; code?: string }) => {
       console.error('Game error:', error.message, error.code);

@@ -572,8 +572,13 @@ export class GameState extends Schema {
         );
         if (hasThreeOfHearts) {
           startingPlayerId = playerId;
+          console.log(`[findStartingPlayer] Player ${player.name} (${playerId}) has 3H and will start`);
         }
       });
+      
+      if (!startingPlayerId) {
+        console.log('[findStartingPlayer] WARNING: No player has 3H!');
+      }
     } else {
       // For rounds > 0, the previous round winner leads
       startingPlayerId = this.roundWinnerId;
@@ -587,7 +592,7 @@ export class GameState extends Schema {
       startingPlayerId = this.turnOrder[0];
     }
     
-    console.log('Setting starting player to:', startingPlayerId);
+    console.log(`[findStartingPlayer] Setting currentTurnPlayerId=${startingPlayerId}, leadPlayerId=${startingPlayerId}`);
     this.currentTurnPlayerId = startingPlayerId;
     this.leadPlayerId = startingPlayerId;
   }
@@ -661,11 +666,18 @@ export class GameState extends Schema {
         }
       }
       
-      this.nextTurn();
+      const turnChanged = this.nextTurn();
       return true;
     }
     
     return false;
+  }
+  
+  getTurnChangeInfo() {
+    return {
+      nextPlayerId: this.currentTurnPlayerId,
+      isNewLeader: this.currentTurnPlayerId === this.leadPlayerId && !this.currentMeld
+    };
   }
 
   isValidPlay(meld: Meld): boolean {
@@ -744,6 +756,9 @@ export class GameState extends Schema {
       
       if (lastPlayer && !lastPlayer.isOut) {
         console.log(`All players passed. ${this.lastPlayerId} becomes the new leader.`);
+        console.log(`[pass] Setting leadPlayerId from ${this.leadPlayerId} to ${this.lastPlayerId}`);
+        console.log(`[pass] Clearing currentMeld (was ${this.currentMeld ? 'set' : 'null'})`);
+        
         this.leadPlayerId = this.lastPlayerId;
         this.currentMeld = null;
         this.currentMeldType = null;
@@ -761,6 +776,7 @@ export class GameState extends Schema {
         
         // The new leader's turn
         this.currentTurnPlayerId = this.leadPlayerId;
+        console.log(`[pass] Leader state after reset: leadPlayerId=${this.leadPlayerId}, currentTurnPlayerId=${this.currentTurnPlayerId}, currentMeld=${this.currentMeld}`);
         return true;  // Don't call nextTurn() here since we just set the current player
       } else {
         // Last player is out, so we need to find another leader
@@ -813,7 +829,7 @@ export class GameState extends Schema {
     return true;
   }
 
-  private nextTurn() {
+  private nextTurn(): boolean {
     const currentIndex = this.turnOrder.indexOf(this.currentTurnPlayerId);
     let nextIndex = (currentIndex + 1) % this.turnOrder.length;
     
@@ -822,13 +838,19 @@ export class GameState extends Schema {
       if (nextIndex === currentIndex) break;
     }
     
+    const previousTurn = this.currentTurnPlayerId;
     this.currentTurnPlayerId = this.turnOrder[nextIndex];
+    
+    console.log(`[nextTurn] Turn changed from ${previousTurn} to ${this.currentTurnPlayerId}`);
     
     const remainingPlayers = Array.from(this.players.values()).filter(p => !p.isOut);
     if (remainingPlayers.length === 1) {
       remainingPlayers[0].losses++;
       this.endRound();
+      return false; // Round ended, no turn change
     }
+    
+    return true; // Turn changed successfully
   }
 
   private endRound() {

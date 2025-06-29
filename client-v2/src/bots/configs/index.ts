@@ -17,8 +17,8 @@ export const AGGRESSIVE_ANNIE: BotConfig = {
   },
   skillLevel: 'intermediate',
   decisionDelay: {
-    min: 500,
-    max: 1500,
+    min: 100,
+    max: 1000,
   },
   chatEnabled: true,
   chatPhrases: {
@@ -42,8 +42,8 @@ export const CAUTIOUS_CARL: BotConfig = {
   },
   skillLevel: 'advanced',
   decisionDelay: {
-    min: 2000,
-    max: 4000,
+    min: 100,
+    max: 1000,
   },
   chatEnabled: true,
   chatPhrases: {
@@ -67,8 +67,8 @@ export const BALANCED_BETTY: BotConfig = {
   },
   skillLevel: 'advanced',
   decisionDelay: {
-    min: 1000,
-    max: 2500,
+    min: 100,
+    max: 1000,
   },
   chatEnabled: true,
   chatPhrases: {
@@ -92,8 +92,8 @@ export const ROOKIE_RICKY: BotConfig = {
   },
   skillLevel: 'beginner',
   decisionDelay: {
-    min: 800,
-    max: 2000,
+      min: 100,
+      max: 1000,
   },
   chatEnabled: true,
   chatPhrases: {
@@ -117,8 +117,8 @@ export const EXPERT_EMMA: BotConfig = {
   },
   skillLevel: 'expert',
   decisionDelay: {
-    min: 1500,
-    max: 3000,
+      min: 100,
+      max: 1000,
   },
   chatEnabled: true,
   chatPhrases: {
@@ -142,8 +142,8 @@ export const SILENT_SAM: BotConfig = {
   },
   skillLevel: 'intermediate',
   decisionDelay: {
-    min: 1000,
-    max: 2000,
+      min: 100,
+      max: 1000,
   },
   chatEnabled: false, // This bot doesn't chat
 };
@@ -166,7 +166,7 @@ export function createCustomBot(
       ...personality,
     },
     skillLevel: options.skillLevel || 'intermediate',
-    decisionDelay: options.decisionDelay || { min: 1000, max: 2500 },
+    decisionDelay: options.decisionDelay || { min: 100, max: 1000 },
     chatEnabled: options.chatEnabled ?? true,
     chatPhrases: options.chatPhrases,
   };

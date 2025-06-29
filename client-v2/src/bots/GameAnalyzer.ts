@@ -53,7 +53,8 @@ export class GameAnalyzer {
    * Find all valid plays that can beat the current meld
    */
   findValidPlays(hand: Card[], currentMeld: Meld | null, isLeader: boolean): Card[][] {
-    // If we're the leader starting a new round (no meld to beat)
+    // If we're the leader starting a new round (no meld to beat) OR
+    // if we're the leader after everyone passed (we can play anything)
     if (isLeader && !currentMeld) {
       // Leader can play any valid meld
       const allMelds = this.findAllMelds(hand);

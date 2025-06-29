@@ -181,6 +181,9 @@ export class HeartOfFive extends Room<GameState> {
       if (phaseAfterPlay === GamePhase.ROUND_END || phaseAfterPlay === GamePhase.GAME_END) {
         console.log('[play] Round/game ended, phase is now:', phaseAfterPlay);
         this.handleRoundEnd();
+      } else {
+        // Send turn notification to the next player
+        this.sendTurnNotification();
       }
     });
 
@@ -227,6 +230,9 @@ export class HeartOfFive extends Room<GameState> {
         if (leader) {
           this.state.addSystemMessage(`👑 ${leader.name} is the new leader! Can play any meld.`, "success");
         }
+        
+        // Send turn notification to the new leader
+        this.sendTurnNotification();
       }
       
       // Check if the round or game ended after this pass
@@ -235,6 +241,9 @@ export class HeartOfFive extends Room<GameState> {
       if (phaseAfterPass === GamePhase.ROUND_END || phaseAfterPass === GamePhase.GAME_END) {
         console.log('[pass] Round/game ended, phase is now:', phaseAfterPass);
         this.handleRoundEnd();
+      } else if (this.state.leadPlayerId === previousLeader) {
+        // Normal pass - send turn notification to next player
+        this.sendTurnNotification();
       }
     });
 
@@ -434,6 +443,14 @@ export class HeartOfFive extends Room<GameState> {
     // Add system message for game started
     this.state.addSystemMessage(`🎮 Game ${this.state.currentRound} started!`, "success");
     
+    // Send turn notification to the first player after a small delay
+    // This ensures the player has received and processed their hand
+    setTimeout(() => {
+      console.log('[startGame] Sending delayed turn notification for game start');
+      console.log('[startGame] Current clients:', this.clients.map(c => c.sessionId));
+      console.log('[startGame] Current turn player:', this.state.currentTurnPlayerId);
+      this.sendTurnNotification();
+    }, 300);
   }
 
   private broadcastRoundStart() {
@@ -456,6 +473,13 @@ export class HeartOfFive extends Room<GameState> {
     
     // Add system message for game started
     this.state.addSystemMessage(`🎮 Game ${this.state.currentRound} started!`, "success");
+    
+    // Send turn notification to the first player after a small delay
+    // This ensures the player has received and processed their hand
+    setTimeout(() => {
+      console.log('[broadcastRoundStart] Sending delayed turn notification for round start');
+      this.sendTurnNotification();
+    }, 300);
   }
 
   private parseCards(cardCodes: string[], player: any): Card[] | null {
@@ -527,6 +551,48 @@ export class HeartOfFive extends Room<GameState> {
     }
   }
 
+
+  private sendTurnNotification() {
+    console.log(`[sendTurnNotification] Sending turn notification to ${this.state.currentTurnPlayerId}`);
+    console.log(`[sendTurnNotification] All connected clients:`, this.clients.map(c => ({ 
+      sessionId: c.sessionId, 
+      auth: c.auth 
+    })));
+    console.log(`[sendTurnNotification] All players in state:`, Array.from(this.state.players.keys()));
+    
+    const currentPlayer = this.state.players.get(this.state.currentTurnPlayerId);
+    if (!currentPlayer) {
+      console.log(`[sendTurnNotification] Player ${this.state.currentTurnPlayerId} not found in state.players`);
+      return;
+    }
+    
+    const client = this.clients.find(c => c.sessionId === this.state.currentTurnPlayerId);
+    if (!client) {
+      console.log(`[sendTurnNotification] Client ${this.state.currentTurnPlayerId} not found in this.clients`);
+      console.log(`[sendTurnNotification] Available client sessionIds:`, this.clients.map(c => c.sessionId));
+      return;
+    }
+    
+    const isLeader = this.state.leadPlayerId === this.state.currentTurnPlayerId;
+    const canPlayAnything = isLeader && !this.state.currentMeld;
+    
+    const turnData = {
+      isLeader,
+      canPlayAnything,
+      currentMeld: this.state.currentMeld ? {
+        type: this.state.currentMeldType,
+        size: this.state.currentMeldSize,
+        cards: this.state.currentMeld.cards.map(c => c.code)
+      } : null,
+      consecutivePasses: this.state.consecutivePasses,
+      message: canPlayAnything ? "You're the leader! Play any meld." : 
+               isLeader ? "Your turn. You must beat the current meld or pass." :
+               "Your turn. Beat the current meld or pass."
+    };
+    
+    console.log(`[sendTurnNotification] Sending your_turn to ${currentPlayer.name}:`, turnData);
+    client.send("your_turn", turnData);
+  }
 
   onDispose() {
     console.log("room", this.roomId, "disposing...");

@@ -114,7 +114,7 @@ export class BotClient implements IBotClient {
       state: this.room.state,
       phase: this.room.state?.phase,
       currentTurnPlayerId: this.room.state?.currentTurnPlayerId,
-      mySessionId: this.room.sessionId
+      mySessionId: this.room?.sessionId
     });
 
     // Listen for state changes
@@ -125,7 +125,7 @@ export class BotClient implements IBotClient {
       
       // Check if it's our turn
       const wasMyTurn = this.isMyTurn;
-      this.isMyTurn = state.currentTurnPlayerId === this.room.sessionId;
+      this.isMyTurn = state.currentTurnPlayerId === this.room?.sessionId;
       
       // Always log turn changes for debugging
       if (state.currentTurnPlayerId !== this.lastLoggedTurn) {
@@ -137,7 +137,7 @@ export class BotClient implements IBotClient {
       if (this.isMyTurn || wasMyTurn) {
         console.log(`[${this.config.name}] Turn status:`, {
           currentTurnPlayerId: state.currentTurnPlayerId,
-          mySessionId: this.room.sessionId,
+          mySessionId: this.room?.sessionId,
           isMyTurn: this.isMyTurn,
           wasMyTurn: wasMyTurn,
           decisionInProgress: this.decisionInProgress,
@@ -155,8 +155,15 @@ export class BotClient implements IBotClient {
         const isPlaying = phaseStr === 'PLAYING';
         
         if (isPlaying) {
-          console.log(`[${this.config.name}] ✅ IT'S MY TURN! Making decision...`);
-          this.makeDecision();
+          console.log(`[${this.config.name}] ✅ IT'S MY TURN from state change! Will wait for YOUR_TURN message`);
+          // Fallback: If we don't get YOUR_TURN message within 500ms, make decision anyway
+          setTimeout(() => {
+            const currentState = this.room?.state as any;
+            if (currentState?.currentTurnPlayerId === this.room?.sessionId && !this.decisionInProgress) {
+              console.log(`[${this.config.name}] Fallback: No YOUR_TURN message received, making decision anyway`);
+              this.makeDecision();
+            }
+          }, 500);
         } else {
           console.log(`[${this.config.name}] It's my turn but game phase is ${state.phase}, not PLAYING`);
         }
@@ -183,14 +190,7 @@ export class BotClient implements IBotClient {
         bestMelds: analysis.bestMelds.length
       });
       
-      // Check if it's our turn after receiving hand (in case we missed the state change)
-      const phaseStr = this.gameContext ? String(this.gameContext.phase).toUpperCase() : '';
-      const isPlaying = phaseStr === 'PLAYING';
-      
-      if (this.isMyTurn && !this.decisionInProgress && this.gameContext && isPlaying) {
-        console.log(`[${this.config.name}] Checking turn after hand update - making decision`);
-        this.makeDecision();
-      }
+      // Don't make decisions here - wait for YOUR_TURN message
     });
 
     // Listen for game events
@@ -199,15 +199,22 @@ export class BotClient implements IBotClient {
       this.strategy.onGameStart?.();
       
       // Check if it's our turn when game starts
-      if (this.room && data.currentTurn === this.room.sessionId) {
-        console.log(`[${this.config.name}] Game started and it's my turn!`);
-        this.isMyTurn = true;
-        // Give a moment for hand to be received
+      if (this.room && data.currentTurn === this.room?.sessionId) {
+        console.log(`[${this.config.name}] Game started and it's my turn! Waiting for YOUR_TURN message`);
+        // Don't set isMyTurn here - let the state change handler do it
+        // This ensures the turn change is detected properly
+        
+        // Fallback: Make decision after a delay if no YOUR_TURN message
         setTimeout(() => {
-          if (this.isMyTurn && !this.decisionInProgress && this.myHand.length > 0) {
+          const currentState = this.room?.state as any;
+          const phaseStr = String(currentState?.phase).toUpperCase();
+          if (currentState?.currentTurnPlayerId === this.room?.sessionId && 
+              !this.decisionInProgress && 
+              phaseStr === 'PLAYING') {
+            console.log(`[${this.config.name}] Game start fallback: Making decision`);
             this.makeDecision();
           }
-        }, 1000);
+        }, 600);
       }
     });
 
@@ -215,7 +222,7 @@ export class BotClient implements IBotClient {
       this.strategy.onRoundEnd?.(winner);
       
       // React to round end (only sometimes)
-      if (this.room && winner === this.room.sessionId) {
+      if (this.room && winner === this.room?.sessionId) {
         // Winners talk more (70% chance)
         if (Math.random() < 0.7) {
           const message = this.strategy.getChatMessage('winning');
@@ -234,7 +241,7 @@ export class BotClient implements IBotClient {
       this.strategy.onPlayerMove?.(playerId, meld);
       
       // Very rarely compliment amazing plays (bombs, straight flushes, or 5+ card melds)
-      if (this.room && playerId !== this.room.sessionId && meld) {
+      if (this.room && playerId !== this.room?.sessionId && meld) {
         const isAmazingPlay = meld.type === 'BOMB' || 
                              meld.type === 'STRAIGHT_FLUSH' || 
                              (meld.cards && meld.cards.length >= 5);
@@ -262,6 +269,36 @@ export class BotClient implements IBotClient {
       }
     });
     
+    // Listen for your turn notifications
+    this.room.onMessage('your_turn', (data: {
+      isLeader: boolean;
+      canPlayAnything: boolean;
+      currentMeld: any;
+      consecutivePasses: number;
+      message: string;
+    }) => {
+      console.log(`[${this.config.name}] YOUR TURN notification:`, data);
+      
+      // Get fresh state to confirm it's really our turn
+      const currentState = this.room?.state as any;
+      const isFreshMyTurn = currentState?.currentTurnPlayerId === this.room?.sessionId;
+      
+      if (isFreshMyTurn && !this.decisionInProgress) {
+        console.log(`[${this.config.name}] Confirmed it's my turn from fresh state, making decision...`);
+        // Small delay to ensure state is fully synchronized
+        setTimeout(() => {
+          this.makeDecision();
+        }, 100);
+      } else {
+        console.log(`[${this.config.name}] Ignoring YOUR_TURN - not actually my turn or already deciding`, {
+          isFreshMyTurn,
+          decisionInProgress: this.decisionInProgress,
+          currentTurnPlayerId: currentState?.currentTurnPlayerId,
+          mySessionId: this.room?.sessionId
+        });
+      }
+    });
+
     // Register handlers for other message types to avoid warnings
     this.room.onMessage('welcome', () => {});
     this.room.onMessage('player_joined', () => {});
@@ -277,7 +314,7 @@ export class BotClient implements IBotClient {
   private updateGameContext(state: any): void {
     if (!this.room) return; // Guard against null room
     
-    const isLeader = state.leadPlayerId === this.room.sessionId;
+    const isLeader = state.leadPlayerId === this.room?.sessionId;
     
     this.gameContext = {
       myHand: this.myHand,
@@ -285,32 +322,55 @@ export class BotClient implements IBotClient {
       isLeader: isLeader,
       consecutivePasses: state.consecutivePasses,
       players: new Map(state.players),
-      myPlayerId: this.room.sessionId,
+      myPlayerId: this.room?.sessionId || '',
       currentRound: state.currentRound,
       phase: state.phase
     };
     
+    // Debug log currentMeld state
+    if (isLeader && state.currentMeld) {
+      console.log(`[${this.config.name}] Leader with currentMeld:`, {
+        meldType: state.currentMeld?.type,
+        meldSize: state.currentMeld?.cards?.length,
+        meldPlayerId: state.currentMeld?.playerId,
+        myId: this.room?.sessionId,
+        consecutivePasses: state.consecutivePasses
+      });
+    }
+    
     // Debug log leader changes
     if (isLeader && (!this.gameContext || !this.gameContext.isLeader)) {
-      console.log(`[${this.config.name}] I just became the leader! leadPlayerId=${state.leadPlayerId}, mySessionId=${this.room.sessionId}`);
+      console.log(`[${this.config.name}] I just became the leader! leadPlayerId=${state.leadPlayerId}, mySessionId=${this.room?.sessionId}`);
     } else if (!isLeader && this.gameContext && this.gameContext.isLeader) {
-      console.log(`[${this.config.name}] I'm no longer the leader. New leader=${state.leadPlayerId}, mySessionId=${this.room.sessionId}`);
+      console.log(`[${this.config.name}] I'm no longer the leader. New leader=${state.leadPlayerId}, mySessionId=${this.room?.sessionId}`);
     }
   }
 
   private async makeDecision(): Promise<void> {
+    // Always get fresh state at the start of decision making
+    const currentState = this.room?.state as any;
+    const freshIsMyTurn = currentState?.currentTurnPlayerId === this.room?.sessionId;
+    
+    // Update game context with fresh state FIRST before logging
+    if (currentState) {
+      this.updateGameContext(currentState);
+    }
+    
     console.log(`[${this.config.name}] makeDecision called`, {
       hasContext: !!this.gameContext,
       isMyTurn: this.isMyTurn,
+      freshIsMyTurn,
       decisionInProgress: this.decisionInProgress,
       phase: this.gameContext?.phase,
       handSize: this.myHand.length,
       isLeader: this.gameContext?.isLeader,
-      currentMeld: this.gameContext?.currentMeld
+      currentMeld: this.gameContext?.currentMeld,
+      currentTurnPlayerId: currentState?.currentTurnPlayerId,
+      mySessionId: this.room?.sessionId
     });
     
-    if (!this.gameContext || !this.isMyTurn || this.decisionInProgress) {
-      console.log(`[${this.config.name}] makeDecision early return`);
+    if (!this.gameContext || !freshIsMyTurn || this.decisionInProgress) {
+      console.log(`[${this.config.name}] makeDecision early return - not my turn or already deciding`);
       return;
     }
     
@@ -319,7 +379,8 @@ export class BotClient implements IBotClient {
       console.log(`[${this.config.name}] No cards in hand yet, waiting...`);
       // Try again after a short delay
       setTimeout(() => {
-        if (this.isMyTurn && !this.decisionInProgress) {
+        const state = this.room?.state as any;
+        if (state?.currentTurnPlayerId === this.room?.sessionId && !this.decisionInProgress) {
           this.makeDecision();
         }
       }, 500);
@@ -343,8 +404,8 @@ export class BotClient implements IBotClient {
       console.log(`[${this.config.name}] Decision received:`, decision);
       
       // Re-check if it's still our turn after async operation
-      const currentState = this.room.state as any;
-      if (currentState?.currentTurnPlayerId !== this.room.sessionId) {
+      const currentState = this.room?.state as any;
+      if (currentState?.currentTurnPlayerId !== this.room?.sessionId) {
         console.log(`[${this.config.name}] Turn changed during decision making, aborting`);
         return;
       }
@@ -407,7 +468,7 @@ export class BotClient implements IBotClient {
       return;
     }
     
-    if (currentState?.currentTurnPlayerId !== this.room.sessionId) {
+    if (currentState?.currentTurnPlayerId !== this.room?.sessionId) {
       console.log(`[${this.config.name}] Cannot play - not my turn anymore (current: ${currentState?.currentTurnPlayerId})`);
       return;
     }
@@ -430,13 +491,13 @@ export class BotClient implements IBotClient {
       return;
     }
     
-    if (currentState?.currentTurnPlayerId !== this.room.sessionId) {
+    if (currentState?.currentTurnPlayerId !== this.room?.sessionId) {
       console.log(`[${this.config.name}] Cannot pass - not my turn anymore (current: ${currentState?.currentTurnPlayerId})`);
       return;
     }
     
     // Final validation before passing - check current state
-    const isCurrentlyLeader = currentState?.leadPlayerId === this.room.sessionId;
+    const isCurrentlyLeader = currentState?.leadPlayerId === this.room?.sessionId;
     const hasCurrentMeld = !!currentState?.currentMeld;
     
     if (isCurrentlyLeader && !hasCurrentMeld) {

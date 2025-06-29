@@ -77,6 +77,21 @@ export const GameTable: React.FC<GameTableProps> = ({
   const isMyTurn = currentTurnPlayerId === myPlayerId;
   const isLeader = leadPlayerId === myPlayerId;
   const canPass = isLeader ? !!currentMeld : true; // Leader can only pass if there's a meld to beat
+  
+  // Debug logging for leader indicator
+  React.useEffect(() => {
+    if (isMyTurn) {
+      console.log('[GameTable] Leader indicator state:', {
+        isMyTurn,
+        isLeader,
+        currentMeld: !!currentMeld,
+        leadPlayerId,
+        myPlayerId,
+        currentTurnPlayerId,
+        shouldShowLeaderMsg: !currentMeld && isMyTurn && isLeader
+      });
+    }
+  }, [isMyTurn, isLeader, currentMeld, leadPlayerId, myPlayerId, currentTurnPlayerId]);
 
   // Handle playing cards with animation
   const handlePlayCards = () => {

@@ -1,6 +1,8 @@
 import type { BotConfig, BotStrategy } from './types';
 import { BotClient } from './BotClient';
 import { createStrategyForConfig } from './strategies';
+import { ROOKIE_RICKY, BALANCED_BETTY, EXPERT_EMMA } from './configs';
+import { QuickBots } from './templates';
 
 /**
  * Manages multiple bot instances
@@ -151,25 +153,21 @@ export class BotManager {
    * Quick methods for common scenarios
    */
   async addBeginnerBot(roomId: string, name?: string): Promise<BotClient> {
-    const { ROOKIE_RICKY } = await import('./configs');
     const config = { ...ROOKIE_RICKY, name: name || ROOKIE_RICKY.name };
     return this.createBot(config, roomId);
   }
 
   async addIntermediateBot(roomId: string, name?: string): Promise<BotClient> {
-    const { BALANCED_BETTY } = await import('./configs');
     const config = { ...BALANCED_BETTY, name: name || BALANCED_BETTY.name };
     return this.createBot(config, roomId);
   }
 
   async addExpertBot(roomId: string, name?: string): Promise<BotClient> {
-    const { EXPERT_EMMA } = await import('./configs');
     const config = { ...EXPERT_EMMA, name: name || EXPERT_EMMA.name };
     return this.createBot(config, roomId);
   }
 
   async fillRoom(roomId: string, targetPlayers: number = 4): Promise<BotClient[]> {
-    const { QuickBots } = await import('./templates');
     const testBots = QuickBots.testingSet();
     const botsNeeded = Math.min(targetPlayers - 1, testBots.length); // -1 for human player
     
