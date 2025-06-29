@@ -182,7 +182,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
   const transformOriginY = circleCenterY - window.innerHeight; // Distance from bottom of viewport
 
   return (
-      <div className="absolute bottom-[-1em] portrait:bottom-[2em] left-0 right-[-4em] flex justify-center" ref={containerRef}>
+      <div className="absolute bottom-[-1em] portrait:bottom-[1em] left-0 right-[-4em] flex justify-center" ref={containerRef}>
       <div 
         className="relative"
         style={{

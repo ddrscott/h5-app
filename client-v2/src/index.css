@@ -12,7 +12,6 @@
   html, body {
     @apply bg-gray-900 text-white h-full w-full max-w-full max-h-full;
     font-family: Georgia, serif;
-    overflow: hidden;
     touch-action: none;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
@@ -21,25 +20,11 @@
   
   /* Base font size for mobile */
   html {
-    font-size: 14px;
+    font-size: 16px;
   }
   
   /* Standard size for tablets */
   @media (min-width: 768px) {
-    html {
-      font-size: 16px;
-    }
-  }
-  
-  /* Larger size for desktops */
-  @media (min-width: 1024px) {
-    html {
-      font-size: 20px;
-    }
-  }
-  
-  /* Extra large for big screens */
-  @media (min-width: 1536px) {
     html {
       font-size: 24px;
     }
@@ -55,9 +40,9 @@
   }
   
   .card-back {
-    @apply border border-red-800 shadow-md;
+    @apply border border-red-800 border-[0.2em] shadow;
       --s: 0.625em; /* control the size*/
-      --c1: #a53131;
+      --c1: #CC5B5B;
       --c2: #dad6ca;
       
       --_g1: 

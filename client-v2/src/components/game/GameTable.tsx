@@ -759,13 +759,10 @@ export const GameTable: React.FC<GameTableProps> = ({
 
         {/* Leader message when center is empty */}
         {!currentMeld && isMyTurn && isLeader && (
-          <div className="absolute bottom-[11em] left-1/2 transform -translate-x-1/2 z-30">
-          <div className="bg-gold/20 backdrop-blur-sm border-2 border-gold px-6 py-4 rounded-lg">
-            <p className="text-lg text-gold font-bold text-center">
-              You are the leader
-            </p>
-            <p className="text-sm text-gold text-center mt-1">
-              You may lead with any type
+          <div className="absolute bottom-[12em] left-1/2 transform -translate-x-1/2 z-30">
+          <div className="bg-gold/20 backdrop-blur-xs border-2 border-gold p-2 rounded-lg">
+            <p className="text-gold text-center">
+              You may lead with any hand
             </p>
           </div>
           </div>
