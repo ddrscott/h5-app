@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "h5",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": true },
+  // Served as askscottpierce.com/h5. Routes run ahead of whatever else serves the zone.
+  "routes": [
+    { "pattern": "askscottpierce.com/h5", "zone_name": "askscottpierce.com" },
+    { "pattern": "askscottpierce.com/h5/*", "zone_name": "askscottpierce.com" }
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // Only the API (room sockets) wakes the Worker; pages and static files never do.
+    "run_worker_first": ["/h5/api/*"]
+  },
+  "durable_objects": {
+    // One Durable Object per table, named by its room code (src/worker/room.ts).
+    "bindings": [{ "name": "ROOMS", "class_name": "HeartOfFiveRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HeartOfFiveRoom"] }]
+}

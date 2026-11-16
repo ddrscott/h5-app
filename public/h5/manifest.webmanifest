@@ -1,0 +1,19 @@
+{
+  "id": "/h5/",
+  "name": "Heart of Five",
+  "short_name": "Heart5",
+  "description": "A strategic card game where the goal is to be the first player to get rid of all your cards",
+  "theme_color": "#1a3a1a",
+  "background_color": "#1a3a1a",
+  "display": "standalone",
+  "orientation": "landscape",
+  "start_url": "/h5/",
+  "scope": "/h5/",
+  "icons": [
+    { "src": "/h5/favicon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
+    { "src": "/h5/web-app-manifest-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/h5/web-app-manifest-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/h5/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ],
+  "categories": ["games", "entertainment"]
+}

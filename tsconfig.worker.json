@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["@cloudflare/workers-types", "node"],
+    "skipLibCheck": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    // The game logic came from a loosely typed Colyseus server; it leans on null-able fields.
+    "strict": false,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src/worker"]
+}

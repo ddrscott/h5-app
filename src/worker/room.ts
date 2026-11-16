@@ -1,0 +1,761 @@
+import { DurableObject } from "cloudflare:workers";
+import { GameState, GamePhase, Card, Player, Meld, saveState, restoreState, publicState } from "./game/GameState";
+import type { Env } from "./env";
+
+/**
+ * One Heart of Five table. Each room is its own Durable Object, named by its room code.
+ *
+ * Wire protocol (JSON text frames):
+ *   server → client  {t:"joined", roomId, sessionId, token}   once, right after the socket opens
+ *                    {t:"state", s}                            full public state, after every change
+ *                    {t:"msg", type, data}                     a game message ("your_hand", "your_turn", ...)
+ *   client → server  {t:"msg", type, data}                     "play", "pass", "chat", "startGame", "ready"
+ *                    {t:"leave"}                               leaving on purpose
+ *
+ * Sockets use the hibernation API, so an idle table costs nothing. Anything that has to
+ * survive hibernation lives in storage under "room" and is reloaded in the constructor.
+ */
+
+export interface HeartOfFiveOptions {
+  minPlayers?: number;
+  maxPlayers?: number;
+  targetWins?: number;
+  autoStart?: boolean;
+  testMode?: boolean;
+  testDeckSize?: number; // Number of cards per player for test mode
+  testDeck?: string; // Exact deck specification for test mode (e.g., "5H 6H 7H 8H 5C 3C 4C 5C")
+}
+
+interface RoomMeta {
+  roomId: string;
+  origin: string;
+  minPlayers: number;
+  maxClients: number;
+  testMode: boolean;
+  testDeckSize: number;
+  testDeck: string;
+  locked: boolean;
+  createdAt: number;
+  creatorName?: string;
+  /** Reconnect secrets by session id. A dropped socket can take its seat back with one. */
+  tokens: Record<string, string>;
+  autoStartAt?: number;
+  cleanupAt?: number;
+}
+
+interface Attachment {
+  sessionId: string;
+  left?: boolean;
+}
+
+/** The slice of a Colyseus client the game code uses. */
+interface Client {
+  sessionId: string;
+  send(type: string, data?: unknown): void;
+}
+
+const AUTO_START_MS = 30_000;
+/** How long an empty table waits for someone to come back before it's wiped. */
+const EMPTY_ROOM_TTL_MS = 30 * 60_000;
+const MAX_FRAME_BYTES = 8_192;
+
+// Close codes the client turns into join errors.
+const CLOSE_NOT_FOUND = 4404;
+const CLOSE_LOCKED = 4423;
+const CLOSE_FULL = 4429;
+const CLOSE_TAKEN = 4409;
+
+const randomId = (n: number) => {
+  const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(n));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+};
+
+export class HeartOfFiveRoom extends DurableObject<Env> {
+  private meta: RoomMeta | null = null;
+  private state: GameState | null = null;
+  private lastStateJson = "";
+  private pendingTurnNotification = false;
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    ctx.blockConcurrencyWhile(async () => {
+      const saved = await ctx.storage.get<{ meta: RoomMeta; state: unknown }>("room");
+      if (saved) {
+        this.meta = saved.meta;
+        this.state = restoreState(saved.state);
+        this.lastStateJson = JSON.stringify(publicState(this.state));
+      }
+    });
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Connection handling
+  // ---------------------------------------------------------------------------
+
+  async fetch(req: Request): Promise<Response> {
+    if (req.headers.get("Upgrade") !== "websocket") {
+      return Response.json({ error: "Expected a WebSocket upgrade" }, { status: 426 });
+    }
+
+    const url = new URL(req.url);
+    const createId = req.headers.get("X-H5-Create");
+    const name = (url.searchParams.get("name") || "").trim().slice(0, 40);
+    let options: HeartOfFiveOptions = {};
+    try {
+      options = JSON.parse(url.searchParams.get("opts") || "{}");
+    } catch {
+      /* ignore bad options */
+    }
+
+    if (createId) {
+      if (this.meta) return this.reject(CLOSE_TAKEN, "Room code collision, try again");
+      this.onCreate(createId, url.origin, options);
+    }
+    if (!this.meta || !this.state) return this.reject(CLOSE_NOT_FOUND, "Room not found");
+
+    // Taking a seat back after a dropped connection.
+    const resumeId = url.searchParams.get("session");
+    const resumeToken = url.searchParams.get("token");
+    if (resumeId && resumeToken) {
+      if (this.meta.tokens[resumeId] !== resumeToken || !this.state.players.has(resumeId)) {
+        return this.reject(CLOSE_NOT_FOUND, "That seat is gone");
+      }
+      // Drop any stale socket still holding this seat.
+      for (const ws of this.ctx.getWebSockets(resumeId)) {
+        this.attach(ws, { sessionId: resumeId, left: true });
+        try { ws.close(1000, "Replaced by a new connection"); } catch { /* already closed */ }
+      }
+      const [client, ws] = this.accept(resumeId, resumeToken);
+      await this.onReconnect(this.clientFor(ws));
+      await this.flush(ws);
+      return new Response(null, { status: 101, webSocket: client });
+    }
+
+    if (this.meta.locked) return this.reject(CLOSE_LOCKED, "That game already started");
+    if (this.state.players.size >= this.meta.maxClients) return this.reject(CLOSE_FULL, "That game is full");
+
+    const sessionId = randomId(9);
+    const token = crypto.randomUUID();
+    this.meta.tokens[sessionId] = token;
+    const [client, ws] = this.accept(sessionId, token);
+    this.onJoin(this.clientFor(ws), { name, ...options });
+    await this.flush(ws);
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  private accept(sessionId: string, token: string): [WebSocket, WebSocket] {
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    this.ctx.acceptWebSocket(server, [sessionId]);
+    this.attach(server, { sessionId });
+    server.send(JSON.stringify({ t: "joined", roomId: this.meta!.roomId, sessionId, token }));
+    this.meta!.cleanupAt = undefined;
+    return [client, server];
+  }
+
+  /** Opens and immediately closes a socket, so the browser can read why it was turned away. */
+  private reject(code: number, reason: string): Response {
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    server.accept();
+    server.close(code, reason);
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  private attach(ws: WebSocket, a: Attachment) {
+    ws.serializeAttachment(a);
+  }
+
+  private attachment(ws: WebSocket): Attachment {
+    return ws.deserializeAttachment() as Attachment;
+  }
+
+  private clientFor(ws: WebSocket): Client {
+    const { sessionId } = this.attachment(ws);
+    return {
+      sessionId,
+      send: (type, data) => this.sendTo(ws, { t: "msg", type, data }),
+    };
+  }
+
+  private sendTo(ws: WebSocket, frame: unknown) {
+    try {
+      ws.send(JSON.stringify(frame));
+    } catch {
+      /* socket closed under us; its close handler will run */
+    }
+  }
+
+  /** Live sockets, one per seated client. */
+  private get sockets(): WebSocket[] {
+    return this.ctx.getWebSockets().filter((ws) => {
+      if (ws.readyState !== WebSocket.OPEN) return false;
+      return !this.attachment(ws)?.left;
+    });
+  }
+
+  private get clients(): Client[] {
+    return this.sockets.map((ws) => this.clientFor(ws));
+  }
+
+  private broadcast(type: string, data?: unknown, opts: { except?: Client } = {}) {
+    for (const ws of this.sockets) {
+      if (opts.except && this.attachment(ws).sessionId === opts.except.sessionId) continue;
+      this.sendTo(ws, { t: "msg", type, data });
+    }
+  }
+
+  async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer) {
+    if (!this.meta || !this.state) return;
+    if (typeof raw !== "string" || raw.length > MAX_FRAME_BYTES) return;
+
+    let frame: { t?: string; type?: string; data?: any };
+    try {
+      frame = JSON.parse(raw);
+    } catch {
+      return;
+    }
+
+    const client = this.clientFor(ws);
+    if (frame.t === "leave") {
+      this.attach(ws, { sessionId: client.sessionId, left: true });
+      this.onLeave(client, true);
+      await this.flush();
+      try { ws.close(1000, "Left the room"); } catch { /* already closed */ }
+      await this.scheduleCleanupIfEmpty();
+      return;
+    }
+
+    if (frame.t === "msg" && typeof frame.type === "string") {
+      const handler = this.handlers[frame.type];
+      if (handler) {
+        handler(client, frame.data ?? {});
+        await this.flush();
+      }
+    }
+  }
+
+  async webSocketClose(ws: WebSocket, code: number, reason: string) {
+    try { ws.close(code, reason); } catch { /* already closed */ }
+    const a = this.attachment(ws);
+    if (!a || a.left || !this.meta || !this.state) {
+      await this.scheduleCleanupIfEmpty();
+      return;
+    }
+    this.attach(ws, { ...a, left: true });
+    this.onLeave({ sessionId: a.sessionId, send: () => {} }, false);
+    await this.flush();
+    await this.scheduleCleanupIfEmpty();
+  }
+
+  async webSocketError(ws: WebSocket) {
+    await this.webSocketClose(ws, 1011, "Socket error");
+  }
+
+  /**
+   * Sends the public state to everyone if it changed (and always to `fresh`, a socket that just
+   * joined), then any queued turn notice, then saves the room. Game messages a handler sent go out
+   * before this, so clients see "game_started" before the state that goes with it, the way
+   * Colyseus delivered them.
+   */
+  private async flush(fresh?: WebSocket) {
+    if (!this.meta || !this.state) return;
+    const json = JSON.stringify(publicState(this.state));
+    const frame = `{"t":"state","s":${json}}`;
+    if (json !== this.lastStateJson) {
+      this.lastStateJson = json;
+      for (const ws of this.sockets) {
+        try { ws.send(frame); } catch { /* closing */ }
+      }
+    } else if (fresh) {
+      try { fresh.send(frame); } catch { /* closing */ }
+    }
+
+    if (this.pendingTurnNotification) {
+      this.pendingTurnNotification = false;
+      this.deliverTurnNotification();
+    }
+
+    await this.ctx.storage.put("room", { meta: this.meta, state: saveState(this.state) });
+    await this.syncAlarm();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Alarms: the 30-second auto start and wiping a table nobody came back to.
+  // ---------------------------------------------------------------------------
+
+  private async syncAlarm() {
+    const next = [this.meta?.autoStartAt, this.meta?.cleanupAt].filter((t): t is number => !!t);
+    if (next.length) await this.ctx.storage.setAlarm(Math.min(...next));
+    else await this.ctx.storage.deleteAlarm();
+  }
+
+  private async scheduleCleanupIfEmpty() {
+    if (!this.meta || this.sockets.length > 0) return;
+    this.meta.cleanupAt = Date.now() + EMPTY_ROOM_TTL_MS;
+    await this.ctx.storage.put("room", { meta: this.meta, state: saveState(this.state!) });
+    await this.syncAlarm();
+  }
+
+  async alarm() {
+    if (!this.meta || !this.state) return;
+    const now = Date.now();
+
+    if (this.meta.cleanupAt && this.meta.cleanupAt <= now) {
+      if (this.sockets.length === 0) {
+        console.log("room", this.meta.roomId, "disposing...");
+        this.meta = null;
+        this.state = null;
+        await this.ctx.storage.deleteAlarm();
+        await this.ctx.storage.deleteAll();
+        return;
+      }
+      this.meta.cleanupAt = undefined;
+    }
+
+    if (this.meta.autoStartAt && this.meta.autoStartAt <= now) {
+      this.meta.autoStartAt = undefined;
+      if (this.state.players.size >= this.meta.minPlayers) {
+        this.startGame();
+      }
+    }
+
+    await this.flush();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Game room, ported from the Colyseus HeartOfFive room.
+  // ---------------------------------------------------------------------------
+
+  private onCreate(roomId: string, origin: string, options: HeartOfFiveOptions) {
+    this.meta = {
+      roomId,
+      origin,
+      minPlayers: options.minPlayers || 4,
+      maxClients: options.maxPlayers || 8,
+      testMode: options.testMode || false,
+      testDeckSize: options.testDeckSize || 0,
+      testDeck: options.testDeck || "",
+      locked: false,
+      createdAt: Date.now(),
+      tokens: {},
+    };
+
+    const state = new GameState();
+    state.roomId = roomId;
+    state.targetWins = options.targetWins || 10;
+
+    // Pass test mode settings to GameState
+    if (this.meta.testMode) {
+      state.targetWins = 2; // Quick games for testing
+      state.testDeckSize = this.meta.testDeckSize;
+      state.testDeck = this.meta.testDeck;
+    }
+    this.state = state;
+    this.lastStateJson = "";
+
+    if (options.autoStart !== false) {
+      this.meta.autoStartAt = Date.now() + AUTO_START_MS;
+    }
+  }
+
+  private inviteUrl(): string {
+    const url = new URL(`${this.meta!.origin}/h5/play`);
+    url.searchParams.set("room", this.meta!.roomId);
+    return url.toString();
+  }
+
+  private onJoin(client: Client, options: { name?: string }) {
+    const state = this.state!;
+    console.log(client.sessionId, "joined!");
+
+    const playerName = options.name || `Player ${state.players.size + 1}`;
+    state.addPlayer(client.sessionId, playerName);
+
+    // If this is the first player, they're the room creator
+    if (state.players.size === 1) {
+      this.meta!.creatorName = playerName;
+    }
+
+    client.send("welcome", {
+      playerId: client.sessionId,
+      roomState: {
+        minPlayers: this.meta!.minPlayers,
+        maxPlayers: this.meta!.maxClients,
+        currentPlayers: state.players.size,
+        phase: state.phase,
+      },
+      inviteUrl: this.inviteUrl(),
+    });
+
+    this.broadcast("player_joined", {
+      playerId: client.sessionId,
+      name: playerName,
+      totalPlayers: state.players.size,
+    }, { except: client });
+
+    state.addSystemMessage(`👋 ${playerName} joined the game`, "info");
+
+    this.checkGameStart();
+  }
+
+  private handlers: Record<string, (client: Client, message: any) => void> = {
+    ready: (client) => {
+      const player = this.state!.players.get(client.sessionId);
+      if (player) {
+        player.isActive = true;
+        this.checkGameStart();
+      }
+    },
+
+    startGame: (client) => {
+      const state = this.state!;
+      // Allow starting a new round/game after ROUND_END, GAME_END, or WAITING
+      if (state.phase === GamePhase.ROUND_END ||
+          state.phase === GamePhase.GAME_END ||
+          state.phase === GamePhase.WAITING) {
+        if (state.players.size >= 2) {
+          console.log("Starting new round/game from phase:", state.phase);
+
+          // If starting from GAME_END, reset the game completely
+          if (state.phase === GamePhase.GAME_END) {
+            this.resetGame();
+          }
+
+          this.startGame();
+        } else {
+          client.send("error", { message: "Need at least 2 players to start" });
+        }
+      }
+    },
+
+    play: (client, message: { cards?: unknown }) => {
+      const state = this.state!;
+      if (!state.canPlayerPlay(client.sessionId)) {
+        const errorMsg = state.phase !== GamePhase.PLAYING
+          ? `Cannot play - game is in ${state.phase} phase`
+          : "Not your turn!";
+        client.send("error", { message: errorMsg });
+        return;
+      }
+
+      const player = state.players.get(client.sessionId)!;
+      const codes = Array.isArray(message.cards) ? message.cards.filter((c): c is string => typeof c === "string") : [];
+      const cards = this.parseCards(codes, player);
+      if (!cards || cards.length === 0) {
+        client.send("error", { message: "Invalid cards!" });
+        return;
+      }
+
+      // First check if the meld is structurally valid
+      const testMeld = new Meld();
+      testMeld.setCards(cards);
+      if (!testMeld.type) {
+        client.send("error", { message: "Invalid card combination! Not a valid meld type." });
+        return;
+      }
+
+      const success = state.playMeld(client.sessionId, cards);
+      if (!success) {
+        client.send("error", { message: "Invalid play! Must match current meld type or play a bomb." });
+        return;
+      }
+
+      // Send updated hand back to the player who just played
+      client.send("your_hand", { cards: player.hand });
+
+      this.broadcast("meld_played", {
+        playerId: client.sessionId,
+        cards: codes,
+        meldType: state.currentMeldType,
+      });
+
+      if (state.currentMeld) {
+        const cardCodes = state.currentMeld.cards.map((card) => card.code).join(" ");
+        state.addChatMessage(client.sessionId, `(played) ${cardCodes}`);
+      }
+
+      // The phase may have changed after playMeld()
+      const phaseAfterPlay = state.phase as GamePhase;
+      if (phaseAfterPlay === GamePhase.ROUND_END || phaseAfterPlay === GamePhase.GAME_END) {
+        this.handleRoundEnd();
+      } else {
+        this.sendTurnNotification();
+      }
+    },
+
+    pass: (client) => {
+      this.doPass(client, true);
+    },
+
+    chat: (client, message: { text?: unknown }) => {
+      const text = typeof message.text === "string" ? message.text : "";
+      const success = this.state!.addChatMessage(client.sessionId, text);
+      if (!success) {
+        client.send("error", { message: "Failed to send message" });
+      }
+    },
+  };
+
+  /** A pass, by the player or on their behalf when they drop out on their turn. */
+  private doPass(client: Client, explicit: boolean) {
+    const state = this.state!;
+    if (state.phase !== GamePhase.PLAYING) return;
+
+    const previousLeader = state.leadPlayerId;
+    const success = state.pass(client.sessionId);
+    if (!success) {
+      if (!explicit) return;
+      if (state.leadPlayerId === client.sessionId && !state.currentMeld) {
+        client.send("error", {
+          message: "Cannot pass - you must play something as the leader!",
+          code: "LEADER_MUST_PLAY",
+        });
+      } else {
+        client.send("error", { message: "Cannot pass!" });
+      }
+      return;
+    }
+
+    this.broadcast("player_passed", { playerId: client.sessionId });
+    if (state.players.get(client.sessionId)) {
+      state.addChatMessage(client.sessionId, "(passed)");
+    }
+
+    // Check if leadership changed after all passes
+    if (state.leadPlayerId !== previousLeader && state.consecutivePasses === 0) {
+      this.broadcast("new_leader", {
+        playerId: state.leadPlayerId,
+        message: "All players passed. New leader can play any meld!",
+      });
+      const leader = state.players.get(state.leadPlayerId);
+      if (leader) {
+        state.addSystemMessage(`👑 ${leader.name} is the new leader! Can play any meld.`, "success");
+      }
+      this.sendTurnNotification();
+    }
+
+    const phaseAfterPass = state.phase as GamePhase;
+    if (phaseAfterPass === GamePhase.ROUND_END || phaseAfterPass === GamePhase.GAME_END) {
+      this.handleRoundEnd();
+    } else if (state.leadPlayerId === previousLeader) {
+      this.sendTurnNotification();
+    }
+  }
+
+  private handleGameEnd() {
+    const state = this.state!;
+    if (state.phase !== GamePhase.GAME_END) return;
+
+    let winner: Player | null = null;
+    let maxWins = 0;
+    state.players.forEach((player) => {
+      if (player.wins > maxWins) {
+        maxWins = player.wins;
+        winner = player;
+      }
+    });
+    const w = winner as Player | null;
+
+    this.broadcast("game_ended", {
+      winner: w ? { id: w.id, name: w.name, wins: w.wins } : null,
+      finalStandings: this.standings().sort((a, b) => b.wins - a.wins),
+    });
+
+    if (w) {
+      state.addSystemMessage(`🎉 Game Over! ${w.name} won with ${w.wins} rounds!`, "success");
+    }
+  }
+
+  private standings() {
+    return Array.from(this.state!.players.values()).map((p) => ({
+      playerId: p.id,
+      name: p.name,
+      wins: p.wins,
+      losses: p.losses,
+    }));
+  }
+
+  private onLeave(client: Client, consented: boolean) {
+    const state = this.state!;
+    console.log(client.sessionId, "left!", consented ? "(consented)" : "(dropped)");
+
+    if (state.phase === GamePhase.WAITING) {
+      const player = state.players.get(client.sessionId);
+      const playerName = player ? player.name : "A player";
+
+      state.removePlayer(client.sessionId);
+      delete this.meta!.tokens[client.sessionId];
+
+      this.broadcast("player_left", {
+        playerId: client.sessionId,
+        totalPlayers: state.players.size,
+      });
+      state.addSystemMessage(`🚪 ${playerName} left the game`, "warning");
+    } else {
+      const player = state.players.get(client.sessionId);
+      if (player) {
+        player.isActive = false;
+        if (state.currentTurnPlayerId === client.sessionId) {
+          this.doPass(client, false);
+        }
+      }
+      // The seat stays; the client can come back with its token (see fetch()).
+    }
+  }
+
+  private async onReconnect(client: Client) {
+    const state = this.state!;
+    console.log(client.sessionId, "reconnected!");
+
+    const player = state.players.get(client.sessionId);
+    if (player) {
+      player.isActive = true;
+      client.send("game_state", {
+        currentTurn: state.currentTurnPlayerId,
+        currentMeld: state.currentMeld,
+        phase: state.phase,
+      });
+      client.send("your_hand", { cards: player.hand });
+      if (state.currentTurnPlayerId === client.sessionId) {
+        this.sendTurnNotification();
+      }
+    }
+  }
+
+  private checkGameStart() {
+    const state = this.state!;
+    if (state.phase !== GamePhase.WAITING) return;
+
+    const activePlayers = Array.from(state.players.values()).filter((p) => p.isActive);
+    if (state.players.size >= this.meta!.minPlayers &&
+        state.players.size === activePlayers.length) {
+      this.startGame();
+    }
+  }
+
+  private resetGame() {
+    const state = this.state!;
+    state.players.forEach((player) => {
+      player.wins = 0;
+      player.losses = 0;
+      player.position = 0;
+    });
+    state.currentRound = 0;
+    state.roundWinnerId = null;
+    state.phase = GamePhase.WAITING;
+  }
+
+  private startGame() {
+    const state = this.state!;
+    if (state.phase !== GamePhase.WAITING && state.phase !== GamePhase.ROUND_END) {
+      console.log("Cannot start game - wrong phase:", state.phase);
+      return;
+    }
+
+    this.meta!.autoStartAt = undefined;
+    console.log("Starting game/round with", state.players.size, "players");
+
+    // Only lock on first game, not on subsequent rounds
+    if (state.phase === GamePhase.WAITING) {
+      this.meta!.locked = true;
+    } else if (state.phase === GamePhase.ROUND_END) {
+      // startNewRound deals the cards itself
+      state.startNewRound();
+      this.broadcastRoundStart();
+      return;
+    }
+
+    state.initializeDeck();
+    state.dealCards(this.meta!.testDeckSize);
+    this.broadcastRoundStart();
+  }
+
+  private broadcastRoundStart() {
+    const state = this.state!;
+    // Send each player their own hand privately
+    for (const client of this.clients) {
+      const player = state.players.get(client.sessionId);
+      if (player) client.send("your_hand", { cards: player.hand });
+    }
+
+    this.broadcast("game_started", {
+      currentTurn: state.currentTurnPlayerId,
+      leadPlayer: state.leadPlayerId,
+      round: state.currentRound,
+    });
+
+    state.addSystemMessage(`🎮 Game ${state.currentRound} started!`, "success");
+
+    // Goes out after the state that shows it's this player's turn (see flush()).
+    this.sendTurnNotification();
+  }
+
+  private parseCards(cardCodes: string[], player: Player): Card[] | null {
+    const cards: Card[] = [];
+    for (const code of cardCodes) {
+      const card = player.hand.find((c) => c.code === code);
+      if (!card || cards.includes(card)) return null;
+      cards.push(card);
+    }
+    return cards;
+  }
+
+  private handleRoundEnd() {
+    const state = this.state!;
+    const isGameEnding = state.phase === GamePhase.GAME_END;
+
+    this.broadcast("round_ended", {
+      winner: state.roundWinnerId,
+      standings: this.standings(),
+    });
+
+    const winner = state.players.get(state.roundWinnerId);
+    if (winner) {
+      state.addSystemMessage(`🏆 Game ended! ${winner.name} won! Play again?`, "info");
+    }
+
+    // Always send game_ended when a round ends (a round is a game in the current terminology)
+    this.broadcast("game_ended", {
+      winner: winner ? { id: winner.id, name: winner.name, wins: winner.wins } : null,
+      finalStandings: this.standings().sort((a, b) => b.wins - a.wins),
+    });
+
+    if (isGameEnding) {
+      this.handleGameEnd();
+    } else {
+      state.addSystemMessage(`Ready for next game! Click "Play Again" to continue.`, "info");
+    }
+  }
+
+  /** Queues a "your_turn" for whoever's turn it is, delivered after the next state broadcast. */
+  private sendTurnNotification() {
+    this.pendingTurnNotification = true;
+  }
+
+  private deliverTurnNotification() {
+    const state = this.state!;
+    if (state.phase !== GamePhase.PLAYING || !state.currentTurnPlayerId) return;
+    const client = this.clients.find((c) => c.sessionId === state.currentTurnPlayerId);
+    if (!client) return;
+
+    const isLeader = state.leadPlayerId === state.currentTurnPlayerId;
+    const canPlayAnything = isLeader && !state.currentMeld;
+
+    client.send("your_turn", {
+      isLeader,
+      canPlayAnything,
+      currentMeld: state.currentMeld ? {
+        type: state.currentMeldType,
+        size: state.currentMeldSize,
+        cards: state.currentMeld.cards.map((c) => c.code),
+      } : null,
+      consecutivePasses: state.consecutivePasses,
+      message: canPlayAnything ? "You're the leader! Play any meld." :
+               isLeader ? "Your turn. You must beat the current meld or pass." :
+               "Your turn. Beat the current meld or pass.",
+    });
+  }
+}

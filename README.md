@@ -1,6 +1,8 @@
+Live at https://askscottpierce.com/h5
+
 # Heart of Five (红心五)
 
-A real-time multiplayer card shedding game built with Colyseus and React. Race to be the first to play all your cards while mastering the power of the legendary Heart 5!
+A real-time multiplayer card shedding game built with React on Cloudflare Workers and Durable Objects. Race to be the first to play all your cards while mastering the power of the legendary Heart 5!
 
 ## Game Overview
 
@@ -47,94 +49,96 @@ From lowest to highest: 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A, 2
 - **Sisters**: 3+ consecutive pairs (e.g., 77-88-99)
 - **Full House**: Triple + Pair (e.g., 777-88)
 
-## Installation & Setup
+## How it runs
 
-### Prerequisites
-- Node.js 16+ 
-- npm or yarn
+Everything runs on Cloudflare: one Worker serves the React client as static assets, and each game table is its own Durable Object.
 
-### Server Setup
-```bash
-# Install dependencies
-npm install
-
-# Start the game server
-npm start
+```
+browser ──HTTPS──▶ Worker (src/worker/index.ts) ──▶ static assets (dist/client)
+        ──WSS────▶ /h5/api/rooms/:code/ws ──▶ HeartOfFiveRoom Durable Object (src/worker/room.ts)
 ```
 
-The server will start on http://localhost:2567
+- **One Durable Object per room**, named by its six-character room code. It holds the game state, runs the rules (`src/worker/game/GameState.ts`), and talks to players over WebSockets.
+- **Hibernating sockets.** An idle table costs nothing. The full state, hands included, is saved to the object's storage after every action and reloaded when it wakes.
+- **Alarms** take the place of server timers: the 30-second auto start, and wiping a table nobody has come back to for 30 minutes.
+- **Reconnects.** A dropped connection gets a minute to take its seat back with a secret token the room handed out on join.
+- **Client.** `src/client/net/rooms.ts` is a small stand-in for colyseus.js with the same `Room` calls the hooks and bots already used (`onStateChange`, `onMessage`, `send`, `leave`). State arrives as a full public snapshot after each change. Hands never go in it; each player gets their own through the `your_hand` message.
 
-### Client Setup
-```bash
-# Navigate to client directory
-cd client-v2
+### Wire protocol
 
-# Install dependencies
-npm install
+JSON text frames on `/h5/api/rooms/new/ws` (create) or `/h5/api/rooms/:code/ws` (join).
 
-# Start development server
-npm run dev
-```
+| Direction | Frame | When |
+|---|---|---|
+| server → client | `{t:"joined", roomId, sessionId, token}` | once, when the socket opens |
+| server → client | `{t:"state", s}` | after every change |
+| server → client | `{t:"msg", type, data}` | game messages: `your_hand`, `your_turn`, `game_started`, `meld_played`, ... |
+| client → server | `{t:"msg", type, data}` | `play`, `pass`, `chat`, `startGame`, `ready` |
+| client → server | `{t:"leave"}` | leaving on purpose |
 
-The client will be available at http://localhost:5174
+A room that turns a player away closes the socket with a 4xxx code and a reason the client shows: 4404 not found, 4423 already started, 4429 full.
+
+## Served at askscottpierce.com/h5
+
+The Worker owns only `/h5` and `/h5/*` on askscottpierce.com, through two zone routes, with no workers.dev URL. Pages, assets, the service worker, the API, and the room sockets all live under `/h5`. Four places hard-code the prefix, and they have to change together:
+
+- `src/client/base.ts`: `BASE`, used by the router, the API, and links
+- `src/worker/index.ts`: `BASE`, which answers 404 outside the prefix
+- `vite.config.ts`: `assetsDir: 'h5/assets'`, the service worker path and scope
+- `wrangler.jsonc`: the routes and `run_worker_first`
+
+The files in `public/h5/` (icons, `manifest.webmanifest`) are served at `/h5/...`. localStorage keys carry an `h5-` prefix because every app on the domain shares the origin.
 
 ## Development
 
-### Project Structure
-```
-├── src/                    # Server code
-│   ├── rooms/             # Game room logic
-│   │   ├── HeartOfFive.ts # Main game room
-│   │   └── schema/        # Game state schemas
-│   └── index.ts           # Server entry point
-├── client-v2/             # React client
-│   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── hooks/         # Custom React hooks
-│   │   ├── contexts/      # React contexts
-│   │   └── types/         # TypeScript types
-│   └── vite.config.ts     # Vite configuration
-└── package.json
-```
+Requires Node 20+.
 
-### Key Technologies
-- **Server**: Colyseus, Node.js, TypeScript
-- **Client**: React, TypeScript, Vite, Tailwind CSS
-- **Real-time**: WebSockets via Colyseus
-- **PWA**: Service Workers with Workbox
-
-### Testing
 ```bash
-# Run server tests
-npm test
-
-# Run client tests
-cd client-v2 && npm test
+npm install
+npm run dev        # Vite + the Worker and Durable Object in workerd
 ```
 
-### Building for Production
+Open `http://localhost:5173/h5/`. Test at `/h5/`, not `/`: the Worker returns 404 outside the prefix, which is how path mistakes show up early.
+
 ```bash
-# Build both server and client
-npm run build
-
-# Server build only
-npm run build:server
-
-# Client build only
-cd client-v2 && npm run build
+npm test           # game rules and snapshot round trips (node:test)
+npm run typecheck  # client, worker, and Vite config
+npm run build      # builds dist/client (assets) and dist/h5 (Worker)
 ```
 
-## Deployment
+Three rule tests fail (a long A-K run, a longer straight flush beating a shorter one, and the all-pass leader test). They failed the same way under Colyseus, before the move to Cloudflare.
 
-The game requires both the server and client to be deployed:
+## Deploy
 
-1. **Server**: Deploy to any Node.js hosting service (Heroku, Railway, etc.)
-   - Ensure WebSocket support is enabled
-   - Set environment variables as needed
+```bash
+npm run deploy     # build, drop any copied .dev.vars, wrangler deploy
+```
 
-2. **Client**: Deploy to any static hosting service (Netlify, Vercel, etc.)
-   - Update the server URL in the client configuration
-   - The PWA will work offline for cached assets but requires connection for gameplay
+Check that the output lists the two `askscottpierce.com/h5` triggers and the `ROOMS` Durable Object binding.
+
+### Project structure
+
+```
+├── index.html               # client entry (built to dist/client/index.html, served at /h5/)
+├── public/h5/               # icons and web manifest, served at /h5/...
+├── src/
+│   ├── client/              # React app
+│   │   ├── base.ts          # the /h5 prefix
+│   │   ├── net/rooms.ts     # WebSocket room client
+│   │   ├── bots/            # in-browser bots that join as players
+│   │   ├── components/ contexts/ hooks/ types/
+│   └── worker/
+│       ├── index.ts         # Worker entry: routes /h5/api to rooms, the rest to assets
+│       ├── room.ts          # HeartOfFiveRoom Durable Object
+│       └── game/GameState.ts  # rules, deal, turns, and snapshots
+├── vite.config.ts
+└── wrangler.jsonc
+```
+
+### Key technologies
+- **Server**: Cloudflare Workers, Durable Objects (SQLite-backed, hibernating WebSockets)
+- **Client**: React, TypeScript, Vite, Tailwind CSS, with the Cloudflare Vite plugin
+- **PWA**: Workbox service worker scoped to `/h5/`
 
 ## Contributing
 

@@ -1,8 +1,6 @@
 node_modules
-build
-.colyseus-cloud.json
-.devmode.json
-
-client/playwright-report
-client/test-results
-client-v2/dist
+dist
+.wrangler
+.dev.vars
+*.local
+.DS_Store

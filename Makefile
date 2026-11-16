@@ -1,6 +1,8 @@
+dev:
+	npm run dev
 
-push:
-	git push origin main
+test:
+	npm test
 
-deploy: push
-	ssh spierce@192.168.86.10 'zsh -c "cd code/h5-app; git pull && docker compose up --build -d"'
+deploy:
+	npm run deploy

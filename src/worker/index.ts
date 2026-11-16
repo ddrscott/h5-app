@@ -1,0 +1,54 @@
+import type { Env } from "./env";
+
+export { HeartOfFiveRoom } from "./room";
+
+// Served at askscottpierce.com/h5. Keep in step with src/client/base.ts, vite.config.ts, and wrangler.jsonc.
+const BASE = "/h5";
+
+/** Room codes people can read aloud: no 0/O or 1/I/L. */
+const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const CODE_LENGTH = 6;
+
+function newRoomCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH));
+  return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+}
+
+const notFound = () => Response.json({ error: "Not found" }, { status: 404 });
+
+/**
+ * /api/rooms/new/ws       open a socket to a brand-new room
+ * /api/rooms/:code/ws     open a socket to an existing room (or take a seat back)
+ * /api/health             liveness check
+ */
+async function handleApi(req: Request, env: Env, sub: string): Promise<Response> {
+  if (sub === "/api/health") return Response.json({ ok: true });
+
+  const m = /^\/api\/rooms\/([A-Za-z0-9]{1,16})\/ws$/.exec(sub);
+  if (!m) return notFound();
+  if (req.headers.get("Upgrade") !== "websocket") {
+    return Response.json({ error: "Expected a WebSocket upgrade" }, { status: 426 });
+  }
+
+  if (m[1] === "new") {
+    const code = newRoomCode();
+    const headers = new Headers(req.headers);
+    headers.set("X-H5-Create", code);
+    return env.ROOMS.getByName(code).fetch(new Request(req, { headers }));
+  }
+
+  // Strip any create header a client might try to send itself.
+  const headers = new Headers(req.headers);
+  headers.delete("X-H5-Create");
+  return env.ROOMS.getByName(m[1].toUpperCase()).fetch(new Request(req, { headers }));
+}
+
+export default {
+  async fetch(req, env) {
+    const path = new URL(req.url).pathname;
+    if (path !== BASE && !path.startsWith(`${BASE}/`)) return new Response("Not found", { status: 404 });
+    const sub = path.slice(BASE.length);
+    if (sub.startsWith("/api/")) return handleApi(req, env, sub);
+    return env.ASSETS.fetch(req);
+  },
+} satisfies ExportedHandler<Env>;
