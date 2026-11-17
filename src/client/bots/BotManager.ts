@@ -3,6 +3,25 @@ import { BotClient } from './BotClient';
 import { createStrategyForConfig } from './strategies';
 import { ROOKIE_RICKY, BALANCED_BETTY, EXPERT_EMMA } from './configs';
 import { QuickBots } from './templates';
+import { storageKey } from '../base';
+
+/** Bot seats, by room, so a host who reloads the page brings their bots back (sessionStorage, per tab). */
+const BOTS_KEY = storageKey('bots');
+interface SavedBot {
+  roomId: string;
+  sessionId: string;
+  token: string;
+  config: BotConfig;
+}
+
+function loadSavedBots(): SavedBot[] {
+  try {
+    const list = JSON.parse(sessionStorage.getItem(BOTS_KEY) || '[]');
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Manages multiple bot instances
@@ -30,7 +49,7 @@ export class BotManager {
       await bot.connect(this.serverUrl, roomId);
       
       // Store bot
-      this.bots.set(bot.id, bot);
+      this.track(bot);
       
       console.log(`Bot ${config.name} (${bot.id}) connected to room ${roomId}`);
       return bot;
@@ -41,6 +60,53 @@ export class BotManager {
     }
   }
 
+  private track(bot: BotClient) {
+    this.bots.set(bot.id, bot);
+    bot.onGone = () => {
+      this.bots.delete(bot.id);
+      this.persist();
+    };
+    this.persist();
+  }
+
+  /** Saves every connected bot's seat, so resumeBots() can bring them back after a reload. */
+  private persist() {
+    const saved: SavedBot[] = [];
+    this.bots.forEach((bot) => {
+      const seat = bot.seat();
+      if (seat) saved.push({ ...seat, config: bot.config });
+    });
+    try {
+      if (saved.length) sessionStorage.setItem(BOTS_KEY, JSON.stringify(saved));
+      else sessionStorage.removeItem(BOTS_KEY);
+    } catch {
+      /* storage blocked: bots just won't come back after a reload */
+    }
+  }
+
+  /**
+   * Puts this tab's bots back in their seats in `roomId` after the page reloads. Bots whose seat
+   * is gone are dropped. Call it once the host has their own seat back.
+   */
+  async resumeBots(roomId: string): Promise<BotClient[]> {
+    const mine = loadSavedBots().filter(
+      (b) => b.roomId === roomId && !this.getBots().some((x) => x.seat()?.sessionId === b.sessionId),
+    );
+    const back: BotClient[] = [];
+    await Promise.all(mine.map(async (saved) => {
+      const bot = new BotClient(saved.config, createStrategyForConfig(saved.config));
+      try {
+        await bot.connect(this.serverUrl, roomId, { sessionId: saved.sessionId, token: saved.token });
+        this.track(bot);
+        back.push(bot);
+      } catch (error) {
+        console.warn(`Bot ${saved.config.name} could not take its seat back:`, error);
+      }
+    }));
+    this.persist();
+    return back;
+  }
+
   /**
    * Remove and disconnect a bot
    */
@@ -48,8 +114,10 @@ export class BotManager {
     const bot = this.bots.get(botId);
     if (!bot) return false;
     
+    bot.onGone = null;
     bot.disconnect();
     this.bots.delete(botId);
+    this.persist();
     console.log(`Bot ${bot.config.name} (${botId}) removed`);
     
     return true;
@@ -59,8 +127,12 @@ export class BotManager {
    * Remove all bots
    */
   removeAllBots(): void {
-    this.bots.forEach(bot => bot.disconnect());
+    this.bots.forEach(bot => {
+      bot.onGone = null;
+      bot.disconnect();
+    });
     this.bots.clear();
+    this.persist();
     console.log('All bots removed');
   }
 

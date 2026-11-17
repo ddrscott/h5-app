@@ -1,5 +1,5 @@
 import { BASE } from './base';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Landing } from './components/screens/Landing';
 import { Play } from './components/screens/Play';
@@ -13,6 +13,9 @@ import { OfflineNotification } from './components/ui/OfflineNotification';
 import { useRoom } from './contexts/RoomContext';
 import { useGameState } from './hooks/useGameState';
 import { GamePhase } from './types/game';
+import { ConnectionOverlay } from './components/ui/ConnectionOverlay';
+import { loadSeat } from './net/seat';
+import BotManagerSingleton from './bots/BotManagerSingleton';
 
 type AppState = 'play' | 'connecting' | 'lobby' | 'game';
 
@@ -20,10 +23,27 @@ function GameApp() {
   const [appState, setAppState] = useState<AppState>('play');
   const [playerName, setPlayerName] = useState('');
   
-  const { room, roomId, myPlayerId, isConnected, error, createRoom, joinRoom, leaveRoom } = useRoom();
+  const { room, roomId, myPlayerId, isConnected, error, connection, lost, createRoom, joinRoom, resumeRoom, leaveRoom } = useRoom();
   const gameState = useGameState();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // A reload with a seat saved for the room in the URL takes that seat back (and this tab's bots)
+  // instead of joining as a new player.
+  const triedResume = useRef(false);
+  useEffect(() => {
+    if (triedResume.current) return;
+    triedResume.current = true;
+    const roomFromUrl = new URLSearchParams(location.search).get('room');
+    const seat = roomFromUrl ? loadSeat(roomFromUrl) : null;
+    if (!seat) return;
+    setAppState('connecting');
+    void resumeRoom(seat).then((ok) => {
+      if (ok) void BotManagerSingleton.getInstance().resumeBots(seat.roomId);
+      else setAppState('play');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Check URL for room ID on load
   useEffect(() => {
@@ -75,6 +95,15 @@ function GameApp() {
 
   const handleStartGame = () => {
     gameState.startGame();
+  };
+
+  const handleKick = (playerId: string) => {
+    room?.send('kick', { playerId });
+  };
+
+  const handleGoHome = () => {
+    leaveRoom();
+    window.location.assign(BASE + '/');
   };
 
   const handleLeaveRoom = () => {
@@ -146,16 +175,21 @@ function GameApp() {
     const isHost = gameState.hostId === myPlayerId;
     
     return (
-      <Lobby
-        roomId={roomId}
-        players={playersArray}
-        isHost={isHost}
-        hostId={gameState.hostId}
-        hostName={hostName}
-        lastError={gameState.lastError}
-        onStartGame={handleStartGame}
-        onLeaveRoom={handleLeaveRoom}
-      />
+      <>
+        <Lobby
+          roomId={roomId}
+          players={playersArray}
+          isHost={isHost}
+          hostId={gameState.hostId}
+          hostName={hostName}
+          lastError={gameState.lastError}
+          myPlayerId={myPlayerId}
+          onStartGame={handleStartGame}
+          onLeaveRoom={handleLeaveRoom}
+          onKick={handleKick}
+        />
+        <ConnectionOverlay status={connection} lost={lost} onHome={handleGoHome} />
+      </>
     );
   }
 
@@ -168,6 +202,7 @@ function GameApp() {
     const isHost = gameState.hostId === myPlayerId;
     
     return (
+      <>
       <GameTable
         players={gameState.players}
         myPlayerId={myPlayerId}
@@ -193,7 +228,10 @@ function GameApp() {
         onPlayAgain={handleStartGame}
         isHost={isHost}
         hostName={hostName}
+        onKick={handleKick}
       />
+      <ConnectionOverlay status={connection} lost={lost} onHome={handleGoHome} />
+      </>
     );
   }
 

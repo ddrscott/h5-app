@@ -8,6 +8,8 @@ import { AnimatedCards } from '../animations/AnimatedCards';
 import { CircleText } from '../ui/CircleText';
 import { GameOver } from './GameOver';
 import { DialogBox } from '../ui/DialogBox';
+import { KickButton } from '../ui/KickButton';
+import { WifiOff } from 'lucide-react';
 
 interface GameTableProps {
   players: Map<string, Player>;
@@ -41,9 +43,10 @@ interface GameTableProps {
   onPass: () => void;
   onLeaveGame: () => void;
   onPlayAgain: () => void;
-  /** Only the host gets the "Play Again" button; everyone else waits for them. */
+  /** Only the host gets the "Play Again" button and can remove players whose connection dropped. */
   isHost?: boolean;
   hostName?: string;
+  onKick?: (playerId: string) => void;
 }
 
 export const GameTable: React.FC<GameTableProps> = ({
@@ -71,6 +74,7 @@ export const GameTable: React.FC<GameTableProps> = ({
   onPlayAgain,
   isHost = true,
   hostName = 'the host',
+  onKick,
 }) => {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isSweeping, setIsSweeping] = useState(false);
@@ -523,7 +527,7 @@ export const GameTable: React.FC<GameTableProps> = ({
           return (
             <div
               key={`name-${opponent.id}`}
-              className="absolute"
+              className="absolute z-40"
               style={namePosition}
             >
               <p className={`
@@ -532,10 +536,16 @@ export const GameTable: React.FC<GameTableProps> = ({
                 border border-dotted border-yellow-200/20 rounded-lg px-4 py-2
                 ${isCurrentTurn ? 'text-yellow-100/60 border-yellow-200/40' : ''}
               `}>
+                {opponent.player.isActive === false && (
+                  <WifiOff size={12} className="inline mr-1 text-yellow-500" aria-label="Disconnected" />
+                )}
                 {isLeaderPlayer && '👑 '}
                 {opponent.player.name}
                 <span className="font-bold ml-1">({opponent.player.wins}-{opponent.player.losses})</span>
                 {isCurrentTurn && ' 🎯'}
+                {isHost && onKick && opponent.player.isActive === false && (
+                  <KickButton name={opponent.player.name} onConfirm={() => onKick(opponent.id)} />
+                )}
               </p>
             </div>
           );

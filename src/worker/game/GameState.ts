@@ -512,6 +512,89 @@ export class GameState {
     return null;
   }
 
+  /**
+   * What the table plays for a player who is away when their turn runs out: pass when they may,
+   * otherwise (they're leading) their lowest single. Null when it isn't their turn.
+   */
+  autoMove(playerId: string): { action: "pass" } | { action: "play"; cards: Card[] } | null {
+    if (this.phase !== GamePhase.PLAYING || this.currentTurnPlayerId !== playerId) return null;
+    const player = this.players.get(playerId);
+    if (!player || player.isOut || player.hand.length === 0) return null;
+    if (this.leadPlayerId === playerId && !this.currentMeld) {
+      const lowest = player.hand.reduce((low, c) => (c.getStrength() < low.getStrength() ? c : low));
+      return { action: "play", cards: [lowest] };
+    }
+    return { action: "pass" };
+  }
+
+  /**
+   * Takes a seat out of the game for good (the host removing someone who left). Mid-round the
+   * player's cards leave with them and the turn, lead, and pass count are fixed up so play goes on.
+   * If fewer than two players still hold cards, the round ends: the one left holding cards takes
+   * the loss only if somebody already went out, otherwise the round counts for nobody.
+   */
+  removeSeat(id: string) {
+    if (!this.players.has(id)) return;
+    if (this.roundWinnerId === id) this.roundWinnerId = null;
+
+    if (this.phase !== GamePhase.PLAYING) {
+      this.removePlayer(id);
+      return;
+    }
+
+    const leaving = this.players.get(id)!;
+    const wasTurn = this.currentTurnPlayerId === id;
+    const wasLead = this.leadPlayerId === id;
+
+    // Hand the turn to the next player still in before the seat disappears from the order.
+    if (wasTurn) {
+      const at = this.turnOrder.indexOf(id);
+      let next: string | null = null;
+      for (let i = 1; i < this.turnOrder.length; i++) {
+        const candidate = this.turnOrder[(at + i) % this.turnOrder.length];
+        if (!this.players.get(candidate)?.isOut) {
+          next = candidate;
+          break;
+        }
+      }
+      this.currentTurnPlayerId = next;
+    }
+    if (leaving.hasPassed && this.consecutivePasses > 0) this.consecutivePasses--;
+    this.removePlayer(id);
+
+    const stillIn = Array.from(this.players.values()).filter((p) => !p.isOut);
+    if (stillIn.length < 2) {
+      if (stillIn.length === 1 && this.roundWinnerId) stillIn[0].losses++;
+      this.endRound();
+      return;
+    }
+
+    if (this.lastPlayerId === id) this.lastPlayerId = null;
+    if (!this.currentMeld) {
+      // The leader was about to lead; whoever's turn it is now leads instead.
+      if (wasLead) this.leadPlayerId = this.currentTurnPlayerId;
+      return;
+    }
+    if (wasLead) this.leadPlayerId = this.lastPlayerId;
+
+    // Everyone left in, other than the meld's owner, has passed on the meld: the trick is over.
+    if (this.consecutivePasses >= stillIn.filter((p) => p.id !== this.lastPlayerId).length) {
+      const owner = this.lastPlayerId ? this.players.get(this.lastPlayerId) : undefined;
+      const leader = owner && !owner.isOut ? owner.id : this.currentTurnPlayerId;
+      this.leadPlayerId = leader;
+      this.currentTurnPlayerId = leader;
+      this.currentMeld = null;
+      this.currentMeldType = null;
+      this.currentMeldSize = 0;
+      this.bombPlayed = false;
+      this.consecutivePasses = 0;
+      this.lastTrickMelds.length = 0;
+      this.trickMelds.forEach((m) => this.lastTrickMelds.push(m));
+      this.trickMelds.length = 0;
+      this.players.forEach((p) => (p.hasPassed = false));
+    }
+  }
+
 
   private shuffleDeck() {
     const cards = [...this.deck];
@@ -834,9 +917,10 @@ export class GameState {
 
     if (this.consecutivePasses >= needed) {
       const lastPlayer = this.players.get(this.lastPlayerId);
+      // A removed seat's meld (lastPlayer gone) goes on round the table to whoever is next.
       const newLeader = lastPlayer && !lastPlayer.isOut
         ? this.lastPlayerId
-        : this.nextPlayerInAfter(this.lastPlayerId);
+        : this.nextPlayerInAfter(lastPlayer ? this.lastPlayerId : playerId);
 
       if (newLeader) {
         console.log(`All players passed. ${newLeader} leads the next trick.`);

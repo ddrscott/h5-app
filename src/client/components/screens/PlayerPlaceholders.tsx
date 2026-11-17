@@ -1,17 +1,23 @@
 import React from 'react';
 import type { Player } from '../../types/game';
-import { User } from 'lucide-react';
+import { User, WifiOff } from 'lucide-react';
+import { KickButton } from '../ui/KickButton';
 
 interface PlayerPlaceholdersProps {
   players: Player[];
   hostId?: string | null;
   maxPlayers?: number;
+  myPlayerId?: string;
+  /** Set for the host: shows a remove control on players whose connection dropped. */
+  onKick?: (playerId: string) => void;
 }
 
 export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
   players,
   hostId,
-  maxPlayers = 6
+  maxPlayers = 6,
+  myPlayerId,
+  onKick,
 }) => {
   // Define specific positions for different player counts
   const getPlayerPositions = (playerCount: number) => {
@@ -65,11 +71,19 @@ export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
             {player ? (
               <div className="bg-gray-800/90 rounded-lg px-3 py-2 shadow-lg">
                 <div className="flex items-center space-x-1">
-                  <User size={14} className="text-gray-300" />
-                  <span className="text-sm font-medium">{player.name}</span>
+                  {player.isActive === false
+                    ? <WifiOff size={14} className="text-yellow-500" aria-label="Disconnected" />
+                    : <User size={14} className="text-gray-300" />}
+                  <span className={`text-sm font-medium ${player.isActive === false ? 'text-gray-400' : ''}`}>{player.name}</span>
+                  {onKick && player.isActive === false && player.id !== myPlayerId && (
+                    <KickButton name={player.name} onConfirm={() => onKick(player.id)} />
+                  )}
                 </div>
                 {player.id === hostId && (
                   <span className="text-xs text-gold">HOST</span>
+                )}
+                {player.isActive === false && (
+                  <span className="text-xs text-yellow-500 ml-1">reconnecting…</span>
                 )}
               </div>
             ) : (
