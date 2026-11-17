@@ -91,6 +91,23 @@ export class Card {
   }
 }
 
+const MELD_NAMES: Record<MeldType, string> = {
+  [MeldType.SINGLE]: "single",
+  [MeldType.PAIR]: "pair",
+  [MeldType.THREE_OF_KIND]: "three of a kind",
+  [MeldType.BOMB]: "bomb",
+  [MeldType.SISTERS]: "set of sisters",
+  [MeldType.FULL_HOUSE]: "full house",
+  [MeldType.RUN]: "run",
+  [MeldType.STRAIGHT_FLUSH]: "straight flush",
+};
+
+/** Sisters are N groups of the same size (pairs or triples) on consecutive ranks. */
+export function sisterShape(meld: Meld): { groups: number; groupSize: number } {
+  const groups = new Set(meld.cards.map(c => c.rank)).size;
+  return { groups, groupSize: meld.cards.length / groups };
+}
+
 export class Meld {
   cards: Card[] = [];
   type: MeldType;
@@ -677,35 +694,57 @@ export class GameState {
   }
 
   isValidPlay(meld: Meld): boolean {
-    // First check if the meld itself is valid
+    return this.describeInvalidPlay(meld) === null;
+  }
+
+  /** Why a meld can't go on the table right now, or null when it can. */
+  describeInvalidPlay(meld: Meld): string | null {
     if (!meld.type) {
-      return false;  // Invalid meld
+      return "Invalid card combination! Not a valid meld type.";
     }
-    
-    if (this.leadPlayerId === meld.playerId) {
-      return true;
+
+    // An empty table means the trick's leader is starting it: anything goes.
+    if (!this.currentMeld) {
+      return null;
     }
-    
+
+    const table = this.currentMeld;
+    const tableIsBomb = table.type === MeldType.BOMB || table.type === MeldType.STRAIGHT_FLUSH;
+
     if (meld.type === MeldType.BOMB || meld.type === MeldType.STRAIGHT_FLUSH) {
-      if (this.currentMeld && 
-          (this.currentMeld.type === MeldType.BOMB || 
-           this.currentMeld.type === MeldType.STRAIGHT_FLUSH)) {
-        return meld.strength > this.currentMeld.strength ||
-               (meld.type === MeldType.STRAIGHT_FLUSH && 
-                meld.cards.length > this.currentMeld.cards.length);
+      if (!tableIsBomb) return null;
+      const beats = meld.strength > table.strength ||
+        (meld.type === MeldType.STRAIGHT_FLUSH && meld.cards.length > table.cards.length);
+      return beats ? null : "That doesn't beat the table. It needs a higher bomb.";
+    }
+
+    if (tableIsBomb) {
+      return "That doesn't beat the table. It needs a higher bomb.";
+    }
+
+    const name = MELD_NAMES[table.type];
+    if (meld.type !== table.type) {
+      return `That doesn't beat the table. It needs a ${name} or a bomb.`;
+    }
+
+    if (meld.cards.length !== table.cards.length) {
+      return `That doesn't beat the table. It needs a ${table.cards.length}-card ${name}.`;
+    }
+
+    if (meld.type === MeldType.SISTERS) {
+      const want = sisterShape(table);
+      const got = sisterShape(meld);
+      if (want.groupSize !== got.groupSize || want.groups !== got.groups) {
+        const kind = want.groupSize === 3 ? "triples" : "pairs";
+        return `That doesn't beat the table. It needs sisters of ${want.groups} ${kind}.`;
       }
-      return true;
     }
-    
-    if (!this.currentMeld || meld.type !== this.currentMeldType) {
-      return false;
+
+    if (meld.strength <= table.strength) {
+      return `That doesn't beat the table. It needs a higher ${name}.`;
     }
-    
-    if (meld.cards.length !== this.currentMeldSize) {
-      return false;
-    }
-    
-    return meld.strength > this.currentMeld.strength;
+
+    return null;
   }
 
   pass(playerId: string): boolean {
@@ -743,86 +782,52 @@ export class GameState {
     player.hasPassed = true;
     this.consecutivePasses++;
     
-    const activePlayers = Array.from(this.players.values()).filter(p => !p.isOut);
-    
-    // When all other active players have passed, the last player who played becomes the leader
-    if (this.consecutivePasses >= activePlayers.length - 1) {
-      // Check if the last player who played is still active (not out)
+    // The trick ends when every other player still in has passed since the
+    // last play. The last player to play counts only while they're still in.
+    const needed = Array.from(this.players.values())
+      .filter(p => !p.isOut && p.id !== this.lastPlayerId).length;
+
+    if (this.consecutivePasses >= needed) {
       const lastPlayer = this.players.get(this.lastPlayerId);
-      
-      if (lastPlayer && !lastPlayer.isOut) {
-        console.log(`All players passed. ${this.lastPlayerId} becomes the new leader.`);
-        console.log(`[pass] Setting leadPlayerId from ${this.leadPlayerId} to ${this.lastPlayerId}`);
-        console.log(`[pass] Clearing currentMeld (was ${this.currentMeld ? 'set' : 'null'})`);
-        
-        this.leadPlayerId = this.lastPlayerId;
+      const newLeader = lastPlayer && !lastPlayer.isOut
+        ? this.lastPlayerId
+        : this.nextPlayerInAfter(this.lastPlayerId);
+
+      if (newLeader) {
+        console.log(`All players passed. ${newLeader} leads the next trick.`);
+        this.leadPlayerId = newLeader;
         this.currentMeld = null;
         this.currentMeldType = null;
         this.currentMeldSize = 0;
         this.bombPlayed = false;
         this.consecutivePasses = 0;
-        
+
         // Move current trick to last trick
         this.lastTrickMelds.length = 0;
         this.trickMelds.forEach(meld => this.lastTrickMelds.push(meld));
         this.trickMelds.length = 0;
-        
-        // Reset all players' pass status
+
         this.players.forEach(p => p.hasPassed = false);
-        
-        // The new leader's turn
-        this.currentTurnPlayerId = this.leadPlayerId;
-        console.log(`[pass] Leader state after reset: leadPlayerId=${this.leadPlayerId}, currentTurnPlayerId=${this.currentTurnPlayerId}, currentMeld=${this.currentMeld}`);
-        return true;  // Don't call nextTurn() here since we just set the current player
-      } else {
-        // Last player is out, so we need to find another leader
-        console.log(`Last player ${this.lastPlayerId} is out. Finding new leader...`);
-        
-        // Find the first active player who hasn't passed
-        let newLeader: string | null = null;
-        for (const [id, player] of this.players) {
-          if (!player.isOut && !player.hasPassed) {
-            newLeader = id;
-            break;
-          }
-        }
-        
-        // If no one found, pick first active player
-        if (!newLeader) {
-          for (const [id, player] of this.players) {
-            if (!player.isOut) {
-              newLeader = id;
-              break;
-            }
-          }
-        }
-        
-        if (newLeader) {
-          console.log(`New leader: ${newLeader}`);
-          this.leadPlayerId = newLeader;
-          this.currentMeld = null;
-          this.currentMeldType = null;
-          this.currentMeldSize = 0;
-          this.bombPlayed = false;
-          this.consecutivePasses = 0;
-          
-          // Move current trick to last trick
-          this.lastTrickMelds.length = 0;
-          this.trickMelds.forEach(meld => this.lastTrickMelds.push(meld));
-          this.trickMelds.length = 0;
-          
-          // Reset all players' pass status
-          this.players.forEach(p => p.hasPassed = false);
-          
-          // Set new leader's turn
-          this.currentTurnPlayerId = newLeader;
-          return true;
-        }
+
+        // Don't call nextTurn(): the new leader plays next.
+        this.currentTurnPlayerId = newLeader;
+        return true;
       }
     }
-    
+
     this.nextTurn();
     return true;
+  }
+
+  /** The next player in seat order after `playerId` who still has cards. */
+  private nextPlayerInAfter(playerId: string): string | null {
+    const start = this.turnOrder.indexOf(playerId);
+    for (let i = 1; i <= this.turnOrder.length; i++) {
+      const id = this.turnOrder[(start + i) % this.turnOrder.length];
+      const p = this.players.get(id);
+      if (p && !p.isOut) return id;
+    }
+    return null;
   }
 
   private nextTurn(): boolean {

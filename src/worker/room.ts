@@ -459,7 +459,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
 
       const success = state.playMeld(client.sessionId, cards);
       if (!success) {
-        client.send("error", { message: "Invalid play! Must match current meld type or play a bomb." });
+        client.send("error", { message: state.describeInvalidPlay(testMeld) ?? "Invalid play!" });
         return;
       }
 
@@ -687,7 +687,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
       round: state.currentRound,
     });
 
-    state.addSystemMessage(`🎮 Game ${state.currentRound} started!`, "success");
+    state.addSystemMessage(`🎮 Game ${state.currentRound + 1} started!`, "success");
 
     // Goes out after the state that shows it's this player's turn (see flush()).
     this.sendTurnNotification();

@@ -106,7 +106,7 @@ npm run typecheck  # client, worker, and Vite config
 npm run build      # builds dist/client (assets) and dist/h5 (Worker)
 ```
 
-Three rule tests fail (a long A-K run, a longer straight flush beating a shorter one, and the all-pass leader test). They failed the same way under Colyseus, before the move to Cloudflare.
+Two rule tests fail: a long A-K run, and a longer straight flush beating a shorter one. Both turn on whether a 2 can sit low in a run, which the owner has yet to settle.
 
 ## Deploy
 
