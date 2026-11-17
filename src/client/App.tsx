@@ -150,6 +150,7 @@ function GameApp() {
         roomId={roomId}
         players={playersArray}
         isHost={isHost}
+        hostId={gameState.hostId}
         hostName={hostName}
         lastError={gameState.lastError}
         onStartGame={handleStartGame}

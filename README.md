@@ -60,7 +60,9 @@ browser ──HTTPS──▶ Worker (src/worker/index.ts) ──▶ static asset
 
 - **One Durable Object per room**, named by its six-character room code. It holds the game state, runs the rules (`src/worker/game/GameState.ts`), and talks to players over WebSockets.
 - **Hibernating sockets.** An idle table costs nothing. The full state, hands included, is saved to the object's storage after every action and reloaded when it wakes.
-- **Alarms** take the place of server timers: the 30-second auto start, and wiping a table nobody has come back to for 30 minutes.
+- **Alarms** take the place of server timers: wiping a table nobody has come back to for 30 minutes.
+- **The host starts the game.** Nothing starts on its own. The room's creator is host; if they leave the lobby, the next seated human takes over, and while the host is disconnected mid-session the next connected human can run "Play Again". Bots count as players but never host. Tables hold 2 to 6 players, because two-deck play (7-8) deals duplicate card codes.
+- **Limits.** Every player name, from the `name` query or `opts.name`, goes through `sanitizeName` (strings only, control and bidi characters stripped, 20 characters, falling back to "Player N"). Chat allows 5 messages per 10 seconds per player; extras are dropped and the sender gets a private `error`.
 - **Reconnects.** A dropped connection gets a minute to take its seat back with a secret token the room handed out on join.
 - **Client.** `src/client/net/rooms.ts` is a small stand-in for colyseus.js with the same `Room` calls the hooks and bots already used (`onStateChange`, `onMessage`, `send`, `leave`). State arrives as a full public snapshot after each change. Hands never go in it; each player gets their own through the `your_hand` message.
 
@@ -73,10 +75,10 @@ JSON text frames on `/h5/api/rooms/new/ws` (create) or `/h5/api/rooms/:code/ws` 
 | server → client | `{t:"joined", roomId, sessionId, token}` | once, when the socket opens |
 | server → client | `{t:"state", s}` | after every change |
 | server → client | `{t:"msg", type, data}` | game messages: `your_hand`, `your_turn`, `game_started`, `meld_played`, ... |
-| client → server | `{t:"msg", type, data}` | `play`, `pass`, `chat`, `startGame`, `ready` |
+| client → server | `{t:"msg", type, data}` | `play`, `pass`, `chat`, `startGame` (host only), `ready` |
 | client → server | `{t:"leave"}` | leaving on purpose |
 
-A room that turns a player away closes the socket with a 4xxx code and a reason the client shows: 4404 not found, 4423 already started, 4429 full.
+A room that turns a player away closes the socket with a 4xxx code and a reason the client shows: 4404 not found, 4423 already started, 4429 full (6 players max). The public state's `hostId` says who may start the game; anyone else's `startGame` gets an `error` saying who can.
 
 ## Served at askscottpierce.com/h5
 
@@ -104,6 +106,12 @@ Open `http://localhost:5173/h5/`. Test at `/h5/`, not `/`: the Worker returns 40
 npm test           # game rules and snapshot round trips (node:test)
 npm run typecheck  # client, worker, and Vite config
 npm run build      # builds dist/client (assets) and dist/h5 (Worker)
+```
+
+With `npm run dev` running, a lobby smoke test drives real sockets against it: five players join and nothing starts, a guest's `startGame` is refused, crafted and oversized names are cleaned up, a seventh join is refused as full, the host's start works, and a chat flood is cut to five.
+
+```bash
+node scripts/smoke-lobby.mjs http://localhost:5173
 ```
 
 Three rule tests fail (a long A-K run, a longer straight flush beating a shorter one, and the all-pass leader test). They failed the same way under Colyseus, before the move to Cloudflare.

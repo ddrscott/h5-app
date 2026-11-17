@@ -11,6 +11,7 @@ interface LobbyProps {
   roomId: string;
   players: Player[];
   isHost: boolean;
+  hostId: string | null;
   hostName: string;
   lastError?: string | null;
   onStartGame: () => void;
@@ -21,6 +22,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   roomId,
   players,
   isHost,
+  hostId,
   hostName,
   lastError,
   onStartGame,
@@ -122,7 +124,7 @@ export const Lobby: React.FC<LobbyProps> = ({
               <div className="flex-grow relative
                   rounded-lg landscape:min-h-full"
               >
-                  <PlayerPlaceholders players={players} />
+                  <PlayerPlaceholders players={players} hostId={hostId} />
               
               {/* Center content - Room Code */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
