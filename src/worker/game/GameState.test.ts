@@ -1,6 +1,30 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { GameState, Card, Meld, Suit, Rank, MeldType, saveState, restoreState, publicState } from './GameState';
+import { GameState, GamePhase, Card, Meld, Suit, Rank, MeldType, saveState, restoreState, publicState } from './GameState';
+
+// "3S" -> Card. Ten is "T", jokers aren't needed here.
+const RANKS: Record<string, Rank> = {
+  '3': Rank.THREE, '4': Rank.FOUR, '5': Rank.FIVE, '6': Rank.SIX, '7': Rank.SEVEN, '8': Rank.EIGHT,
+  '9': Rank.NINE, 'T': Rank.TEN, 'J': Rank.JACK, 'Q': Rank.QUEEN, 'K': Rank.KING, 'A': Rank.ACE, '2': Rank.TWO,
+};
+const card = (code: string) => new Card(code.slice(-1) as Suit, RANKS[code.slice(0, -1)]);
+const cards = (codes: string) => codes.split(' ').map(card);
+
+/** A game in PLAYING with the given hands, seated in order, and `leader` to lead. */
+function table(hands: Record<string, string>, leader: string) {
+  const s = new GameState();
+  for (const id of Object.keys(hands)) {
+    s.addPlayer(id, id);
+    const p = s.players.get(id)!;
+    cards(hands[id]).forEach((c) => p.addCard(c));
+  }
+  s.phase = GamePhase.PLAYING;
+  s.currentTurnPlayerId = leader;
+  s.leadPlayerId = leader;
+  return s;
+}
+const hand = (s: GameState, id: string, codes: string) =>
+  codes.split(' ').map((code) => s.players.get(id)!.hand.find((c) => c.code === code)!);
 
 describe('Meld Type Detection and Validation', () => {
   describe('Single Card', () => {
@@ -562,8 +586,9 @@ describe('Meld Type Detection and Validation', () => {
       gameState.addPlayer('player1', 'Alice');
       gameState.addPlayer('player2', 'Bob');
       gameState.addPlayer('player3', 'Charlie');
-      
+
       // Set up initial state
+      gameState.phase = GamePhase.PLAYING;
       gameState.currentTurnPlayerId = 'player1';
       gameState.leadPlayerId = 'player1';
       gameState.lastPlayerId = 'player1';
@@ -589,6 +614,99 @@ describe('Meld Type Detection and Validation', () => {
     });
   });
 });
+
+describe('Trick rules', () => {
+  it('leader must beat the table once the trick comes back around', () => {
+    const s = table({ a: '3S 9S QS', b: 'TS KS', c: 'JS AS' }, 'a');
+    assert.strictEqual(s.playMeld('a', hand(s, 'a', '9S')), true);
+    assert.strictEqual(s.playMeld('b', hand(s, 'b', 'TS')), true);
+    assert.strictEqual(s.playMeld('c', hand(s, 'c', 'JS')), true);
+    assert.strictEqual(s.currentTurnPlayerId, 'a');
+    assert.strictEqual(s.leadPlayerId, 'a');
+
+    // A jack is on the table: a 3 doesn't beat it, a queen does.
+    assert.strictEqual(s.playMeld('a', hand(s, 'a', '3S')), false);
+    const low = new Meld();
+    low.setCards(hand(s, 'a', '3S'));
+    low.playerId = 'a';
+    assert.match(s.describeInvalidPlay(low), /doesn't beat/i);
+    assert.doesNotMatch(s.describeInvalidPlay(low), /combination/i);
+    assert.strictEqual(s.playMeld('a', hand(s, 'a', 'QS')), true);
+  });
+
+  it('leader plays anything on an empty table', () => {
+    const s = table({ a: '3S 9S', b: 'TS KS' }, 'a');
+    assert.strictEqual(s.playMeld('a', hand(s, 'a', '3S')), true);
+  });
+
+  it('when the last player to play goes out, every other player still in gets to answer', () => {
+    // Seats a, b, c, d. c plays its last card; d, a, and b all still get a turn.
+    const s = table({ a: '3S 6S 7S', b: '4S 8S 9S', c: '5S', d: 'TS JS QS' }, 'a');
+    assert.strictEqual(s.playMeld('a', hand(s, 'a', '3S')), true);
+    assert.strictEqual(s.playMeld('b', hand(s, 'b', '4S')), true);
+    assert.strictEqual(s.playMeld('c', hand(s, 'c', '5S')), true);
+    assert.strictEqual(s.players.get('c')!.isOut, true);
+
+    assert.strictEqual(s.currentTurnPlayerId, 'd');
+    assert.strictEqual(s.pass('d'), true);
+    assert.strictEqual(s.pass('a'), true);
+
+    // Two passes isn't everyone: b hasn't answered c's 5 yet.
+    assert.strictEqual(s.currentTurnPlayerId, 'b');
+    assert.ok(s.currentMeld, 'the trick is still open');
+    assert.strictEqual(s.pass('b'), true);
+
+    // Now it's over, and the lead goes to the next player still in after c.
+    assert.strictEqual(s.currentMeld, null);
+    assert.strictEqual(s.leadPlayerId, 'd');
+    assert.strictEqual(s.currentTurnPlayerId, 'd');
+    assert.strictEqual(s.consecutivePasses, 0);
+  });
+
+  it('the lead after an all-pass skips players who are out', () => {
+    // c goes out, d is out already, so the lead after c goes round to a.
+    const s = table({ a: '3S 6S 7S', b: '4S 8S 9S', c: '5S', d: 'TS JS' }, 'a');
+    s.players.get('d')!.isOut = true;
+    assert.strictEqual(s.playMeld('a', hand(s, 'a', '3S')), true);
+    assert.strictEqual(s.playMeld('b', hand(s, 'b', '4S')), true);
+    assert.strictEqual(s.playMeld('c', hand(s, 'c', '5S')), true);
+    assert.strictEqual(s.pass('a'), true);
+    assert.ok(s.currentMeld, 'b still has to answer');
+    assert.strictEqual(s.pass('b'), true);
+    assert.strictEqual(s.leadPlayerId, 'a');
+    assert.strictEqual(s.currentTurnPlayerId, 'a');
+  });
+
+  it('pair sisters do not beat triple sisters', () => {
+    const s = table({ a: '3H 3D 3S 4H 4D 4S 9S', b: '7H 7D 7C 8H 8D 8C 9H 9D' }, 'a');
+    assert.strictEqual(s.playMeld('a', hand(s, 'a', '3H 3D 3S 4H 4D 4S')), true);
+
+    // 77 88 99 is six cards of sisters too, but in pairs.
+    assert.strictEqual(s.playMeld('b', hand(s, 'b', '7H 7D 8H 8D 9H 9D')), false);
+    assert.strictEqual(s.playMeld('b', hand(s, 'b', '7H 7D 7C 8H 8D 8C')), true);
+  });
+
+  it('sisters must match the number of groups', () => {
+    const s = new GameState();
+    const onTable = new Meld();
+    onTable.setCards(cards('3H 3D 4H 4D'));
+    onTable.playerId = 'a';
+    s.currentMeld = onTable;
+    s.currentMeldType = onTable.type;
+    s.currentMeldSize = 4;
+
+    const three = new Meld();
+    three.setCards(cards('5H 5D 6H 6D 7H 7D'));
+    three.playerId = 'b';
+    assert.strictEqual(s.isValidPlay(three), false);
+
+    const two = new Meld();
+    two.setCards(cards('5H 5D 6H 6D'));
+    two.playerId = 'b';
+    assert.strictEqual(s.isValidPlay(two), true);
+  });
+});
+
 describe('Snapshots (Durable Object storage)', () => {
   const dealt = () => {
     const s = new GameState();
