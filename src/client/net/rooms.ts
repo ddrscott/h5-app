@@ -99,6 +99,14 @@ export class Room<State = any> {
           }
         } else if (frame.t === 'msg') {
           this.dispatch(frame.type, frame.data);
+        } else if (frame.t === 'bye') {
+          // The room is closing this socket on purpose (seat opened elsewhere, or removed).
+          // Act now rather than wait for the close event, which can arrive late.
+          ws.onclose = null;
+          this.stopPing();
+          try { ws.close(); } catch { /* already closing */ }
+          if (!seated) reject(new ConnectError(frame.reason, frame.code));
+          else if (ws === this.ws && !this.leaving) this.giveUp(frame.code, frame.reason);
         }
       };
 

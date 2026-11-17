@@ -9,6 +9,7 @@ import type { Env } from "./env";
  *   server → client  {t:"joined", roomId, sessionId, token}   once, right after the socket opens
  *                    {t:"state", s}                            full public state, after every change
  *                    {t:"msg", type, data}                     a game message ("your_hand", "your_turn", ...)
+ *                    {t:"bye", code, reason}                   right before the room closes a seat's socket
  *   client → server  {t:"msg", type, data}                     "play", "pass", "chat", "startGame", "ready", "kick"
  *                    {t:"leave"}                               leaving on purpose
  *
@@ -140,7 +141,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
       // Drop any stale socket still holding this seat.
       for (const ws of this.ctx.getWebSockets(resumeId)) {
         this.attach(ws, { sessionId: resumeId, left: true });
-        try { ws.close(CLOSE_REPLACED, "This seat was opened somewhere else"); } catch { /* already closed */ }
+        this.closeWith(ws, CLOSE_REPLACED, "This seat was opened somewhere else");
       }
       const [client, ws] = this.accept(resumeId, resumeToken);
       await this.onReconnect(this.clientFor(ws));
@@ -177,6 +178,15 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     server.accept();
     server.close(code, reason);
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /**
+   * Closes a seated socket with a reason. The reason goes out first as a {t:"bye"} frame as well,
+   * because a server-side close can reach the browser late (or, through the Vite dev proxy, never).
+   */
+  private closeWith(ws: WebSocket, code: number, reason: string) {
+    this.sendTo(ws, { t: "bye", code, reason });
+    try { ws.close(code, reason); } catch { /* already closed */ }
   }
 
   private attach(ws: WebSocket, a: Attachment) {
@@ -687,7 +697,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
 
     for (const ws of this.ctx.getWebSockets(sessionId)) {
       this.attach(ws, { sessionId, left: true });
-      try { ws.close(CLOSE_REMOVED, "You were removed from the table"); } catch { /* already closed */ }
+      this.closeWith(ws, CLOSE_REMOVED, "You were removed from the table");
     }
     delete this.meta!.tokens[sessionId];
     if (this.meta!.dropDeadlines) delete this.meta!.dropDeadlines[sessionId];

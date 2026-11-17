@@ -145,10 +145,11 @@ async function gameResume() {
 
   const turn = a.state.currentTurnPlayerId;
   const off = all.find((s) => s.sessionId !== turn);
+  const watcher = all.find((s) => s !== off);
   const handBefore = [...off.hand];
   off.drop();
-  await a.until((s) => s.players[off.sessionId].isActive === false, `${off.name} shown as disconnected`);
-  check(a.state.currentTurnPlayerId === turn, 'game: a drop does not move the turn');
+  await watcher.until((s) => s.players[off.sessionId].isActive === false, `${off.name} shown as disconnected`);
+  check(watcher.state.currentTurnPlayerId === turn, 'game: a drop does not move the turn');
   off.hand = [];
   await off.resume();
   await off.until((_, me) => me.hand.length > 0, 'hand after resume');
@@ -167,8 +168,8 @@ async function absentTurn() {
   log(`room ${a.roomId}: absent-player turn timer`);
   await startGame(a, all);
 
-  // Drop whoever is up. If that's the host, the kick check below uses another host-less path,
-  // so make sure the host stays: pass the turn along until a guest is up.
+  // Drop whoever is up. The host has to stay connected for the kick checks below, so if the
+  // host is up, they lead a card first and the next player (a guest) is the one who drops.
   let turn = a.state.currentTurnPlayerId;
   let away = all.find((s) => s.sessionId === turn);
   if (away === a) {
