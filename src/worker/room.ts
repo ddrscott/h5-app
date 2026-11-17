@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { GameState, GamePhase, Card, Player, Meld, saveState, restoreState, publicState } from "./game/GameState";
+import { GameState, GamePhase, Card, Player, Meld, saveState, restoreState, publicState, sanitizeName, RateLimiter } from "./game/GameState";
 import type { Env } from "./env";
 
 /**
@@ -20,7 +20,6 @@ export interface HeartOfFiveOptions {
   minPlayers?: number;
   maxPlayers?: number;
   targetWins?: number;
-  autoStart?: boolean;
   testMode?: boolean;
   testDeckSize?: number; // Number of cards per player for test mode
   testDeck?: string; // Exact deck specification for test mode (e.g., "5H 6H 7H 8H 5C 3C 4C 5C")
@@ -39,7 +38,6 @@ interface RoomMeta {
   creatorName?: string;
   /** Reconnect secrets by session id. A dropped socket can take its seat back with one. */
   tokens: Record<string, string>;
-  autoStartAt?: number;
   cleanupAt?: number;
 }
 
@@ -54,7 +52,11 @@ interface Client {
   send(type: string, data?: unknown): void;
 }
 
-const AUTO_START_MS = 30_000;
+/** Two-deck play (7-8 players) deals duplicate card codes, so tables stop at 6 until that's fixed. */
+const MAX_PLAYERS = 6;
+const MIN_PLAYERS = 2;
+const CHAT_MAX = 5;
+const CHAT_WINDOW_MS = 10_000;
 /** How long an empty table waits for someone to come back before it's wiped. */
 const EMPTY_ROOM_TTL_MS = 30 * 60_000;
 const MAX_FRAME_BYTES = 8_192;
@@ -64,6 +66,10 @@ const CLOSE_NOT_FOUND = 4404;
 const CLOSE_LOCKED = 4423;
 const CLOSE_FULL = 4429;
 const CLOSE_TAKEN = 4409;
+
+/** A player-count option, kept within 2..6. */
+const clampPlayers = (n: unknown, fallback: number) =>
+  typeof n === "number" && Number.isFinite(n) ? Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, Math.floor(n))) : fallback;
 
 const randomId = (n: number) => {
   const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -76,6 +82,8 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
   private state: GameState | null = null;
   private lastStateJson = "";
   private pendingTurnNotification = false;
+  /** In memory only: hibernation resetting it just forgives a burst. */
+  private chatLimit = new RateLimiter(CHAT_MAX, CHAT_WINDOW_MS);
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -101,10 +109,11 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
 
     const url = new URL(req.url);
     const createId = req.headers.get("X-H5-Create");
-    const name = (url.searchParams.get("name") || "").trim().slice(0, 40);
-    let options: HeartOfFiveOptions = {};
+    const queryName = url.searchParams.get("name");
+    let options: HeartOfFiveOptions & { name?: unknown; bot?: unknown } = {};
     try {
-      options = JSON.parse(url.searchParams.get("opts") || "{}");
+      const parsed = JSON.parse(url.searchParams.get("opts") || "{}");
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) options = parsed;
     } catch {
       /* ignore bad options */
     }
@@ -134,13 +143,16 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     }
 
     if (this.meta.locked) return this.reject(CLOSE_LOCKED, "That game already started");
-    if (this.state.players.size >= this.meta.maxClients) return this.reject(CLOSE_FULL, "That game is full");
+    const cap = Math.min(this.meta.maxClients, MAX_PLAYERS);
+    if (this.state.players.size >= cap) {
+      return this.reject(CLOSE_FULL, `That table is full (${cap} players max)`);
+    }
 
     const sessionId = randomId(9);
     const token = crypto.randomUUID();
     this.meta.tokens[sessionId] = token;
     const [client, ws] = this.accept(sessionId, token);
-    this.onJoin(this.clientFor(ws), { name, ...options });
+    this.onJoin(this.clientFor(ws), { name: queryName ?? options.name, bot: options.bot === true });
     await this.flush(ws);
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -229,9 +241,10 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     }
 
     if (frame.t === "msg" && typeof frame.type === "string") {
-      const handler = this.handlers[frame.type];
-      if (handler) {
-        handler(client, frame.data ?? {});
+      // hasOwn, so "__proto__" or "constructor" can't reach Object.prototype.
+      if (Object.hasOwn(this.handlers, frame.type)) {
+        const data = frame.data && typeof frame.data === "object" ? frame.data : {};
+        this.handlers[frame.type](client, data);
         await this.flush();
       }
     }
@@ -283,12 +296,11 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
   }
 
   // ---------------------------------------------------------------------------
-  // Alarms: the 30-second auto start and wiping a table nobody came back to.
+  // Alarms: wiping a table nobody came back to.
   // ---------------------------------------------------------------------------
 
   private async syncAlarm() {
-    const next = [this.meta?.autoStartAt, this.meta?.cleanupAt].filter((t): t is number => !!t);
-    if (next.length) await this.ctx.storage.setAlarm(Math.min(...next));
+    if (this.meta?.cleanupAt) await this.ctx.storage.setAlarm(this.meta.cleanupAt);
     else await this.ctx.storage.deleteAlarm();
   }
 
@@ -315,13 +327,6 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
       this.meta.cleanupAt = undefined;
     }
 
-    if (this.meta.autoStartAt && this.meta.autoStartAt <= now) {
-      this.meta.autoStartAt = undefined;
-      if (this.state.players.size >= this.meta.minPlayers) {
-        this.startGame();
-      }
-    }
-
     await this.flush();
   }
 
@@ -333,8 +338,8 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     this.meta = {
       roomId,
       origin,
-      minPlayers: options.minPlayers || 4,
-      maxClients: options.maxPlayers || 8,
+      minPlayers: clampPlayers(options.minPlayers, MIN_PLAYERS),
+      maxClients: clampPlayers(options.maxPlayers, MAX_PLAYERS),
       testMode: options.testMode || false,
       testDeckSize: options.testDeckSize || 0,
       testDeck: options.testDeck || "",
@@ -355,10 +360,6 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     }
     this.state = state;
     this.lastStateJson = "";
-
-    if (options.autoStart !== false) {
-      this.meta.autoStartAt = Date.now() + AUTO_START_MS;
-    }
   }
 
   private inviteUrl(): string {
@@ -367,12 +368,12 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     return url.toString();
   }
 
-  private onJoin(client: Client, options: { name?: string }) {
+  private onJoin(client: Client, options: { name?: unknown; bot: boolean }) {
     const state = this.state!;
     console.log(client.sessionId, "joined!");
 
-    const playerName = options.name || `Player ${state.players.size + 1}`;
-    state.addPlayer(client.sessionId, playerName);
+    const playerName = sanitizeName(options.name, `Player ${state.players.size + 1}`);
+    state.addPlayer(client.sessionId, playerName, options.bot);
 
     // If this is the first player, they're the room creator
     if (state.players.size === 1) {
@@ -397,38 +398,25 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     }, { except: client });
 
     state.addSystemMessage(`👋 ${playerName} joined the game`, "info");
-
-    this.checkGameStart();
   }
 
   private handlers: Record<string, (client: Client, message: any) => void> = {
     ready: (client) => {
       const player = this.state!.players.get(client.sessionId);
-      if (player) {
-        player.isActive = true;
-        this.checkGameStart();
-      }
+      if (player) player.isActive = true;
     },
 
+    // The first game and every "Play Again" after it: host only, never automatic.
     startGame: (client) => {
       const state = this.state!;
-      // Allow starting a new round/game after ROUND_END, GAME_END, or WAITING
-      if (state.phase === GamePhase.ROUND_END ||
-          state.phase === GamePhase.GAME_END ||
-          state.phase === GamePhase.WAITING) {
-        if (state.players.size >= 2) {
-          console.log("Starting new round/game from phase:", state.phase);
-
-          // If starting from GAME_END, reset the game completely
-          if (state.phase === GamePhase.GAME_END) {
-            this.resetGame();
-          }
-
-          this.startGame();
-        } else {
-          client.send("error", { message: "Need at least 2 players to start" });
-        }
+      const error = state.startError(client.sessionId, this.meta!.minPlayers);
+      if (error) {
+        client.send("error", { message: error, code: "START_REFUSED" });
+        return;
       }
+      console.log("Starting new round/game from phase:", state.phase);
+      if (state.phase === GamePhase.GAME_END) this.resetGame();
+      this.startGame();
     },
 
     play: (client, message: { cards?: unknown }) => {
@@ -491,6 +479,13 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     },
 
     chat: (client, message: { text?: unknown }) => {
+      if (!this.chatLimit.allow(client.sessionId)) {
+        client.send("error", {
+          message: `Slow down: at most ${CHAT_MAX} messages every ${CHAT_WINDOW_MS / 1000} seconds`,
+          code: "CHAT_RATE_LIMITED",
+        });
+        return;
+      }
       const text = typeof message.text === "string" ? message.text : "";
       const success = this.state!.addChatMessage(client.sessionId, text);
       if (!success) {
@@ -625,17 +620,6 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     }
   }
 
-  private checkGameStart() {
-    const state = this.state!;
-    if (state.phase !== GamePhase.WAITING) return;
-
-    const activePlayers = Array.from(state.players.values()).filter((p) => p.isActive);
-    if (state.players.size >= this.meta!.minPlayers &&
-        state.players.size === activePlayers.length) {
-      this.startGame();
-    }
-  }
-
   private resetGame() {
     const state = this.state!;
     state.players.forEach((player) => {
@@ -655,7 +639,6 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
       return;
     }
 
-    this.meta!.autoStartAt = undefined;
     console.log("Starting game/round with", state.players.size, "players");
 
     // Only lock on first game, not on subsequent rounds

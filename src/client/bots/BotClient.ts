@@ -39,7 +39,8 @@ export class BotClient implements IBotClient {
       if (roomId && roomId !== 'create') {
         console.log(`[${this.config.name}] Joining room by ID: ${roomId}`);
         this.room = await this.client.joinById(roomId, {
-          name: this.config.name
+          name: this.config.name,
+          bot: true, // bots count as players but never become host
         });
       } else {
         console.log(`[${this.config.name}] Creating new room`);

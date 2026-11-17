@@ -11,6 +11,8 @@ interface LobbyProps {
   roomId: string;
   players: Player[];
   isHost: boolean;
+  hostName: string;
+  lastError?: string | null;
   onStartGame: () => void;
   onLeaveRoom: () => void;
 }
@@ -19,6 +21,8 @@ export const Lobby: React.FC<LobbyProps> = ({
   roomId,
   players,
   isHost,
+  hostName,
+  lastError,
   onStartGame,
   onLeaveRoom,
 }) => {
@@ -210,12 +214,15 @@ export const Lobby: React.FC<LobbyProps> = ({
                   /* Non-host players see this */
                   <div className="text-center">
                     <div className="text-4xl mb-4 animate-spin">⏳</div>
-                    <p className="text-gray-300">Waiting for host to start game...</p>
+                    <p className="text-gray-300">Waiting for {hostName} to start</p>
                   </div>
                 )}
               </div>
             </div>
           </div>
+          {lastError && (
+            <p role="alert" className="text-sm text-red-300 text-center pt-2">{lastError}</p>
+          )}
           <p className="text-xs text-gray-400 text-center py-2">
             {players.length}/6 Players • {players.length === 6 ? 'Room is full!' : `${6 - players.length} spots available`}
           </p>

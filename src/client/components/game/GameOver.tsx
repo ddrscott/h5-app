@@ -14,9 +14,11 @@ interface GameOverProps {
   }[];
   onPlayAgain: () => void;
   onLeaveGame: () => void;
+  isHost?: boolean;
+  hostName?: string;
 }
 
-export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, onPlayAgain, onLeaveGame }) => {
+export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, onPlayAgain, onLeaveGame, isHost = true, hostName = 'the host' }) => {
   return (
     <DialogBox className="max-w-md w-full mx-8">
       {/* Winner Announcement */}
@@ -74,12 +76,16 @@ export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, onPl
         >
           Leave Game
         </button>
-        <button
-          onClick={onPlayAgain}
-          className="btn-primary"
-        >
-          Play Again
-        </button>
+        {isHost ? (
+          <button
+            onClick={onPlayAgain}
+            className="btn-primary"
+          >
+            Play Again
+          </button>
+        ) : (
+          <p className="self-center text-sm text-gray-300">Waiting for {hostName} to start</p>
+        )}
       </div>
     </DialogBox>
   );

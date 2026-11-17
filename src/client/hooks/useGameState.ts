@@ -11,6 +11,7 @@ interface GameStateData {
   currentRound: number;
   currentTurnPlayerId: string | null;
   leadPlayerId: string | null;
+  hostId: string | null;
   players: Map<string, Player>;
   currentMeld: Meld | null;
   consecutivePasses: number;
@@ -44,6 +45,7 @@ export const useGameState = () => {
     currentRound: 0,
     currentTurnPlayerId: null,
     leadPlayerId: null,
+    hostId: null,
     players: new Map(),
     currentMeld: null,
     consecutivePasses: 0,
@@ -141,6 +143,7 @@ export const useGameState = () => {
           currentRound: state.currentRound,
           currentTurnPlayerId: state.currentTurnPlayerId,
           leadPlayerId: state.leadPlayerId,
+          hostId: state.hostId ?? null,
           players: new Map(state.players),
           currentMeld: state.currentMeld,
           consecutivePasses: state.consecutivePasses,

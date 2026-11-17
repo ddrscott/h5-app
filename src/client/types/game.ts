@@ -41,6 +41,7 @@ export interface Player {
   wins: number;
   losses: number;
   position?: number;
+  isBot?: boolean;
 }
 
 export interface Meld {
@@ -86,6 +87,8 @@ export interface GameState {
   players: Map<string, Player>;
   currentMeld: Meld | null;
   consecutivePasses: number;
+  /** Who may start the game (and "Play Again"). */
+  hostId?: string | null;
   trickMelds?: any[];
   lastTrickMelds?: any[];
   deck?: Card[];
