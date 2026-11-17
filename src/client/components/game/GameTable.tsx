@@ -525,7 +525,7 @@ export const GameTable: React.FC<GameTableProps> = ({
           return (
             <div
               key={`name-${opponent.id}`}
-              className="absolute"
+              className="absolute z-40"
               style={namePosition}
             >
               <p className={`
