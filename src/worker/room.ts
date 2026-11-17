@@ -696,6 +696,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     const before = { phase: state.phase, turn: state.currentTurnPlayerId, lead: state.leadPlayerId };
 
     for (const ws of this.ctx.getWebSockets(sessionId)) {
+      if (this.attachment(ws)?.left) continue; // already on its way out
       this.attach(ws, { sessionId, left: true });
       this.closeWith(ws, CLOSE_REMOVED, "You were removed from the table");
     }
