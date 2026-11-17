@@ -30,13 +30,25 @@ export class BotClient implements IBotClient {
     this.gameAnalyzer = new GameAnalyzer();
   }
 
-  async connect(serverUrl: string, roomId: string): Promise<void> {
+  /** Called once if the room drops this bot for good (seat removed, room gone, retries ran out). */
+  public onGone: (() => void) | null = null;
+
+  /** What it takes to put this bot back in its seat after the host's page reloads. */
+  public seat(): { roomId: string; sessionId: string; token: string } | null {
+    return this.room ? { roomId: this.room.roomId, sessionId: this.room.sessionId, token: this.room.token } : null;
+  }
+
+  /** Joins `roomId`, or takes back the seat in `resume` when given. */
+  async connect(serverUrl: string, roomId: string, resume?: { sessionId: string; token: string }): Promise<void> {
     try {
       console.log(`[${this.config.name}] Starting connection to room ${roomId}`);
       this.client = new Client();
       
       // Join or create room
-      if (roomId && roomId !== 'create') {
+      if (resume) {
+        console.log(`[${this.config.name}] Taking seat ${resume.sessionId} back in ${roomId}`);
+        this.room = await this.client.resume(roomId, resume.sessionId, resume.token);
+      } else if (roomId && roomId !== 'create') {
         console.log(`[${this.config.name}] Joining room by ID: ${roomId}`);
         this.room = await this.client.joinById(roomId, {
           name: this.config.name
@@ -52,6 +64,12 @@ export class BotClient implements IBotClient {
       
       // CRITICAL: Set up event listeners BEFORE marking as connected
       this.setupEventListeners();
+      this.room.onConnection((status) => {
+        if (status === 'lost') {
+          this.isConnected = false;
+          this.onGone?.();
+        }
+      });
       
       // NOW mark as connected
       this.isConnected = true;
@@ -59,7 +77,7 @@ export class BotClient implements IBotClient {
       console.log(`[${this.config.name}] Fully connected and ready`);
       
       // Send greeting if chat is enabled (50% chance)
-      if (Math.random() < 0.5) {
+      if (!resume && Math.random() < 0.5) {
         const greeting = this.strategy.getChatMessage('greeting');
         if (greeting) {
           setTimeout(() => this.sendChat(greeting), 1000);

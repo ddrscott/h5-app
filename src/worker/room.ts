@@ -9,8 +9,13 @@ import type { Env } from "./env";
  *   server → client  {t:"joined", roomId, sessionId, token}   once, right after the socket opens
  *                    {t:"state", s}                            full public state, after every change
  *                    {t:"msg", type, data}                     a game message ("your_hand", "your_turn", ...)
- *   client → server  {t:"msg", type, data}                     "play", "pass", "chat", "startGame", "ready"
+ *   client → server  {t:"msg", type, data}                     "play", "pass", "chat", "startGame", "ready", "kick"
  *                    {t:"leave"}                               leaving on purpose
+ *
+ * A dropped socket keeps its seat: in the lobby for LOBBY_GRACE_MS, in a game for good (the host
+ * can remove it with "kick"). When it's an absent player's turn, the room plays for them after
+ * TURN_TIMEOUT_MS. Every deadline lives in RoomMeta, so it survives hibernation, and one alarm
+ * serves them all (see syncAlarm()).
  *
  * Sockets use the hibernation API, so an idle table costs nothing. Anything that has to
  * survive hibernation lives in storage under "room" and is reloaded in the constructor.
@@ -41,6 +46,10 @@ interface RoomMeta {
   tokens: Record<string, string>;
   autoStartAt?: number;
   cleanupAt?: number;
+  /** When the room plays for an absent player whose turn it is. */
+  turnTimer?: { playerId: string; at: number };
+  /** Lobby seats whose socket dropped, and when they're given up. */
+  dropDeadlines?: Record<string, number>;
 }
 
 interface Attachment {
@@ -58,12 +67,18 @@ const AUTO_START_MS = 30_000;
 /** How long an empty table waits for someone to come back before it's wiped. */
 const EMPTY_ROOM_TTL_MS = 30 * 60_000;
 const MAX_FRAME_BYTES = 8_192;
+/** How long an absent player's turn waits before the room plays for them. */
+const TURN_TIMEOUT_MS = 30_000;
+/** How long a lobby seat waits for its dropped player to come back. */
+const LOBBY_GRACE_MS = 2 * 60_000;
 
 // Close codes the client turns into join errors.
 const CLOSE_NOT_FOUND = 4404;
 const CLOSE_LOCKED = 4423;
 const CLOSE_FULL = 4429;
 const CLOSE_TAKEN = 4409;
+const CLOSE_REPLACED = 4001;
+const CLOSE_REMOVED = 4410;
 
 const randomId = (n: number) => {
   const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -125,7 +140,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
       // Drop any stale socket still holding this seat.
       for (const ws of this.ctx.getWebSockets(resumeId)) {
         this.attach(ws, { sessionId: resumeId, left: true });
-        try { ws.close(1000, "Replaced by a new connection"); } catch { /* already closed */ }
+        try { ws.close(CLOSE_REPLACED, "This seat was opened somewhere else"); } catch { /* already closed */ }
       }
       const [client, ws] = this.accept(resumeId, resumeToken);
       await this.onReconnect(this.clientFor(ws));
@@ -278,16 +293,47 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
       this.deliverTurnNotification();
     }
 
+    this.syncTurnTimer();
     await this.ctx.storage.put("room", { meta: this.meta, state: saveState(this.state) });
     await this.syncAlarm();
   }
 
+  /** Is someone holding this seat right now? */
+  private isConnected(sessionId: string): boolean {
+    return this.sockets.some((ws) => this.attachment(ws).sessionId === sessionId);
+  }
+
+  /** The host is the first seat at the table, the same rule the client uses. */
+  private get hostId(): string | undefined {
+    return this.state?.players.keys().next().value;
+  }
+
+  /**
+   * Arms the turn timer when it's an absent player's turn and disarms it otherwise. It only runs
+   * while somebody is connected, so an abandoned table doesn't play itself out.
+   */
+  private syncTurnTimer() {
+    const meta = this.meta!;
+    const state = this.state!;
+    const id = state.phase === GamePhase.PLAYING ? state.currentTurnPlayerId : null;
+    const away = !!id && state.players.has(id) && !this.isConnected(id) && this.sockets.length > 0;
+    if (!away) meta.turnTimer = undefined;
+    else if (meta.turnTimer?.playerId !== id) meta.turnTimer = { playerId: id!, at: Date.now() + TURN_TIMEOUT_MS };
+  }
+
   // ---------------------------------------------------------------------------
-  // Alarms: the 30-second auto start and wiping a table nobody came back to.
+  // Alarms: auto start, the absent player's turn timer, lobby seats given up after
+  // a drop, and wiping a table nobody came back to. One alarm, set to the earliest.
   // ---------------------------------------------------------------------------
 
   private async syncAlarm() {
-    const next = [this.meta?.autoStartAt, this.meta?.cleanupAt].filter((t): t is number => !!t);
+    const m = this.meta;
+    const next = [
+      m?.autoStartAt,
+      m?.cleanupAt,
+      m?.turnTimer?.at,
+      ...Object.values(m?.dropDeadlines ?? {}),
+    ].filter((t): t is number => !!t);
     if (next.length) await this.ctx.storage.setAlarm(Math.min(...next));
     else await this.ctx.storage.deleteAlarm();
   }
@@ -313,6 +359,24 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
         return;
       }
       this.meta.cleanupAt = undefined;
+    }
+
+    const drops = this.meta.dropDeadlines ?? {};
+    for (const [id, at] of Object.entries(drops)) {
+      if (this.state.phase !== GamePhase.WAITING) {
+        delete drops[id]; // the game started with them seated; the turn timer covers them now
+      } else if (at <= now && !this.isConnected(id)) {
+        delete drops[id];
+        this.dropSeat(id, "didn't come back");
+      }
+    }
+
+    const timer = this.meta.turnTimer;
+    if (timer && timer.at <= now) {
+      this.meta.turnTimer = undefined;
+      if (this.state.currentTurnPlayerId === timer.playerId && !this.isConnected(timer.playerId)) {
+        this.playForAbsent(timer.playerId);
+      }
     }
 
     if (this.meta.autoStartAt && this.meta.autoStartAt <= now) {
@@ -490,6 +554,19 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
       this.doPass(client, true);
     },
 
+    kick: (client, message: { playerId?: unknown }) => {
+      const target = typeof message.playerId === "string" ? message.playerId : "";
+      if (client.sessionId !== this.hostId) {
+        client.send("error", { message: "Only the host can remove a player" });
+      } else if (!this.state!.players.has(target) || target === client.sessionId) {
+        client.send("error", { message: "That player isn't at the table" });
+      } else if (this.isConnected(target)) {
+        client.send("error", { message: "That player is still connected" });
+      } else {
+        this.dropSeat(target, "was removed by the host");
+      }
+    },
+
     chat: (client, message: { text?: unknown }) => {
       const text = typeof message.text === "string" ? message.text : "";
       const success = this.state!.addChatMessage(client.sessionId, text);
@@ -499,7 +576,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     },
   };
 
-  /** A pass, by the player or on their behalf when they drop out on their turn. */
+  /** A pass, by the player or by the turn timer on behalf of an absent player. */
   private doPass(client: Client, explicit: boolean) {
     const state = this.state!;
     if (state.phase !== GamePhase.PLAYING) return;
@@ -581,28 +658,64 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
   private onLeave(client: Client, consented: boolean) {
     const state = this.state!;
     console.log(client.sessionId, "left!", consented ? "(consented)" : "(dropped)");
+    const player = state.players.get(client.sessionId);
+    if (!player) return;
 
+    if (state.phase === GamePhase.WAITING && consented) {
+      this.dropSeat(client.sessionId, "left the game");
+      return;
+    }
+
+    // The seat stays, and the client can take it back with its token (see fetch()). A dropped
+    // connection never plays or passes for anyone; the turn timer does that if they stay away.
+    player.isActive = false;
     if (state.phase === GamePhase.WAITING) {
-      const player = state.players.get(client.sessionId);
-      const playerName = player ? player.name : "A player";
+      this.meta!.dropDeadlines = { ...this.meta!.dropDeadlines, [client.sessionId]: Date.now() + LOBBY_GRACE_MS };
+    }
+    state.addSystemMessage(
+      consented ? `🚪 ${player.name} left the table` : `📶 ${player.name} lost connection`,
+      "warning",
+    );
+  }
 
-      state.removePlayer(client.sessionId);
-      delete this.meta!.tokens[client.sessionId];
+  /** Takes a seat out of the room for good: the lobby grace ran out, a lobby player left, or the host removed it. */
+  private dropSeat(sessionId: string, why: string) {
+    const state = this.state!;
+    const player = state.players.get(sessionId);
+    if (!player) return;
+    const before = { phase: state.phase, turn: state.currentTurnPlayerId, lead: state.leadPlayerId };
 
-      this.broadcast("player_left", {
-        playerId: client.sessionId,
-        totalPlayers: state.players.size,
-      });
-      state.addSystemMessage(`🚪 ${playerName} left the game`, "warning");
+    for (const ws of this.ctx.getWebSockets(sessionId)) {
+      this.attach(ws, { sessionId, left: true });
+      try { ws.close(CLOSE_REMOVED, "You were removed from the table"); } catch { /* already closed */ }
+    }
+    delete this.meta!.tokens[sessionId];
+    if (this.meta!.dropDeadlines) delete this.meta!.dropDeadlines[sessionId];
+    if (this.meta!.turnTimer?.playerId === sessionId) this.meta!.turnTimer = undefined;
+
+    state.removeSeat(sessionId);
+    this.broadcast("player_left", { playerId: sessionId, totalPlayers: state.players.size });
+    state.addSystemMessage(`🚪 ${player.name} ${why}`, "warning");
+
+    if (before.phase === GamePhase.PLAYING) {
+      if ((state.phase as GamePhase) === GamePhase.ROUND_END) this.handleRoundEnd();
+      else if (state.currentTurnPlayerId !== before.turn || state.leadPlayerId !== before.lead) this.sendTurnNotification();
+    }
+  }
+
+  /** The turn timer ran out on an absent player: pass for them, or lead their lowest single. */
+  private playForAbsent(sessionId: string) {
+    const state = this.state!;
+    const move = state.autoMove(sessionId);
+    const player = state.players.get(sessionId);
+    if (!move || !player) return;
+    const stub: Client = { sessionId, send: () => {} };
+    if (move.action === "pass") {
+      state.addSystemMessage(`⏱️ ${player.name} is away, so the table passed for them`, "info");
+      this.doPass(stub, false);
     } else {
-      const player = state.players.get(client.sessionId);
-      if (player) {
-        player.isActive = false;
-        if (state.currentTurnPlayerId === client.sessionId) {
-          this.doPass(client, false);
-        }
-      }
-      // The seat stays; the client can come back with its token (see fetch()).
+      state.addSystemMessage(`⏱️ ${player.name} is away, so the table led their lowest card`, "info");
+      this.handlers.play(stub, { cards: move.cards.map((c) => c.code) });
     }
   }
 
@@ -611,7 +724,9 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     console.log(client.sessionId, "reconnected!");
 
     const player = state.players.get(client.sessionId);
+    if (this.meta!.dropDeadlines) delete this.meta!.dropDeadlines[client.sessionId];
     if (player) {
+      if (!player.isActive) state.addSystemMessage(`📶 ${player.name} is back`, "success");
       player.isActive = true;
       client.send("game_state", {
         currentTurn: state.currentTurnPlayerId,

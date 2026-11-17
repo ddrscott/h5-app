@@ -12,8 +12,28 @@ import { api } from '../base';
 
 type Handler = (data: any) => void;
 
+/** Where the socket stands. "lost" is final: the room gave up on us or we gave up retrying. */
+export type ConnectionStatus = 'connected' | 'reconnecting' | 'lost';
+export interface ConnectionInfo {
+  code?: number;
+  reason?: string;
+  /** The server says the room or the seat no longer exists, so a saved seat is useless. */
+  seatGone?: boolean;
+}
+
+/** A failed connect, with the close code the server gave (4404 not found, 4423 started, ...). */
+export class ConnectError extends Error {
+  constructor(message: string, readonly code: number) {
+    super(message);
+  }
+}
+
 const CLOSE_NORMAL = 1000;
-const RECONNECT_WINDOW_MS = 60_000;
+/** Codes 4000+ are the room's own answers; retrying won't change them. */
+const CLOSE_APP = 4000;
+const CLOSE_NOT_FOUND = 4404;
+const CLOSE_REMOVED = 4410;
+const RECONNECT_WINDOW_MS = 2 * 60_000;
 const PING_MS = 25_000;
 /** Messages that arrive before anyone listens for their type are held, up to this many. */
 const MAX_HELD = 50;
@@ -23,6 +43,10 @@ function socketUrl(roomId: string, params: Record<string, string>): string {
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   return url.toString();
+}
+
+function resumeUrl(roomId: string, sessionId: string, token: string): string {
+  return socketUrl(roomId, { session: sessionId, token });
 }
 
 function hydrate(s: any) {
@@ -35,7 +59,10 @@ export class Room<State = any> {
   state: State = undefined as unknown as State;
 
   private ws: WebSocket | null = null;
-  private token = '';
+  /** The secret that takes this seat back after a drop. Save it to resume after a page reload. */
+  token = '';
+  status: ConnectionStatus = 'connected';
+  private statusHandlers: ((status: ConnectionStatus, info: ConnectionInfo) => void)[] = [];
   private stateHandlers: ((state: State) => void)[] = [];
   private messageHandlers = new Map<string, Handler[]>();
   private leaveHandlers: ((code: number) => void)[] = [];
@@ -78,12 +105,16 @@ export class Room<State = any> {
       ws.onclose = (ev) => {
         this.stopPing();
         if (!seated) {
-          reject(new Error(ev.reason || 'Could not connect to the game server'));
+          reject(new ConnectError(ev.reason || 'Could not connect to the game server', ev.code));
           return;
         }
         if (ws !== this.ws) return; // an old socket we already replaced
-        if (this.leaving || ev.code === CLOSE_NORMAL || ev.code >= 4000) {
+        if (this.leaving) {
           this.leaveHandlers.forEach((h) => h(ev.code));
+          return;
+        }
+        if (ev.code === CLOSE_NORMAL || ev.code >= CLOSE_APP) {
+          this.giveUp(ev.code, ev.reason || 'The game closed the connection');
           return;
         }
         void this.reconnect(ev.code);
@@ -95,22 +126,53 @@ export class Room<State = any> {
     });
   }
 
-  /** The connection dropped without anyone leaving: try to take our seat back for a minute. */
+  /**
+   * The connection dropped without anyone leaving: try to take our seat back for a while. Stops
+   * at once if the room answers with its own close code (the seat or the room is gone).
+   */
   private async reconnect(code: number) {
+    this.setStatus('reconnecting', { code });
     const deadline = Date.now() + RECONNECT_WINDOW_MS;
     let delay = 500;
     while (Date.now() < deadline && !this.leaving) {
       await new Promise((r) => setTimeout(r, delay));
       if (this.leaving) return;
       try {
-        await this.connect(socketUrl(this.roomId, { session: this.sessionId, token: this.token }));
+        await this.connect(resumeUrl(this.roomId, this.sessionId, this.token));
+        this.setStatus('connected', {});
         return;
-      } catch {
+      } catch (err) {
+        if (err instanceof ConnectError && err.code >= CLOSE_APP) {
+          this.giveUp(err.code, err.message);
+          return;
+        }
         delay = Math.min(delay * 2, 5_000);
       }
     }
-    this.errorHandlers.forEach((h) => h(code, 'Lost connection to the game'));
+    if (!this.leaving) this.giveUp(code, 'Lost connection to the game');
+  }
+
+  private giveUp(code: number, reason: string) {
+    this.stopPing();
+    this.setStatus('lost', { code, reason, seatGone: code === CLOSE_NOT_FOUND || code === CLOSE_REMOVED });
+    this.errorHandlers.forEach((h) => h(code, reason));
     this.leaveHandlers.forEach((h) => h(code));
+  }
+
+  private setStatus(status: ConnectionStatus, info: ConnectionInfo) {
+    this.status = status;
+    this.statusHandlers.forEach((h) => h(status, info));
+  }
+
+  /**
+   * Connection status changes. Unlike the other listeners, removeAllListeners() leaves these
+   * alone, because the game hooks clear theirs while the app shell still needs to know.
+   */
+  onConnection(handler: (status: ConnectionStatus, info: ConnectionInfo) => void) {
+    this.statusHandlers.push(handler);
+    return () => {
+      this.statusHandlers = this.statusHandlers.filter((h) => h !== handler);
+    };
   }
 
   private startPing() {
@@ -201,6 +263,11 @@ export class Client {
 
   async joinById<State = any>(roomId: string, options: Record<string, unknown> = {}): Promise<Room<State>> {
     return this.open<State>(roomId.trim().toUpperCase(), options);
+  }
+
+  /** Takes a seat back with the token the room handed out on join, e.g. after a page reload. */
+  async resume<State = any>(roomId: string, sessionId: string, token: string): Promise<Room<State>> {
+    return new Room<State>().connect(resumeUrl(roomId, sessionId, token));
   }
 
   /** There's no public room list, so "join any game" starts a new one. */

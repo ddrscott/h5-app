@@ -11,16 +11,21 @@ interface LobbyProps {
   roomId: string;
   players: Player[];
   isHost: boolean;
+  myPlayerId?: string;
   onStartGame: () => void;
   onLeaveRoom: () => void;
+  /** Host only: remove a player whose connection dropped. */
+  onKick?: (playerId: string) => void;
 }
 
 export const Lobby: React.FC<LobbyProps> = ({
   roomId,
   players,
   isHost,
+  myPlayerId,
   onStartGame,
   onLeaveRoom,
+  onKick,
 }) => {
   const canStart = players.length >= 2 && players.length <= 6;
   const [copiedText, setCopiedText] = React.useState<string | null>(null);
@@ -118,7 +123,11 @@ export const Lobby: React.FC<LobbyProps> = ({
               <div className="flex-grow relative
                   rounded-lg landscape:min-h-full"
               >
-                  <PlayerPlaceholders players={players} />
+                  <PlayerPlaceholders
+                    players={players}
+                    myPlayerId={myPlayerId}
+                    onKick={isHost ? onKick : undefined}
+                  />
               
               {/* Center content - Room Code */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
