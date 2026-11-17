@@ -60,8 +60,12 @@ browser ──HTTPS──▶ Worker (src/worker/index.ts) ──▶ static asset
 
 - **One Durable Object per room**, named by its six-character room code. It holds the game state, runs the rules (`src/worker/game/GameState.ts`), and talks to players over WebSockets.
 - **Hibernating sockets.** An idle table costs nothing. The full state, hands included, is saved to the object's storage after every action and reloaded when it wakes.
-- **Alarms** take the place of server timers: the 30-second auto start, and wiping a table nobody has come back to for 30 minutes.
-- **Reconnects.** A dropped connection gets a minute to take its seat back with a secret token the room handed out on join.
+- **Alarms** take the place of server timers: the 30-second auto start, the turn timer for absent players, giving up a dropped lobby seat, and wiping a table nobody has come back to for 30 minutes. Every deadline is saved with the room, so it survives hibernation, and one alarm is set for the earliest.
+- **Keeping your seat.** The room hands each player a secret token on join. The client keeps `{roomId, sessionId, token}` in `sessionStorage` (`h5-seat`, see `src/client/net/seat.ts`), so a page reload or a dropped connection takes the same seat back instead of joining as someone new. The host's bots keep theirs the same way (`h5-bots`). A dropped connection never plays or passes for anyone:
+  - In the lobby, a dropped seat is kept for 2 minutes before the room gives it up. Leaving on purpose frees it at once.
+  - In a game, the seat is kept for good. When it's an absent player's turn, the room waits 30 seconds and then plays for them: a pass when they may pass, their lowest single when they're leading. It never plays for a connected player, and it only runs while someone is still at the table.
+  - The host can remove an absent player's seat (the remove control next to their name). Mid-round their cards leave with them and play moves on; if fewer than two players still hold cards, the round ends.
+- **Reconnecting.** The client retries a dropped socket for two minutes behind a "Reconnecting…" banner, then shows "Lost connection" with Try again (reload and resume) and Back to home. It stops at once when the room answers with its own 4xxx close code.
 - **Client.** `src/client/net/rooms.ts` is a small stand-in for colyseus.js with the same `Room` calls the hooks and bots already used (`onStateChange`, `onMessage`, `send`, `leave`). State arrives as a full public snapshot after each change. Hands never go in it; each player gets their own through the `your_hand` message.
 
 ### Wire protocol
@@ -73,10 +77,13 @@ JSON text frames on `/h5/api/rooms/new/ws` (create) or `/h5/api/rooms/:code/ws` 
 | server → client | `{t:"joined", roomId, sessionId, token}` | once, when the socket opens |
 | server → client | `{t:"state", s}` | after every change |
 | server → client | `{t:"msg", type, data}` | game messages: `your_hand`, `your_turn`, `game_started`, `meld_played`, ... |
-| client → server | `{t:"msg", type, data}` | `play`, `pass`, `chat`, `startGame`, `ready` |
+| server → client | `{t:"bye", code, reason}` | right before the room closes a seated socket on purpose |
+| client → server | `{t:"msg", type, data}` | `play`, `pass`, `chat`, `startGame`, `ready`, `kick` (`{playerId}`, host only, absent players only) |
 | client → server | `{t:"leave"}` | leaving on purpose |
 
-A room that turns a player away closes the socket with a 4xxx code and a reason the client shows: 4404 not found, 4423 already started, 4429 full.
+A room that turns a player away closes the socket with a 4xxx code and a reason the client shows: 4404 not found (also a seat that's gone), 4423 already started, 4429 full. A seated socket can be closed with 4001 (the same seat was opened in another tab) or 4410 (the host removed the seat). The client never retries a 4xxx close, and it forgets the saved seat on 4404 and 4410.
+
+Taking a seat back: open `/h5/api/rooms/:code/ws?session=<sessionId>&token=<token>`. The room answers with the same `joined` frame, the state, `game_state`, `your_hand`, and `your_turn` when it's your turn.
 
 ## Served at askscottpierce.com/h5
 
@@ -104,6 +111,12 @@ Open `http://localhost:5173/h5/`. Test at `/h5/`, not `/`: the Worker returns 40
 npm test           # game rules and snapshot round trips (node:test)
 npm run typecheck  # client, worker, and Vite config
 npm run build      # builds dist/client (assets) and dist/h5 (Worker)
+```
+
+With `npm run dev` running, a smoke test drives real rooms over WebSockets and checks keeping your seat: a dropped lobby seat and a dropped game seat taken back with the token, an absent player's turn played for them after the 30-second timer, a connected player's turn left alone, and the host removing an absent seat. It takes a little over a minute and exits non-zero on the first failure.
+
+```bash
+node scripts/smoke-reconnect.mjs http://localhost:5173
 ```
 
 Three rule tests fail (a long A-K run, a longer straight flush beating a shorter one, and the all-pass leader test). They failed the same way under Colyseus, before the move to Cloudflare.
