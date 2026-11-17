@@ -41,6 +41,9 @@ interface GameTableProps {
   onPass: () => void;
   onLeaveGame: () => void;
   onPlayAgain: () => void;
+  /** Only the host gets the "Play Again" button; everyone else waits for them. */
+  isHost?: boolean;
+  hostName?: string;
 }
 
 export const GameTable: React.FC<GameTableProps> = ({
@@ -66,6 +69,8 @@ export const GameTable: React.FC<GameTableProps> = ({
   onPass,
   onLeaveGame,
   onPlayAgain,
+  isHost = true,
+  hostName = 'the host',
 }) => {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isSweeping, setIsSweeping] = useState(false);
@@ -822,6 +827,8 @@ export const GameTable: React.FC<GameTableProps> = ({
               finalStandings={computedStandings}
               onPlayAgain={onPlayAgain}
               onLeaveGame={onLeaveGame}
+              isHost={isHost}
+              hostName={hostName}
             />
           );
         }

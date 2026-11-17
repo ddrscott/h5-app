@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
-import { GameState, GamePhase, Card, Meld, Suit, Rank, MeldType, saveState, restoreState, publicState } from './GameState';
+import { GameState, GamePhase, Card, Meld, Suit, Rank, MeldType, saveState, restoreState, publicState, sanitizeName, RateLimiter, MAX_NAME_LENGTH } from './GameState';
 
 // "3S" -> Card. Ten is "T", jokers aren't needed here.
 const RANKS: Record<string, Rank> = {
@@ -741,5 +741,146 @@ describe('Snapshots (Durable Object storage)', () => {
       assert.strictEqual(p.hand, undefined);
       assert.ok(p.handCount > 0);
     }
+  });
+});
+
+describe('Host', () => {
+  const table = (...seats: [string, boolean?][]) => {
+    const s = new GameState();
+    for (const [id, bot] of seats) s.addPlayer(id, id.toUpperCase(), !!bot);
+    return s;
+  };
+
+  it('the first human to sit down is host, and bots never are', () => {
+    const s = table(['bot1', true], ['ann'], ['bob']);
+    assert.strictEqual(s.hostId, 'ann');
+    assert.strictEqual(publicState(s).hostId, 'ann');
+  });
+
+  it('only the host can start, with enough players', () => {
+    const s = table(['ann'], ['bob'], ['cat'], ['dan'], ['eve']);
+    assert.match(s.startError('bob', 2)!, /Only the host \(ANN\) can start/);
+    assert.match(table(['ann']).startError('ann', 2)!, /Need 1 more player or bot/);
+    assert.strictEqual(s.startError('ann', 2), null);
+  });
+
+  it('bots the host adds count toward the minimum', () => {
+    const s = table(['ann'], ['bot1', true], ['bot2', true], ['bot3', true]);
+    assert.strictEqual(s.startError('ann', 4), null);
+  });
+
+  it('passes to the next seated human when the host leaves the lobby', () => {
+    const s = table(['ann'], ['bot1', true], ['bob'], ['cat']);
+    s.removePlayer('ann');
+    assert.strictEqual(s.hostId, 'bob');
+    assert.strictEqual(s.startError('bob', 2), null);
+    assert.match(s.startError('cat', 2)!, /Only the host \(BOB\)/);
+  });
+
+  it('has no host when only bots are left, until a human sits down', () => {
+    const s = table(['ann'], ['bot1', true]);
+    s.removePlayer('ann');
+    assert.strictEqual(s.hostId, null);
+    s.addPlayer('zed', 'ZED');
+    assert.strictEqual(s.hostId, 'zed');
+  });
+
+  it('lets the next connected human run "Play Again" while the host is disconnected', () => {
+    const s = table(['ann'], ['bob'], ['cat']);
+    s.phase = GamePhase.ROUND_END;
+    s.players.get('ann')!.isActive = false;
+    assert.strictEqual(s.currentHostId(), 'bob');
+    assert.strictEqual(s.startError('bob', 2), null);
+    s.players.get('ann')!.isActive = true;
+    assert.strictEqual(s.currentHostId(), 'ann');
+    assert.match(s.startError('bob', 2)!, /Only the host/);
+  });
+
+  it('refuses to start a game that is already running', () => {
+    const s = table(['ann'], ['bob']);
+    s.phase = GamePhase.PLAYING;
+    assert.match(s.startError('ann', 2)!, /already running/);
+  });
+
+  it('survives a snapshot round trip', () => {
+    const s = table(['ann'], ['bot1', true]);
+    const back = restoreState(JSON.parse(JSON.stringify(saveState(s))));
+    assert.strictEqual(back.hostId, 'ann');
+    assert.strictEqual(back.players.get('bot1')!.isBot, true);
+  });
+});
+
+describe('sanitizeName', () => {
+  it('keeps an ordinary name', () => {
+    assert.strictEqual(sanitizeName('  Grandma Lu ', 'Player 1'), 'Grandma Lu');
+  });
+
+  it('falls back for anything that is not a string', () => {
+    for (const raw of [{ evil: 1 }, ['a'], 42, null, undefined, true]) {
+      assert.strictEqual(sanitizeName(raw, 'Player 3'), 'Player 3');
+    }
+  });
+
+  it('strips control and bidi characters and collapses whitespace', () => {
+    assert.strictEqual(sanitizeName('A\u0000l\u0007i\u202Ece\n\t Bob', 'x'), 'Alice Bob');
+  });
+
+  it(`clips to ${MAX_NAME_LENGTH} characters without splitting emoji`, () => {
+    assert.strictEqual(sanitizeName('x'.repeat(3000), 'p').length, MAX_NAME_LENGTH);
+    const clipped = sanitizeName('🂡'.repeat(30), 'p');
+    assert.strictEqual(Array.from(clipped).length, MAX_NAME_LENGTH);
+  });
+
+  it('falls back when nothing printable is left', () => {
+    assert.strictEqual(sanitizeName(' \u0001\u0002 ', 'Player 2'), 'Player 2');
+  });
+});
+
+describe('RateLimiter (chat)', () => {
+  it('allows 5 per 10 seconds, then drops until the window slides', () => {
+    const limit = new RateLimiter(5, 10_000);
+    for (let i = 0; i < 5; i++) assert.ok(limit.allow('ann', 1_000 + i));
+    assert.strictEqual(limit.allow('ann', 2_000), false);
+    assert.ok(limit.allow('bob', 2_000), 'each player has their own budget');
+    assert.strictEqual(limit.allow('ann', 10_999), false);
+    assert.ok(limit.allow('ann', 11_000), 'the first message has aged out');
+  });
+});
+
+describe('Dealing leftover cards', () => {
+  const deal = (players: number, random: number) => {
+    const s = new GameState();
+    for (let i = 0; i < players; i++) s.addPlayer(`p${i}`, `P${i}`);
+    s.initializeDeck();
+    s.dealCards(0, () => random);
+    return s.turnOrder.map((id) => s.players.get(id)!.handCount);
+  };
+
+  it('deals every card with no duplicates', () => {
+    const s = new GameState();
+    for (let i = 0; i < 5; i++) s.addPlayer(`p${i}`, `P${i}`);
+    s.initializeDeck();
+    s.dealCards();
+    const codes = [...s.players.values()].flatMap((p) => p.hand.map((c) => c.code));
+    assert.strictEqual(codes.length, 54);
+    assert.strictEqual(new Set(codes).size, 54);
+  });
+
+  it('starts the extras from the seat the random draw picks', () => {
+    // 54 cards over 4 seats: 13 each and 2 extras.
+    assert.deepStrictEqual(deal(4, 0), [14, 14, 13, 13]);
+    assert.deepStrictEqual(deal(4, 0.5), [13, 13, 14, 14]);
+    assert.deepStrictEqual(deal(4, 0.99), [14, 13, 13, 14]);
+    // 54 over 5: 10 each and 4 extras, so one seat goes without.
+    assert.deepStrictEqual(deal(5, 0.2), [10, 11, 11, 11, 11]);
+  });
+
+  it('gives the extras to different seats over many deals', () => {
+    const short = new Set<number>();
+    for (let i = 0; i < 40; i++) {
+      const counts = deal(5, Math.random());
+      short.add(counts.indexOf(10));
+    }
+    assert.ok(short.size > 1, 'the short hand should move around');
   });
 });

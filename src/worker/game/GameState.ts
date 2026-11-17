@@ -294,6 +294,8 @@ export class Player {
   wins: number = 0;
   losses: number = 0;
   position: number;
+  /** Bots count as players but never become host. */
+  isBot: boolean = false;
 
   constructor(id?: string, name?: string) {
     if (id && name) {
@@ -375,6 +377,8 @@ export class GameState {
   
   turnOrder: string[] = [];
   consecutivePasses: number = 0;
+  /** The seated human who decides when the game starts. The room's creator, then whoever's next in seat order. */
+  hostId: string | null = null;
   bombPlayed: boolean = false;
   
   chatMessages: ChatMessage[] = [];
@@ -449,13 +453,15 @@ export class GameState {
     this.shuffleDeck();
   }
 
-  addPlayer(id: string, name: string) {
+  addPlayer(id: string, name: string, isBot = false) {
     if (this.players.has(id)) return;
     
     const player = new Player(id, name);
+    player.isBot = isBot;
     player.position = this.players.size;
     this.players.set(id, player);  // object set by id
     this.turnOrder.push(id);
+    if (!this.hostId && !isBot) this.hostId = id;
     
     if (this.players.size > 6) {
       this.numberOfDecks = Math.ceil(this.players.size / 4);
@@ -468,6 +474,42 @@ export class GameState {
     if (index > -1) {
       this.turnOrder.splice(index, 1);
     }
+    if (this.hostId === id) this.hostId = this.nextHuman();
+  }
+
+  private nextHuman(activeOnly = false): string | null {
+    for (const pid of this.turnOrder) {
+      const p = this.players.get(pid);
+      if (p && !p.isBot && (!activeOnly || p.isActive)) return pid;
+    }
+    return null;
+  }
+
+  /**
+   * Who may start the game right now: the host, or while the host's connection is down
+   * mid-session, the next connected human, so a table isn't stuck at "Play Again".
+   */
+  currentHostId(): string | null {
+    const host = this.hostId ? this.players.get(this.hostId) : undefined;
+    if (host?.isActive) return this.hostId;
+    return this.nextHuman(true) ?? this.hostId;
+  }
+
+  /** Why `playerId` can't start the game now, or null when they can. */
+  startError(playerId: string, minPlayers: number): string | null {
+    if (this.phase === GamePhase.PLAYING || this.phase === GamePhase.DEALING) {
+      return "The game is already running";
+    }
+    const hostId = this.currentHostId();
+    if (playerId !== hostId) {
+      const host = hostId ? this.players.get(hostId) : undefined;
+      return `Only the host${host ? ` (${host.name})` : ""} can start the game`;
+    }
+    if (this.players.size < minPlayers) {
+      const need = minPlayers - this.players.size;
+      return `Need ${need} more player${need === 1 ? "" : "s"} or bot${need === 1 ? "" : "s"} to start`;
+    }
+    return null;
   }
 
 
@@ -481,7 +523,8 @@ export class GameState {
     cards.forEach(card => this.deck.push(card));
   }
 
-  dealCards(testDeckSize: number = 0) {
+  /** `random` picks the seat the leftover cards start from; tests pass their own. */
+  dealCards(testDeckSize: number = 0, random: () => number = Math.random) {
     this.phase = GamePhase.DEALING;
     const playerIds = Array.from(this.players.keys());
     
@@ -557,10 +600,12 @@ export class GameState {
       });
     }
     
-    // Deal remaining cards one by one
+    // Leftover cards go one each to consecutive seats, starting from a random seat,
+    // so the first seat doesn't always end up with the bigger hand.
+    const firstExtra = Math.floor(random() * playerIds.length);
+    let extra = 0;
     while (cardIndex < cardsToDeal) {
-      const playerIndex = cardIndex % playerIds.length;
-      const player = this.players.get(playerIds[playerIndex]);
+      const player = this.players.get(playerIds[(firstExtra + extra++) % playerIds.length]);
       player.addCard(this.deck[cardIndex]);
       cardIndex++;
     }
@@ -946,6 +991,50 @@ export class GameState {
 }
 
 // ---------------------------------------------------------------------------
+// Lobby limits
+// ---------------------------------------------------------------------------
+
+export const MAX_NAME_LENGTH = 20;
+
+// Control characters plus the bidi overrides/isolates that can flip how other text renders.
+const UNSAFE_NAME_CHARS = /[\p{Cc}\u202A-\u202E\u2066-\u2069\u200E\u200F]/gu;
+
+/**
+ * Every player name goes through here, whatever sent it: strings only, control characters
+ * stripped, whitespace collapsed, at most MAX_NAME_LENGTH characters. Anything left empty
+ * becomes `fallback` (e.g. "Player 3").
+ */
+export function sanitizeName(raw: unknown, fallback: string): string {
+  if (typeof raw !== "string") return fallback;
+  const cleaned = raw.replace(UNSAFE_NAME_CHARS, "").replace(/\s+/g, " ").trim();
+  const clipped = Array.from(cleaned).slice(0, MAX_NAME_LENGTH).join("").trim();
+  return clipped || fallback;
+}
+
+/** A sliding-window limit: at most `max` events per `windowMs` for each key. */
+export class RateLimiter {
+  private hits = new Map<string, number[]>();
+
+  constructor(private max: number, private windowMs: number) {}
+
+  /** Records an event for `key` and says whether it's within the limit. Refused events don't count. */
+  allow(key: string, now = Date.now()): boolean {
+    const recent = (this.hits.get(key) ?? []).filter((t) => now - t < this.windowMs);
+    if (recent.length >= this.max) {
+      this.hits.set(key, recent);
+      return false;
+    }
+    recent.push(now);
+    this.hits.set(key, recent);
+    return true;
+  }
+
+  forget(key: string) {
+    this.hits.delete(key);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Snapshots. The Durable Object saves the full state (hands and deck included)
 // to storage after every action, and rebuilds it when it wakes from hibernation.
 // Clients get the public view, which leaves out the deck and every hand; hands
@@ -1015,6 +1104,7 @@ export function publicState(s: GameState) {
     trickMelds: s.trickMelds.map(publicMeld),
     lastTrickMelds: s.lastTrickMelds.map(publicMeld),
     turnOrder: [...s.turnOrder],
+    hostId: s.currentHostId(),
     consecutivePasses: s.consecutivePasses,
     bombPlayed: s.bombPlayed,
     chatMessages: s.chatMessages.map((m) => ({ ...m })),

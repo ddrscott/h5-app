@@ -4,11 +4,13 @@ import { User } from 'lucide-react';
 
 interface PlayerPlaceholdersProps {
   players: Player[];
+  hostId?: string | null;
   maxPlayers?: number;
 }
 
 export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
   players,
+  hostId,
   maxPlayers = 6
 }) => {
   // Define specific positions for different player counts
@@ -66,7 +68,7 @@ export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
                   <User size={14} className="text-gray-300" />
                   <span className="text-sm font-medium">{player.name}</span>
                 </div>
-                {index === 0 && (
+                {player.id === hostId && (
                   <span className="text-xs text-gold">HOST</span>
                 )}
               </div>

@@ -125,6 +125,8 @@ function GameApp() {
     );
   }
 
+  const hostName = (gameState.hostId && gameState.players.get(gameState.hostId)?.name) || 'the host';
+
   // Handle game states
   if (appState === 'connecting') {
     return (
@@ -141,14 +143,16 @@ function GameApp() {
     if (!roomId || !myPlayerId) return null;
     
     const playersArray = Array.from(gameState.players.values());
-    const myPlayer = gameState.players.get(myPlayerId);
-    const isHost = playersArray.length > 0 && playersArray[0].id === myPlayerId;
+    const isHost = gameState.hostId === myPlayerId;
     
     return (
       <Lobby
         roomId={roomId}
         players={playersArray}
         isHost={isHost}
+        hostId={gameState.hostId}
+        hostName={hostName}
+        lastError={gameState.lastError}
         onStartGame={handleStartGame}
         onLeaveRoom={handleLeaveRoom}
       />
@@ -161,6 +165,7 @@ function GameApp() {
     const isMyTurn = gameState.currentTurnPlayerId === myPlayerId;
     const isLeader = gameState.leadPlayerId === myPlayerId;
     const canPass = !isLeader || !!gameState.currentMeld;
+    const isHost = gameState.hostId === myPlayerId;
     
     return (
       <GameTable
@@ -186,6 +191,8 @@ function GameApp() {
         onPass={gameState.pass}
         onLeaveGame={handleLeaveRoom}
         onPlayAgain={handleStartGame}
+        isHost={isHost}
+        hostName={hostName}
       />
     );
   }
