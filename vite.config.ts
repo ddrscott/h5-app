@@ -27,23 +27,36 @@ export default defineConfig({
       includeAssets: [],
       workbox: {
         // Only this app's files: the build root holds the Worker's output too.
-        globPatterns: ['index.html', 'h5/**/*.{js,css,html,svg,png,ico,webmanifest,woff2}'],
+        // The page itself (index.html) is not precached. Pages come from the network so Cloudflare
+        // can add its Web Analytics beacon to every visit; see the NetworkFirst rule below.
+        globPatterns: ['h5/**/*.{js,css,svg,png,ico,webmanifest,woff2}'],
         globIgnores: ['h5/sw.js', 'h5/workbox-*.js'],
         // Precache URLs are relative to the service worker (/h5/sw.js), so make them absolute.
-        // index.html is served at /h5/ (single-page fallback); /index.html belongs to the main site.
         manifestTransforms: [
           async (entries) => ({
-            manifest: entries.map((e) => ({ ...e, url: e.url === 'index.html' ? `${BASE}/` : `/${e.url}` })),
+            manifest: entries.map((e) => ({ ...e, url: `/${e.url}` })),
             warnings: [],
           }),
         ],
-        navigateFallback: `${BASE}/`,
-        navigateFallbackAllowlist: [/^\/h5(\/|$)/],
-        navigateFallbackDenylist: [/^\/h5\/api\//],
+        // No navigateFallback: it would answer page loads from a cached copy without the beacon.
+        navigateFallback: null,
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         runtimeCaching: [
+          {
+            // Page loads under /h5: network first (fresh HTML with the analytics beacon), and the
+            // last good copy only when the network is down or slower than 3 seconds.
+            urlPattern: ({ request, url }) =>
+              request.mode === 'navigate' && /^\/h5(\/|$)/.test(url.pathname) && !url.pathname.startsWith(`${BASE}/api/`),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'h5-pages',
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 10 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
