@@ -45,10 +45,11 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
+            // This function is copied into sw.js as text, so it can only use literals, not BASE.
             // Page loads under /h5: network first (fresh HTML with the analytics beacon), and the
             // last good copy only when the network is down or slower than 3 seconds.
             urlPattern: ({ request, url }) =>
-              request.mode === 'navigate' && /^\/h5(\/|$)/.test(url.pathname) && !url.pathname.startsWith(`${BASE}/api/`),
+              request.mode === 'navigate' && /^\/h5(\/|$)/.test(url.pathname) && !url.pathname.startsWith('/h5/api/'),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'h5-pages',
