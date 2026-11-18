@@ -141,11 +141,11 @@ export const AnimationTest: React.FC = () => {
         isHost
       />
       <div className="fixed left-2 top-14 z-[90] w-[148px] panel p-2 flex flex-col gap-1 max-h-[80vh] overflow-auto" style={{ display: panel ? undefined : 'none' }}>
-        <p className="section-head mb-1">fx_lab</p>
+        <p className="section-head mb-1">Fx lab</p>
         {steps.map(([label, fn]) => (
-          <button key={label} onClick={fn} className="text-left text-[11px] font-mono px-2 py-1 bg-gray-800 hover:bg-gray-700 border border-white/10">{label}</button>
+          <button key={label} onClick={fn} className="text-left text-[11px] font-sans tabular-nums px-2 py-1 bg-gray-800 hover:bg-gray-700 border border-white/10">{label}</button>
         ))}
-        <button onClick={() => setPanel(false)} className="text-[10px] font-mono text-mist mt-1">hide panel</button>
+        <button onClick={() => setPanel(false)} className="text-[10px] font-sans tabular-nums text-mist mt-1">hide panel</button>
       </div>
     </>
   );

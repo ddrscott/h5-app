@@ -170,7 +170,7 @@ export const Callouts: React.FC = () => {
               {item.lines === 2 && splitCallout(item.text) ? splitCallout(item.text)!.map((t, i) => <React.Fragment key={i}>{i > 0 && <br />}{t}</React.Fragment>) : item.text}
             </span>
             {item.sub && (
-              <span className="mt-1 font-mono text-[11px] font-bold tracking-[0.2em] uppercase text-bone/90 bg-ink/70 px-2 py-0.5 border border-white/15">
+              <span className="mt-1 font-sans tabular-nums text-[11px] font-bold tracking-[0.2em] uppercase text-bone/90 bg-ink/70 px-2 py-0.5 border border-white/15">
                 {item.sub}
               </span>
             )}

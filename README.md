@@ -91,6 +91,8 @@ Taking a seat back: open `/h5/api/rooms/:code/ws?session=<sessionId>&token=<toke
 
 The art direction, card design, palette, type and motion rules are in [docs/VISUALS.md](docs/VISUALS.md). In short, the game has a lacquered jade table, warm card stock, cinnabar and brass, and Signal Orange for whatever is live. Cards are springy physical objects. Plays fly in from the seat that made them, and combo callouts, shake and particles scale with the play's strength. All sound is synthesized with the Web Audio API (`src/client/fx/sound.ts`), and one mute switch covers sound and vibration. The motion library is `motion` (`motion/react`), and the app runs inside `MotionConfig reducedMotion="user"`, so `prefers-reduced-motion` turns movement into fades.
 
+**No terminal aesthetic in this project.** It's a family card game, so there's no monospace font, no `// SECTION_HEADS`, no snake_case labels, and no `$` prompt markers. That overrides the owner's default visual signature. Keep the orange accent and the hard-edged panels.
+
 Two pages help when working on it:
 
 - `/h5/animation` is the **FX lab**: the real `GameTable` on a scripted offline game, with buttons (and `window.__lab` for scripts) for the deal, every meld type, a bomb, the Heart 5, passes, the sweep, going out, an error and game over.

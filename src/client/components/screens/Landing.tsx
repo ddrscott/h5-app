@@ -58,7 +58,7 @@ export const Landing: React.FC = () => {
       <div className="bg-ink/50 border-y border-white/5 py-16">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <p className="section-head text-center mb-2">the_game</p>
+            <p className="section-head text-center mb-2">The game</p>
             <h2 className="font-display font-black text-3xl lg:text-4xl text-paper text-center mb-8">
               What is Heart of Five?
             </h2>
@@ -98,7 +98,7 @@ export const Landing: React.FC = () => {
       {/* Game Features */}
       <div className="py-16">
         <div className="container mx-auto px-4">
-          <p className="section-head text-center mb-2">why_it_sticks</p>
+          <p className="section-head text-center mb-2">Why it sticks</p>
           <h2 className="font-display font-black text-3xl lg:text-4xl text-paper text-center mb-12">
             Why You'll Love It
           </h2>
@@ -135,7 +135,7 @@ export const Landing: React.FC = () => {
       <div className="bg-ink/50 border-y border-white/5 py-16" id="how-to-play">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <p className="section-head text-center mb-2">quick_start</p>
+            <p className="section-head text-center mb-2">Quick start</p>
             <h2 className="font-display font-black text-3xl lg:text-4xl text-paper text-center mb-8">
               Quick Start Guide
             </h2>
@@ -145,23 +145,23 @@ export const Landing: React.FC = () => {
                 <h3 className="font-display text-xl font-bold text-brass-light mb-3">Basic Rules</h3>
                 <ul className="space-y-2 text-bone/85">
                   <li className="flex items-start">
-                    <span className="text-ember font-mono mr-2">$</span>
+                    <span className="text-cinnabar mr-2">♥</span>
                     Be the first to play all your cards to win the game
                   </li>
                   <li className="flex items-start">
-                    <span className="text-ember font-mono mr-2">$</span>
+                    <span className="text-cinnabar mr-2">♥</span>
                     Play singles, pairs, three of a kind, or special combinations
                   </li>
                   <li className="flex items-start">
-                    <span className="text-ember font-mono mr-2">$</span>
+                    <span className="text-cinnabar mr-2">♥</span>
                     Higher ranks beat lower ranks (3 is lowest, 2 is highest)
                   </li>
                   <li className="flex items-start">
-                    <span className="text-ember font-mono mr-2">$</span>
+                    <span className="text-cinnabar mr-2">♥</span>
                     The Heart 5 beats everything - use it wisely!
                   </li>
                   <li className="flex items-start">
-                    <span className="text-ember font-mono mr-2">$</span>
+                    <span className="text-cinnabar mr-2">♥</span>
                     Last player with cards loses - track wins/losses across games
                   </li>
                 </ul>

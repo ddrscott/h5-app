@@ -84,7 +84,7 @@ const TableInlay: React.FC<{ vp: Viewport; r: number; top: boolean; bottom: bool
         <g className="spin-slow" style={{ transformOrigin: '0 0' }}>
           <circle r="88" fill="none" stroke="#D6A54A" strokeOpacity="0.18" strokeWidth="0.6" strokeDasharray="2 4" />
         </g>
-        <g fill="#D6A54A" fillOpacity="0.34" fontSize="11" fontFamily='"JetBrains Mono", "H5 Seal", monospace' fontWeight="700" letterSpacing="3">
+        <g fill="#D6A54A" fillOpacity="0.34" fontSize="11" fontFamily='"Fraunces Variable", "H5 Seal", Georgia, serif' fontWeight="700" letterSpacing="3">
           {top && <text><textPath href="#inlayTop" startOffset="50%" textAnchor="middle">✦ HEART OF FIVE ✦</textPath></text>}
           {bottom && <text><textPath href="#inlayBottom" startOffset="50%" textAnchor="middle">红心五 · IT'S DA BOMB</textPath></text>}
         </g>
@@ -393,14 +393,14 @@ export const GameTable: React.FC<GameTableProps> = ({
               <motion.div
                 key={status.err ? `e:${status.small}` : status.big}
                 role={status.err ? 'alert' : undefined}
-                className={`flex items-baseline gap-2 px-3 py-1 border ${status.err ? 'bg-cinnabar-deep text-paper border-cinnabar max-w-[min(92vw,560px)] flex-wrap justify-center text-center' : 'whitespace-nowrap'} ${status.hot ? 'bg-ember text-ink border-ember-hot shadow-[0_6px_24px_-6px_rgba(232,93,0,.8)]' : status.err ? '' : status.lead ? 'bg-ink/90 text-brass-light border-brass/60 font-mono uppercase tracking-[0.14em]' : 'bg-ink/80 text-bone border-white/15'}`}
+                className={`flex items-baseline gap-2 px-3 py-1 border ${status.err ? 'bg-cinnabar-deep text-paper border-cinnabar max-w-[min(92vw,560px)] flex-wrap justify-center text-center' : 'whitespace-nowrap'} ${status.hot ? 'bg-ember text-ink border-ember-hot shadow-[0_6px_24px_-6px_rgba(232,93,0,.8)]' : status.err ? '' : status.lead ? 'bg-ink/90 text-brass-light border-brass/60 font-sans tabular-nums uppercase tracking-[0.14em]' : 'bg-ink/80 text-bone border-white/15'}`}
                 initial={{ y: 14, opacity: 0, scale: status.hot ? 0.8 : 1 }}
                 animate={status.err ? { y: 0, opacity: 1, scale: 1, x: [0, -6, 6, -3, 0] } : { y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: -8, opacity: 0, transition: { duration: 0.12 } }}
                 transition={{ type: 'spring', stiffness: 500, damping: 22 }}
               >
-                <span className={`text-[13px] font-extrabold ${status.hot ? 'font-mono uppercase tracking-[0.14em]' : 'font-semibold'}`}>
-                  {status.hot && <span className="text-ink/60">$ </span>}
+                <span className={`text-[13px] font-extrabold ${status.hot ? 'font-sans tabular-nums uppercase tracking-[0.14em]' : 'font-semibold'}`}>
+                  
                   {status.lead && <Crown size={13} className="inline -mt-0.5 mr-1.5 text-brass" />}
                   {status.big}
                 </span>
@@ -409,7 +409,7 @@ export const GameTable: React.FC<GameTableProps> = ({
             )}
           </AnimatePresence>
           {me && (
-            <div ref={(el) => registry.seat(myPlayerId, el)} className="relative flex items-center gap-2 px-2 py-0.5 bg-ink/60 border border-white/10 font-mono text-[11px] text-mist">
+            <div ref={(el) => registry.seat(myPlayerId, el)} className="relative flex items-center gap-2 px-2 py-0.5 bg-ink/60 border border-white/10 font-sans tabular-nums text-[11px] text-mist">
               {isLeader && <Crown size={12} className="text-brass" aria-label="You lead this trick" />}
               <span className="text-bone font-semibold font-sans text-[12px]">{me.name}</span>
               <span>{me.wins}W·{me.losses}L</span>
@@ -479,7 +479,7 @@ export const GameTable: React.FC<GameTableProps> = ({
           <div className="font-seal grid place-items-center w-9 h-9 bg-cinnabar text-paper font-black text-[11px] leading-[1.05] text-center shadow-[inset_0_0_0_2px_rgba(246,240,226,.5)] -rotate-3" aria-hidden>
             红心<br />五
           </div>
-          <span className="hidden sm:block font-mono text-[11px] tracking-[0.2em] text-mist">HEART OF FIVE</span>
+          <span className="hidden sm:block font-sans tabular-nums text-[11px] tracking-[0.2em] text-mist">HEART OF FIVE</span>
         </div>
         <div className="flex gap-2 pointer-events-auto">
           <MuteButton />
@@ -516,7 +516,7 @@ export const GameTable: React.FC<GameTableProps> = ({
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setShowLeaveConfirm(false)} />
           <DialogBox className="max-w-sm z-[81]">
-            <p className="section-head mb-2">leave_table</p>
+            <p className="section-head mb-2">Leave table</p>
             <h3 className="font-display text-2xl font-bold mb-2">Leave the game?</h3>
             <p className="text-gray-300 mb-5 text-sm">Your seat stays at the table, and the room plays for you after 30 seconds each turn.</p>
             <div className="flex gap-3">
@@ -549,7 +549,7 @@ const PassStamp: React.FC = () => {
   if (!on) return null;
   return (
     <motion.span
-      className="absolute left-full ml-2 top-1/2 font-mono font-extrabold text-[12px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/80"
+      className="absolute left-full ml-2 top-1/2 font-sans tabular-nums font-extrabold text-[12px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/80"
       initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
       animate={{ y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
       exit={{ opacity: 0 }}

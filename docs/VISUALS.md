@@ -26,10 +26,14 @@ decorative gradients; the only gradients model light (the lamp over the table, t
 
 - **Fraunces** (variable, SOFT axis, self-hosted from `@fontsource-variable`) for display: the
   title, combo callouts, the winner's name. Black weight, soft terminals, italic for bombs.
-- **JetBrains Mono** for data and labels: card indices, counts, W·L records, the room code, and
-  `// SECTION_HEADS` whose slashes are orange. A `$` in orange marks the live prompt (your turn,
-  the active player).
-- System sans for body text and names.
+- **Fraunces** also sets the card indices and the table inlay, like the printed numerals on a real deck.
+- **System sans** for everything else: body text, names, buttons, labels, counts and W·L records
+  (with `tabular-nums` so numbers line up). Small labels are plain words in spaced caps, such as
+  "Your name" or "Room code".
+- **No terminal look.** This is a family card table, not a developer tool. Don't use a monospace
+  font, `// SECTION_HEADS`, snake_case labels, or a `$` prompt marker anywhere in the game. This
+  overrides the default visual signature from the owner's global instructions; the orange accent
+  and hard-edged panels stay.
 - **H5 Seal**: a 2 KB subset of Noto Serif SC holding only 红心五 (`src/client/assets/fonts`),
   so the name renders on devices without a CJK font.
 
@@ -74,7 +78,7 @@ Text never prints on top of other text. `tableLanes()` and `placeCallout()` in
    screen with rotation included. A hand that would show less than about 30px of each card wraps
    to two rows.
 3. **Status stack:** one chip slot above the hand, with your nameplate under it. The chip shows
-   the most urgent of a rejected play (cinnabar), a new leader (brass, crown), `$ YOUR TURN`
+   the most urgent of a rejected play (cinnabar), a new leader (brass, crown), `YOUR TURN`
    (orange) or who is thinking. Your PASS stamp lands beside the plate rather than on it.
 4. **Pile and ring:** the pile goes midway between the top seats and the status stack when a
    five-card spread fits there. When side seats crowd that band (phones with 4 to 6 players), it
@@ -97,7 +101,7 @@ Text never prints on top of other text. `tableLanes()` and `placeCallout()` in
    one, while a player going out waits for the current one to finish.
 
 Opponents' PASS stamps land low on their face-down fan, short of the card count, so neither the
-name nor the count is covered. The active seat's `$` sits on the stats line and the leader's crown
+name nor the count is covered. The leader's crown
 on the avatar's inner corner, so the name keeps both of its lines and nothing pokes off screen.
 Names wrap to two lines on a phone instead of being cut, at the table and in the lobby, and if two
 players' initials match, the avatars get a number (A2) in both places.
@@ -144,8 +148,8 @@ players' initials match, the avatars get a number (A2) in both places.
   is swept toward the player who won it.
 - **Pass:** two knuckle knocks on the table, the way people pass at a real one, and a `PASS` stamp
   that thunks onto the player's card fan (beside the plate for your own).
-- **Turn:** the active seat gets an orange outline, a `$` before the name and a slight lift; the
-  lamp moves to it. On your turn an orange `$ YOUR TURN` chip springs up with what you need to
+- **Turn:** the active seat gets an orange outline, and a slight lift; the
+  lamp moves to it. On your turn an orange `YOUR TURN` chip springs up with what you need to
   beat, the hand gets a warm underglow, and a soft two-note chime and a short vibration play
   once. An absent player's turn shows a 30-second ring, the time after which the room plays for
   them.

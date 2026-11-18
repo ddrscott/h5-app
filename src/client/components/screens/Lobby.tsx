@@ -139,7 +139,7 @@ export const Lobby: React.FC<LobbyProps> = ({
         <div className="flex items-center gap-2">
           <div className="font-seal grid place-items-center w-9 h-9 bg-cinnabar text-paper font-black text-[11px] leading-[1.05] text-center -rotate-3 shadow-[inset_0_0_0_2px_rgba(246,240,226,.5)]" aria-hidden>红心<br />五</div>
           <div>
-            <p className="section-head">lobby</p>
+            <p className="section-head">Lobby</p>
             <h1 className="font-display font-black text-xl text-paper leading-none">Pull up a chair</h1>
           </div>
         </div>
@@ -170,13 +170,13 @@ export const Lobby: React.FC<LobbyProps> = ({
 
           {/* Room code in the middle of the table */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-            <p className="section-head mb-1.5">room_code</p>
+            <p className="section-head mb-1.5">Room code</p>
             <button
               onClick={() => copyToClipboard(roomId, 'Room code')}
               className="group flex items-center gap-2 px-3 py-2 bg-ink/85 border border-brass/40 hover:border-ember transition-colors"
               title="Copy room code"
             >
-              <span className="font-mono font-extrabold text-2xl sm:text-3xl tracking-[0.25em] text-brass-light">{roomId}</span>
+              <span className="font-sans tabular-nums font-extrabold text-2xl sm:text-3xl tracking-[0.25em] text-brass-light">{roomId}</span>
               <Copy size={16} className="text-mist group-hover:text-ember" />
             </button>
             <button
@@ -195,7 +195,7 @@ export const Lobby: React.FC<LobbyProps> = ({
               <>
                 {players.length < 6 && (
                   <div className="mb-5">
-                    <label className="section-head block mb-2">add_a_bot</label>
+                    <label className="section-head block mb-2">Add a bot</label>
                     <div className="flex gap-2">
                       <select
                         value={selectedBot}
@@ -234,7 +234,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             )}
           </div>
           {lastError && <p role="alert" className="text-sm text-cinnabar text-center pt-3">{lastError}</p>}
-          <p className="font-mono text-[11px] tracking-[0.15em] text-mist text-center pt-3">
+          <p className="font-sans tabular-nums text-[11px] tracking-[0.15em] text-mist text-center pt-3">
             {players.length}/6 SEATED · {players.length === 6 ? 'TABLE FULL' : `${6 - players.length} OPEN`}
           </p>
         </div>
@@ -244,7 +244,7 @@ export const Lobby: React.FC<LobbyProps> = ({
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setShowLeaveConfirm(false)} />
           <DialogBox className="max-w-sm">
-            <p className="section-head mb-2">leave_room</p>
+            <p className="section-head mb-2">Leave room</p>
             <h3 className="font-display text-2xl font-bold mb-2">Leave the room?</h3>
             <p className="text-gray-300 mb-5 text-sm">Your bots leave with you.</p>
             <div className="flex gap-3">

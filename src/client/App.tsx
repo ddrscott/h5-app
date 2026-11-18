@@ -121,7 +121,7 @@ function GameApp() {
     return (
       <div className="min-h-screen felt-texture flex items-center justify-center">
         <div className="panel p-8 max-w-md">
-          <p className="section-head mb-2">connection_error</p>
+          <p className="section-head mb-2">Connection error</p>
           <h2 className="font-display text-2xl font-bold text-paper mb-3">Couldn't reach the table</h2>
           <p className="text-gray-300 mb-4">{error}</p>
           <div className="space-y-3">
@@ -164,7 +164,7 @@ function GameApp() {
       <div className="min-h-screen felt-texture flex items-center justify-center">
         <div className="text-center">
           <div className="mx-auto mb-5 w-14 idle-float" style={{ filter: 'drop-shadow(0 10px 12px rgba(0,0,0,.5))' }}><Card isBack className="w-14 h-20" /></div>
-          <p className="font-mono text-sm tracking-[0.2em] text-mist prompt">CONNECTING TO THE TABLE</p>
+          <p className="font-sans tabular-nums text-sm tracking-[0.2em] text-mist">CONNECTING TO THE TABLE</p>
         </div>
       </div>
     );

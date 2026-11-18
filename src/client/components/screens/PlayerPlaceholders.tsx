@@ -46,13 +46,13 @@ export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
                   exit={{ scale: 0.5, opacity: 0 }}
                   transition={{ type: 'spring', stiffness: 520, damping: 20 }}
                 >
-                  <div className={`grid place-items-center w-8 h-8 font-mono font-extrabold text-[11px] ${player.isActive === false ? 'bg-gray-600 text-gray-300' : player.id === myPlayerId ? 'bg-ember text-ink' : 'bg-bone text-ink'}`}>
+                  <div className={`grid place-items-center w-8 h-8 font-sans tabular-nums font-extrabold text-[11px] ${player.isActive === false ? 'bg-gray-600 text-gray-300' : player.id === myPlayerId ? 'bg-ember text-ink' : 'bg-bone text-ink'}`}>
                     {player.isActive === false ? <WifiOff size={14} aria-label="Disconnected" /> : badges.get(player.id)}
                   </div>
                   <div className="leading-tight min-w-0">
                     {/* full names on a phone too: wrap to two lines instead of "Aggressive…" */}
                     <p className={`text-[12px] sm:text-[13px] leading-[1.15] font-semibold break-words line-clamp-2 w-max max-w-[92px] sm:max-w-[140px] ${player.isActive === false ? 'text-gray-400' : 'text-bone'}`}>{player.name}</p>
-                    <p className="font-mono text-[9px] tracking-[0.15em] text-mist flex items-center gap-1">
+                    <p className="font-sans tabular-nums text-[9px] tracking-[0.15em] text-mist flex items-center gap-1">
                       {player.id === hostId && <><Crown size={10} className="text-brass" /> <span className="text-brass">HOST</span></>}
                       {player.isActive === false && <span className="text-brass">RECONNECTING…</span>}
                       {player.id !== hostId && player.isActive !== false && (player.isBot
@@ -72,7 +72,7 @@ export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
                   animate={{ opacity: 1 }}
                 >
                   <UserPlus size={14} />
-                  <span className="font-mono text-[10px] tracking-[0.15em]">OPEN</span>
+                  <span className="font-sans tabular-nums text-[10px] tracking-[0.15em]">OPEN</span>
                 </motion.div>
               )}
             </AnimatePresence>

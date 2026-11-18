@@ -122,7 +122,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
             initial={{ scale: 1.5 }}
             animate={{ scale: 1 }}
             data-count
-            className="absolute z-20 -right-3 -top-2 min-w-[22px] h-[20px] px-1 grid place-items-center font-mono text-[11px] font-bold bg-ink text-bone border border-white/20"
+            className="absolute z-20 -right-3 -top-2 min-w-[22px] h-[20px] px-1 grid place-items-center font-sans tabular-nums text-[11px] font-bold bg-ink text-bone border border-white/20"
           >
             {player.handCount}
           </motion.span>
@@ -133,7 +133,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
             <motion.div
               key={stamp}
               data-stamp
-              className="absolute z-10 pointer-events-none font-mono font-extrabold text-[13px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/85"
+              className="absolute z-10 pointer-events-none font-sans tabular-nums font-extrabold text-[13px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/85"
               // low on the fan with its right edge short of the card count (top right), so the count stays readable
               style={{ top: (backW * 1.4 + 4) * 0.72, right: 14 }}
               initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
@@ -155,7 +155,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
         }`}
         style={{ maxWidth: compact ? 136 : 210 }}
       >
-        <div className="relative shrink-0 grid place-items-center font-mono font-extrabold text-[12px] text-ink"
+        <div className="relative shrink-0 grid place-items-center font-sans tabular-nums font-extrabold text-[12px] text-ink"
           style={{ width: av, height: av, background: out ? '#D6A54A' : active ? '#E85D00' : '#ECE5D3' }}>
           {badge ?? initials(player.name)}
           {active && absent && turnStart > 0 && <TimerRing startedAt={turnStart} size={av} />}
@@ -169,10 +169,9 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
           <p className={`font-semibold break-words ${compact ? 'text-[11px] leading-[1.15] line-clamp-2' : 'text-[12px] truncate'} ${active ? 'text-bone' : 'text-bone/85'}`}>
             {player.name}
           </p>
-          <p className="font-mono text-[10px] text-mist flex items-center gap-1">
+          <p className="font-sans tabular-nums text-[10px] text-mist flex items-center gap-1">
             {absent && <WifiOff size={11} className="text-brass" aria-label="Disconnected" />}
             {/* the live prompt sits on the stats line, so the name keeps both of its lines */}
-            {active && <span className="text-ember font-extrabold">$</span>}
             <span>{player.wins}W·{player.losses}L</span>
             {out && place ? <span className="text-brass font-bold">{ORDINAL[place] ?? `${place}TH`}</span> : null}
           </p>

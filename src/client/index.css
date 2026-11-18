@@ -95,12 +95,11 @@
     backdrop-filter: blur(6px);
   }
   .section-head {
-    @apply font-mono text-[11px] tracking-[0.18em] uppercase text-mist;
+    @apply font-sans text-[11px] font-semibold tracking-[0.12em] uppercase text-mist;
   }
-  .section-head::before { content: "// "; color: var(--ember); }
 
   .btn-primary {
-    @apply relative inline-flex items-center justify-center gap-2 font-mono font-bold uppercase tracking-wider
+    @apply relative inline-flex items-center justify-center gap-2 font-sans font-bold uppercase tracking-wide
            text-sm py-2.5 px-5 text-ink select-none;
     background: linear-gradient(180deg, #FF7A1A 0%, #E85D00 100%);
     box-shadow: 0 3px 0 #8A3700, 0 8px 18px -6px rgba(232,93,0,.6), inset 0 1px 0 rgba(255,255,255,.35);
@@ -111,7 +110,7 @@
   .btn-primary:disabled { background: #18221F; color: #62726D; box-shadow: 0 3px 0 #050807, inset 0 0 0 1px rgba(255,255,255,.08); cursor: not-allowed; }
 
   .btn-secondary {
-    @apply relative inline-flex items-center justify-center gap-2 font-mono font-bold uppercase tracking-wider
+    @apply relative inline-flex items-center justify-center gap-2 font-sans font-bold uppercase tracking-wide
            text-sm py-2.5 px-5 text-bone bg-gray-800 border border-white/15 select-none;
     box-shadow: 0 3px 0 #050807, inset 0 1px 0 rgba(255,255,255,.06);
     transition: transform .12s var(--ease-spring), background-color .12s ease;
@@ -121,7 +120,7 @@
   .btn-secondary:disabled { opacity: .45; cursor: not-allowed; }
 
   .field {
-    @apply w-full px-3 py-2.5 bg-ink/70 border border-white/15 text-bone placeholder:text-gray-500 font-mono
+    @apply w-full px-3 py-2.5 bg-ink/70 border border-white/15 text-bone placeholder:text-gray-500 font-sans
            focus:outline-none focus:border-ember;
   }
 
@@ -130,7 +129,6 @@
   .text-card-black { color: #1C1D24; }
   .cards-dimmed { filter: brightness(.45) saturate(.6); }
 
-  .prompt::before { content: "$ "; color: var(--ember); font-family: "JetBrains Mono", monospace; }
 }
 
 /* ---------- motion helpers (transform/opacity only) ---------- */

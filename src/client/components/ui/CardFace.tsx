@@ -55,13 +55,12 @@ const PIPS: Record<number, Array<[number, number, boolean?]>> = {
   10: [[L, 28], [R, 28], [C, 42], [L, 56], [R, 56], [L, 84, true], [R, 84, true], [C, 98, true], [L, 112, true], [R, 112, true]],
 };
 
-const MONO = '"JetBrains Mono", ui-monospace, monospace';
 const SERIF = '"Fraunces Variable", Georgia, serif';
 
 const Index: React.FC<{ label: string; suit: SuitCode; color: string; pipFill?: string }> = ({ label, suit, color, pipFill }) => (
   <g>
     <text
-      x={label.length > 1 ? 4.5 : 8} y="31" fill={color} fontFamily={MONO} fontWeight="800" fontSize="29"
+      x={label.length > 1 ? 4.5 : 8} y="31" fill={color} fontFamily={SERIF} fontWeight="800" fontSize="29"
       {...(label.length > 1 ? { textLength: 27, lengthAdjust: 'spacingAndGlyphs' } : {})}
     >{label}</text>
     <Pip suit={suit} x={label.length > 1 ? 18 : 17} y={45} size={19} fill={pipFill} />
@@ -103,7 +102,7 @@ const Joker: React.FC<{ big: boolean }> = ({ big }) => {
       return `${(50 + Math.cos(a) * r).toFixed(2)},${(70 + Math.sin(a) * r).toFixed(2)}`;
     }).join(' ');
   const letters = (
-    <g fontFamily={MONO} fontWeight="800" fontSize="12" fill={color} textAnchor="middle">
+    <g fontFamily={SERIF} fontWeight="800" fontSize="12" fill={color} textAnchor="middle">
       {'JOKER'.split('').map((ch, i) => <text key={i} x="11" y={17 + i * 11.5}>{ch}</text>)}
     </g>
   );
@@ -115,7 +114,7 @@ const Joker: React.FC<{ big: boolean }> = ({ big }) => {
       <polygon points={star(27, 11)} fill={color} />
       <polygon points={star(13, 6)} fill={big ? BRASS : PAPER} />
       <circle cx="50" cy="70" r="3.4" fill={color} />
-      <text x="50" y="114" textAnchor="middle" fontFamily={MONO} fontWeight="700" fontSize="8" letterSpacing="2" fill={color}>
+      <text x="50" y="114" textAnchor="middle" fontFamily={SERIF} fontWeight="700" fontSize="8" letterSpacing="2" fill={color}>
         {big ? 'BIG' : 'SMALL'}
       </text>
     </>

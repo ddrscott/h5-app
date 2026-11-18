@@ -52,7 +52,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
           transition={{ type: 'spring', stiffness: 260, damping: 24, delay: 0.3 }}
         >
           <div className="panel p-5 sm:p-6">
-            <label htmlFor="player-name" className="section-head block mb-2">your_name</label>
+            <label htmlFor="player-name" className="section-head block mb-2">Your name</label>
             <input
               id="player-name"
               type="text"
@@ -75,7 +75,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
 
               <div className="flex items-center gap-3 my-1.5">
                 <div className="h-px flex-1 bg-white/10" />
-                <span className="section-head">or_join_a_table</span>
+                <span className="section-head">Or join a table</span>
                 <div className="h-px flex-1 bg-white/10" />
               </div>
 
