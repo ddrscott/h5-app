@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 /**
  * Big words over the pile when a play deserves them. Size, color and hang time scale with how
- * strong the play is; the next callout replaces the current one at once, so nothing queues up.
+ * strong the play is. A new play's callout replaces the current one at once; a queued one (a
+ * player going out) waits its turn, so two never print on top of each other.
  */
 export interface CalloutSpec {
   text: string;
@@ -11,6 +12,12 @@ export interface CalloutSpec {
   sub?: string;
   x: number;
   y: number;
+  /** widest it may be here without running into a seat (GameTable works out the lane) */
+  maxW?: number;
+  /** font size in px; defaults to the level's size */
+  fontPx?: number;
+  /** wait for the current callout to finish instead of replacing it */
+  queue?: boolean;
 }
 
 type Item = CalloutSpec & { id: number };
@@ -22,6 +29,21 @@ export function showCallout(c: CalloutSpec) {
   listeners.forEach((l) => l(item));
 }
 
+/** Largest size per level, as [min px, vw, max px]. */
+const SIZE: Record<number, [number, number, number]> = { 1: [26, 7, 40], 2: [32, 9, 60], 3: [44, 13, 104], 4: [34, 10, 84] };
+
+/**
+ * Font size for a callout: as big as its level allows, but always one line that fits `maxW`
+ * (Fraunces Black caps run about 0.66em wide, plus the stroke).
+ */
+export function calloutFontPx(level: number, vw: number, text: string, maxW: number) {
+  const [lo, v, hi] = SIZE[level] ?? SIZE[1];
+  const byLevel = Math.max(lo, Math.min(hi, (vw * v) / 100));
+  return Math.max(18, Math.min(byLevel, (maxW - 16) / (text.length * 0.66)));
+}
+/** Half the height a callout takes (word + name tag), for finding it a clear lane. */
+export const calloutHalfHeight = (fontPx: number) => (fontPx * 0.95 + 28) / 2 + 4;
+
 const STYLE: Record<number, { size: string; color: string; stroke: string; hold: number; glow: string }> = {
   1: { size: 'clamp(26px, 7vw, 40px)', color: '#F6F0E2', stroke: '#0A1012', hold: 650, glow: 'rgba(0,0,0,0)' },
   2: { size: 'clamp(32px, 9vw, 60px)', color: '#F2CF7E', stroke: '#0A1012', hold: 900, glow: 'rgba(214,165,74,.45)' },
@@ -31,8 +53,14 @@ const STYLE: Record<number, { size: string; color: string; stroke: string; hold:
 
 export const Callouts: React.FC = () => {
   const [item, setItem] = useState<Item | null>(null);
+  const [waiting, setWaiting] = useState<Item[]>([]);
+  const itemRef = useRef(item);
+  itemRef.current = item;
   useEffect(() => {
-    const on = (c: Item) => setItem(c);
+    const on = (c: Item) => {
+      if (c.queue && itemRef.current) setWaiting((w) => [...w, c]);
+      else setItem(c);
+    };
     listeners.add(on);
     return () => { listeners.delete(on); };
   }, []);
@@ -41,6 +69,12 @@ export const Callouts: React.FC = () => {
     const t = window.setTimeout(() => setItem((cur) => (cur?.id === item.id ? null : cur)), STYLE[item.level].hold);
     return () => clearTimeout(t);
   }, [item]);
+  // Next in line goes up once the current one has had a moment to leave.
+  useEffect(() => {
+    if (item || waiting.length === 0) return;
+    const t = window.setTimeout(() => { setItem(waiting[0]); setWaiting((w) => w.slice(1)); }, 160);
+    return () => clearTimeout(t);
+  }, [item, waiting]);
 
   const st = item ? STYLE[item.level] : null;
   return (
@@ -69,9 +103,9 @@ export const Callouts: React.FC = () => {
             <span
               className="font-display leading-[0.92] text-center"
               style={{
-                fontSize: st.size,
-                maxWidth: '92vw',
-                textWrap: 'balance',
+                fontSize: item.fontPx ?? st.size,
+                maxWidth: item.maxW ? Math.max(140, item.maxW) : '92vw',
+                textWrap: item.fontPx ? 'nowrap' : 'balance',
                 fontWeight: 900,
                 fontStyle: item.level >= 3 ? 'italic' : 'normal',
                 color: st.color,

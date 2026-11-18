@@ -58,8 +58,18 @@ export const Lobby: React.FC<LobbyProps> = ({
   const handleAddBot = async () => {
     setIsAddingBot(true);
     try {
-      const config = BOT_CONFIGS[selectedBot as keyof typeof BOT_CONFIGS];
-      await botManager.createBot(config, roomId);
+      const base = BOT_CONFIGS[selectedBot as keyof typeof BOT_CONFIGS];
+      // Two seats must never share a name: number a repeat ("Balanced Betty 2").
+      const taken = new Set(players.map((p) => p.name));
+      let name = base.name;
+      for (let n = 2; taken.has(name); n++) name = `${base.name} ${n}`;
+      taken.add(name);
+      // Step the picker to the next bot nobody has seated, so pressing Add Bot again adds someone new.
+      const keys = Object.keys(BOT_CONFIGS) as Array<keyof typeof BOT_CONFIGS>;
+      const at = keys.indexOf(selectedBot as keyof typeof BOT_CONFIGS);
+      const next = [...keys.slice(at + 1), ...keys.slice(0, at + 1)].find((k) => !taken.has(BOT_CONFIGS[k].name));
+      if (next) setSelectedBot(next);
+      await botManager.createBot({ ...base, name }, roomId);
     } catch (error) {
       console.error('Failed to add bot:', error);
     }

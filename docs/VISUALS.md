@@ -60,9 +60,30 @@ Drawn in SVG on a 5:7 box (`src/client/components/ui/CardFace.tsx`), so they're 
 ## Table
 
 A radial lamp lights the middle of the jade table, which falls off into a vignette, under a fine
-noise grain blended at low strength. A brass inlay ring marks where melds land, and the house
-motto runs slowly around it: HEART OF FIVE ✦ 红心五 ✦ IT'S DA BOMB. A second, softer lamp
-glides to whoever's turn it is.
+noise grain blended at low strength. A brass inlay ring marks where melds land. The house motto
+sits on its top arc (HEART OF FIVE) and bottom arc (红心五 · IT'S DA BOMB), and an arc is left
+out wherever a seat would sit on its letters. A second, softer lamp glides to whoever's turn it is.
+
+### Lanes
+
+Text never prints on top of other text. `tableLanes()` and `calloutLane()` in
+`src/client/fx/layout.ts` split the felt from the bottom up:
+
+1. **Buttons:** Pass and Play sit in a fixed bar at the bottom, so a thumb learns where they are.
+2. **Hand:** the arc is lifted until its lowest corner clears the bar, and it stays inside the
+   screen with rotation included. A hand that would show less than about 30px of each card wraps
+   to two rows.
+3. **Status stack:** one chip slot above the hand, with your nameplate under it. The chip shows
+   the most urgent of a rejected play (cinnabar), a new leader (brass, crown), `$ YOUR TURN`
+   (orange) or who is thinking. Your PASS stamp lands beside the plate rather than on it.
+4. **Pile and ring:** these go midway between the top seats and the status stack, and the ring
+   is sized to fit that gap.
+5. **Callouts:** a callout always takes one line, placed nearest the pile where no seat overlaps
+   it and sized to fit. A play's callout replaces the current one, while a player going out waits
+   for the current one to finish.
+
+Opponents' PASS stamps land on their face-down fan, never on the name. Names wrap to two lines on
+a phone instead of being cut, and if two players' initials match, the avatars get a number (B2).
 
 ## Motion rules
 
@@ -87,6 +108,9 @@ glides to whoever's turn it is.
 6. **Reduced motion** (`prefers-reduced-motion`): `MotionConfig reducedMotion="user"` turns every
    transform animation into a jump, so flights become fades in place. Shake, flashes, particles,
    the idle sway, the foil and the inlay spin are all off.
+7. **Say no before the tap.** The Play button runs the same rules as the server
+   (`src/client/fx/rules.ts`), so a selection that can't beat the table reads like
+   "Single · needs a pair" and stays dim instead of pulsing and then bouncing.
 
 ### The moments
 
@@ -102,7 +126,7 @@ glides to whoever's turn it is.
   previous meld is shoved back and dimmed at the moment of impact. When everyone passes, the trick
   is swept toward the player who won it.
 - **Pass:** two knuckle knocks on the table, the way people pass at a real one, and a `PASS` stamp
-  that thunks onto the player's plate.
+  that thunks onto the player's card fan (beside the plate for your own).
 - **Turn:** the active seat gets an orange outline, a `$` before the name and a slight lift; the
   lamp moves to it. On your turn an orange `$ YOUR TURN` chip springs up with what you need to
   beat, the hand gets a warm underglow, and a soft two-note chime and a short vibration play

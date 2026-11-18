@@ -7,11 +7,11 @@ import { GamePhase } from '../../types/game';
 import { PlayerHand } from './PlayerHand';
 import { Seat, seatSpots } from './Seat';
 import { TablePile } from './TablePile';
-import { Callouts, showCallout } from './Callouts';
+import { Callouts, showCallout, calloutFontPx, calloutHalfHeight } from './Callouts';
 import { GameOver } from './GameOver';
 import { DialogBox } from '../ui/DialogBox';
 import { CardBack } from '../ui/CardFace';
-import { useViewport, registry } from '../../fx/layout';
+import { useViewport, registry, fan, tableLanes, calloutLane, seatHalf } from '../../fx/layout';
 import type { Viewport } from '../../fx/layout';
 import { bus } from '../../fx/bus';
 import { sfx } from '../../fx/sound';
@@ -19,6 +19,8 @@ import { haptics } from '../../fx/haptics';
 import { particles, FxCanvas } from '../../fx/particles';
 import { reducedMotion } from '../../fx/prefs';
 import { selectionLabel } from '../../fx/meld';
+import { whyNot } from '../../fx/rules';
+import { seatBadges } from './Seat';
 import type { PlayFx } from '../../fx/meld';
 
 interface GameTableProps {
@@ -58,26 +60,33 @@ const MELD_NAME: Record<string, string> = {
 };
 const ORD = ['', '1st', '2nd', '3rd', '4th', '5th', '6th'];
 
-/** The inlay on the table where melds land, with the house motto running around it. */
-const TableInlay: React.FC<{ vp: Viewport }> = ({ vp }) => {
-  const r = Math.min(vp.w * 0.36, vp.h * 0.2, 230);
+/**
+ * The inlay on the table where melds land. The house motto runs along its top and bottom arcs
+ * only, so the side seats never sit on its letters, and the ring is sized to fit between the top
+ * seat and your status stack.
+ */
+const TableInlay: React.FC<{ vp: Viewport; r: number; top: boolean; bottom: boolean; outer: boolean }> = ({ vp, r, top, bottom, outer }) => {
   return (
     <div aria-hidden className="absolute pointer-events-none" style={{ left: vp.pileX - r * 1.5, top: vp.pileY - r * 1.5, width: r * 3, height: r * 3 }}>
       <svg viewBox="-150 -150 300 300" className="w-full h-full">
         <defs>
-          <path id="inlayText" d="M 0,0 m -100,0 a 100,100 0 1,1 200,0 a 100,100 0 1,1 -200,0" />
+          {/* top arc, left to right */}
+          <path id="inlayTop" d="M -100,0 a 100,100 0 0,1 200,0" />
+          {/* bottom arc, also left to right so it reads upright */}
+          <path id="inlayBottom" d="M -108,0 a 108,108 0 0,0 216,0" />
           <radialGradient id="inlayLight">
             <stop offset="0%" stopColor="#2E7366" stopOpacity="0.55" />
             <stop offset="70%" stopColor="#2E7366" stopOpacity="0" />
           </radialGradient>
         </defs>
         <circle r="140" fill="url(#inlayLight)" />
-        <circle r="112" fill="none" stroke="#D6A54A" strokeOpacity="0.28" strokeWidth="1" />
-        <circle r="88" fill="none" stroke="#D6A54A" strokeOpacity="0.18" strokeWidth="0.6" strokeDasharray="2 4" />
+        {outer && <circle r="122" fill="none" stroke="#D6A54A" strokeOpacity="0.22" strokeWidth="0.8" />}
         <g className="spin-slow" style={{ transformOrigin: '0 0' }}>
-          <text fill="#D6A54A" fillOpacity="0.32" fontSize="10.5" fontFamily='"JetBrains Mono", "H5 Seal", monospace' fontWeight="700" letterSpacing="3.2">
-            <textPath href="#inlayText">HEART OF FIVE ✦ 红心五 ✦ IT'S DA BOMB ✦ HEART OF FIVE ✦ 红心五 ✦ IT'S DA BOMB ✦</textPath>
-          </text>
+          <circle r="88" fill="none" stroke="#D6A54A" strokeOpacity="0.18" strokeWidth="0.6" strokeDasharray="2 4" />
+        </g>
+        <g fill="#D6A54A" fillOpacity="0.34" fontSize="11" fontFamily='"JetBrains Mono", "H5 Seal", monospace' fontWeight="700" letterSpacing="3">
+          {top && <text><textPath href="#inlayTop" startOffset="50%" textAnchor="middle">✦ HEART OF FIVE ✦</textPath></text>}
+          {bottom && <text><textPath href="#inlayBottom" startOffset="50%" textAnchor="middle">红心五 · IT'S DA BOMB</textPath></text>}
         </g>
       </svg>
     </div>
@@ -128,7 +137,7 @@ export const GameTable: React.FC<GameTableProps> = ({
   trickMelds, lastTrickMelds, lastError, lastNotification, phase, winner, finalStandings, turnOrder = [],
   onCardSelect, onPlayCards, onPass, onLeaveGame, onPlayAgain, isHost = true, hostName = 'the host', onKick,
 }) => {
-  const vp = useViewport();
+  const rawVp = useViewport();
   const [scope, animate] = useAnimate<HTMLDivElement>();
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [flash, setFlash] = useState<{ id: number; color: string } | null>(null);
@@ -150,9 +159,35 @@ export const GameTable: React.FC<GameTableProps> = ({
     const rot = at < 0 ? order : [...order.slice(at + 1), ...order.slice(0, at)];
     return rot.filter((id) => id !== myPlayerId);
   }, [order, myPlayerId]);
-  const plateHalf = vp.w < 640 ? 66 : 100;
-  const spots = seatSpots(opponents.length, vp.w, vp.h, vp.portrait)
-    .map((p) => ({ x: Math.min(vp.w - plateHalf - 4, Math.max(plateHalf + 4, p.x)), y: p.y }));
+  // ---------- lanes: hand, status stack, pile, ring and callouts never share pixels ----------
+  const compact = rawVp.w < 640;
+  const half = seatHalf(compact);
+  const spots = useMemo(() => seatSpots(opponents.length, rawVp.w, rawVp.h, rawVp.portrait)
+    .map((p) => ({ x: Math.min(rawVp.w - half.hw - 4, Math.max(half.hw + 4, p.x)), y: Math.max(56 + half.hh, p.y) })),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [opponents.length, rawVp, compact]);
+  const boxes = useMemo(() => spots.map((p) => ({ ...p, ...half })),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [spots]);
+  const handTop = fan(Math.max(1, myHand.length), rawVp).top;
+  const lanes = useMemo(() => tableLanes(rawVp, boxes, handTop), [rawVp, boxes, handTop]);
+  const vp = useMemo(() => ({ ...rawVp, pileY: lanes.pileY }), [rawVp, lanes.pileY]);
+  /** A clear spot for a callout: one line, sized to the lane, never over a seat. */
+  const lane = useCallback((text: string, level: number) => {
+    const want = Math.min(vp.w - 24, 760);
+    const full = calloutFontPx(level, vp.w, text, want);
+    // Shrink a step at a time until a clear band is found; past that, take the widest spot.
+    let best: { y: number; maxW: number; fontPx: number } | null = null;
+    for (const k of [1, 0.85, 0.72]) {
+      const font = full * k;
+      const l = calloutLane(vp, boxes, vp.pileY, calloutHalfHeight(font), want);
+      const fontPx = Math.min(font, calloutFontPx(level, vp.w, text, l.maxW));
+      if (l.maxW >= want) return { y: l.y, maxW: l.maxW, fontPx };
+      if (!best || fontPx > best.fontPx) best = { y: l.y, maxW: l.maxW, fontPx };
+    }
+    return best!;
+  }, [vp, boxes]);
+  const badges = useMemo(() => seatBadges(Array.from(players.values())), [players]);
   const placeOf = (p?: Player) => (p?.isOut && p.position ? p.position : undefined);
 
   // ---------- screen shake ----------
@@ -185,9 +220,11 @@ export const GameTable: React.FC<GameTableProps> = ({
       shake(n > 1 ? 3 : 1.5);
       if (n > 1) particles.burst({ x: cx, y: cy + vp.PH * 0.4, kind: 'spark', palette: 'brass', count: 8 + n * 2, speed: 260, angle: -Math.PI / 2, spread: Math.PI * 0.9 });
     }
-    if (fx.label) showCallout({ text: fx.label, level: fx.level as 1 | 2 | 3 | 4, sub: who, x: cx, y: cy - vp.PH * 0.98 });
+    if (fx.label) {
+      showCallout({ text: fx.label, level: fx.level as 1 | 2 | 3 | 4, sub: who, x: cx, ...lane(fx.label, fx.level) });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myPlayerId, players, vp, shake]);
+  }, [myPlayerId, players, vp, shake, lane]);
 
   // ---------- passes, deals, errors ----------
   const [dealId, setDealId] = useState(() =>
@@ -232,7 +269,10 @@ export const GameTable: React.FC<GameTableProps> = ({
         sfx.out();
         particles.burst({ x, y, kind: 'confetti', count: place === 1 ? 70 : 36, speed: 520 });
         if (mine && place === 1) particles.celebrate();
-        showCallout({ text: mine ? (place === 1 ? 'YOU WENT OUT FIRST!' : `OUT · ${ORD[place]?.toUpperCase()}`) : `OUT · ${ORD[place]?.toUpperCase()}`, level: place === 1 ? 2 : 1, sub: mine ? 'You' : p.name, x: vp.w / 2, y: vp.pileY + vp.PH * 0.95 });
+        const text = mine ? (place === 1 ? 'YOU WENT OUT FIRST!' : `OUT · ${ORD[place]?.toUpperCase()}`) : `OUT · ${ORD[place]?.toUpperCase()}`;
+        const level = place === 1 ? 2 : 1;
+        // Waits for a play's callout to finish instead of printing over it.
+        showCallout({ text, level, sub: mine ? 'You' : p.name, x: vp.w / 2, ...lane(text, level), queue: true });
       }, 650);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -241,7 +281,9 @@ export const GameTable: React.FC<GameTableProps> = ({
   // ---------- actions ----------
   const selected = myHand.filter((c) => selectedCards.has(c.code || `${c.rank}${c.suit}`));
   const playLabel = selectionLabel(selected);
-  const canPlay = isMyTurn && selected.length > 0;
+  // The client knows the table, so say why a selection won't go before the tap (the server agrees).
+  const blocked = isMyTurn && selected.length > 0 ? whyNot(selected, currentMeld) : null;
+  const canPlay = isMyTurn && selected.length > 0 && !blocked;
   const play = () => {
     if (!canPlay) return;
     sfx.whoosh(selected.length > 3 ? 1.4 : 1);
@@ -258,7 +300,8 @@ export const GameTable: React.FC<GameTableProps> = ({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
-      if (e.key === 'Enter' && !(e.target as HTMLElement)?.closest('[data-card]')) keyRef.current.play();
+      // Enter plays, even with a card focused (Space toggles that card); buttons keep their own Enter.
+      if (e.key === 'Enter' && (e.target as HTMLElement)?.tagName !== 'BUTTON') keyRef.current.play();
       else if (e.key === 'p' || e.key === 'P') keyRef.current.pass();
       else if (e.key === 'Escape') keyRef.current.clearSel();
     };
@@ -272,7 +315,9 @@ export const GameTable: React.FC<GameTableProps> = ({
 
   const activeName = currentTurnPlayerId ? players.get(currentTurnPlayerId)?.name : undefined;
   const myPlace = placeOf(me);
-  const status: { big: string; small?: string; hot: boolean } | null = !isPlaying ? null
+  const status: { big: string; small?: string; hot: boolean; err?: boolean; lead?: boolean } | null = !isPlaying ? null
+    : lastError ? { big: 'Not that', small: lastError, hot: false, err: true }
+    : lastNotification && !isMyTurn ? { big: lastNotification, hot: false, lead: true }
     : myPlace ? { big: `You're out · ${ORD[myPlace]}`, small: activeName ? `${activeName} to play` : undefined, hot: false }
     : isMyTurn && !currentMeld ? { big: 'Your lead', small: 'play anything', hot: true }
     : isMyTurn ? { big: 'Your turn', small: `beat the ${MELD_NAME[currentMeld?.type ?? ''] ?? 'table'} or pass`, hot: true }
@@ -297,9 +342,9 @@ export const GameTable: React.FC<GameTableProps> = ({
     : null);
 
   return (
-    <div className="fixed inset-0 felt-texture overflow-hidden">
-      <motion.div ref={scope} className="absolute inset-0">
-        <TableInlay vp={vp} />
+    <div className="fixed inset-0 felt-texture overflow-hidden overflow-clip">
+      <motion.div ref={scope} className="absolute inset-0 overflow-hidden overflow-clip">
+        <TableInlay vp={vp} r={lanes.ringR} top={lanes.mottoTop} bottom={lanes.mottoBottom} outer={lanes.outerRing} />
 
         {/* the lamp over whoever's turn it is */}
         <motion.div
@@ -324,7 +369,8 @@ export const GameTable: React.FC<GameTableProps> = ({
               leader={leadPlayerId === id}
               place={placeOf(p)}
               passBeat={passBeats[id] ?? 0}
-              compact={vp.w < 640}
+              compact={compact}
+              badge={badges.get(id)}
               onKick={isHost && onKick ? () => onKick(id) : undefined}
             />
           );
@@ -333,41 +379,28 @@ export const GameTable: React.FC<GameTableProps> = ({
         <TablePile trickMelds={trickMelds} vp={vp} myPlayerId={myPlayerId} onLand={onLand} onSweep={() => sfx.whoosh(0.5)} />
         <DealSprites id={dealId} seats={opponents} vp={vp} />
 
-        {/* new leader: a quiet chip under the pile */}
-        <AnimatePresence>
-          {lastNotification && (
-            <motion.div
-              key={lastNotification}
-              className="absolute z-40 pointer-events-none flex items-center gap-1.5 px-3 py-1.5 bg-ink/85 border border-brass/50 font-mono text-[12px] font-bold uppercase tracking-[0.16em] text-brass-light"
-              style={{ left: vp.pileX, top: vp.pileY + vp.PH * 0.75 }}
-              initial={{ x: '-50%', y: 10, opacity: 0 }}
-              animate={{ x: '-50%', y: 0, opacity: 1 }}
-              exit={{ opacity: 0, y: -6 }}
-            >
-              <Crown size={14} /> {lastNotification}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* your nameplate and the turn status */}
         <div
           className="absolute left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 pointer-events-none"
-          style={{ bottom: vp.handBase + vp.H * (myHand.length > 14 && vp.portrait ? 1.9 : 1.4) + 6 }}
+          style={{ bottom: lanes.statusBottom, maxWidth: 'calc(100vw - 16px)' }}
         >
           <AnimatePresence mode="wait">
             {status && (
               <motion.div
-                key={status.big}
-                className={`flex items-baseline gap-2 px-3 py-1 border whitespace-nowrap ${status.hot ? 'bg-ember text-ink border-ember-hot shadow-[0_6px_24px_-6px_rgba(232,93,0,.8)]' : 'bg-ink/80 text-bone border-white/15'}`}
+                key={status.err ? `e:${status.small}` : status.big}
+                role={status.err ? 'alert' : undefined}
+                className={`flex items-baseline gap-2 px-3 py-1 border ${status.err ? 'bg-cinnabar-deep text-paper border-cinnabar max-w-[min(92vw,560px)] flex-wrap justify-center text-center' : 'whitespace-nowrap'} ${status.hot ? 'bg-ember text-ink border-ember-hot shadow-[0_6px_24px_-6px_rgba(232,93,0,.8)]' : status.err ? '' : status.lead ? 'bg-ink/90 text-brass-light border-brass/60 font-mono uppercase tracking-[0.14em]' : 'bg-ink/80 text-bone border-white/15'}`}
                 initial={{ y: 14, opacity: 0, scale: status.hot ? 0.8 : 1 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
+                animate={status.err ? { y: 0, opacity: 1, scale: 1, x: [0, -6, 6, -3, 0] } : { y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: -8, opacity: 0, transition: { duration: 0.12 } }}
                 transition={{ type: 'spring', stiffness: 500, damping: 22 }}
               >
                 <span className={`text-[13px] font-extrabold ${status.hot ? 'font-mono uppercase tracking-[0.14em]' : 'font-semibold'}`}>
-                  {status.hot && <span className="text-ink/60">$ </span>}{status.big}
+                  {status.hot && <span className="text-ink/60">$ </span>}
+                  {status.lead && <Crown size={13} className="inline -mt-0.5 mr-1.5 text-brass" />}
+                  {status.big}
                 </span>
-                {status.small && <span className={`text-[12px] ${status.hot ? 'text-ink/75' : 'text-mist'}`}>{status.small}</span>}
+                {status.small && <span className={`text-[12px] ${status.hot ? 'text-ink/75' : status.err ? 'text-paper/90' : 'text-mist'}`}>{status.small}</span>}
               </motion.div>
             )}
           </AnimatePresence>
@@ -403,12 +436,15 @@ export const GameTable: React.FC<GameTableProps> = ({
               onClick={play}
               disabled={!canPlay}
               className="btn-primary flex-1 max-w-[300px] h-12 text-[15px]"
+              aria-describedby={blocked ? 'play-why' : undefined}
               animate={canPlay ? { scale: [1, 1.04, 1] } : { scale: 1 }}
               transition={{ duration: 0.25 }}
               key={canPlay ? `p${selected.length}` : 'off'}
               title="Play (Enter)"
             >
-              {isMyTurn ? (
+              {isMyTurn && blocked ? (
+                <span id="play-why" className="normal-case font-semibold">{selected.length === 1 ? 'Single' : playLabel ?? `${selected.length} cards`} · {blocked}</span>
+              ) : isMyTurn ? (
                 <>
                   Play{playLabel ? <span className="opacity-80 normal-case font-semibold">· {playLabel}</span> : selected.length ? <span className="opacity-70">· {selected.length}</span> : null}
                 </>
@@ -453,24 +489,6 @@ export const GameTable: React.FC<GameTableProps> = ({
           </button>
         </div>
       </div>
-
-      {/* error toast */}
-      <AnimatePresence>
-        {lastError && (
-          <motion.div
-            key={lastError}
-            role="alert"
-            className="absolute left-1/2 z-50 px-4 py-2.5 bg-cinnabar-deep/95 border border-cinnabar text-paper text-sm max-w-[90vw] text-center shadow-xl"
-            style={{ bottom: vp.handBase + vp.H * 1.25 + 52 }}
-            initial={{ x: '-50%', y: 10, opacity: 0 }}
-            animate={{ x: ['-50%', '-53%', '-47%', '-51%', '-50%'], y: 0, opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {lastError}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <AnimatePresence>
         {flash && (
@@ -527,9 +545,9 @@ const PassStamp: React.FC = () => {
   if (!on) return null;
   return (
     <motion.span
-      className="absolute left-1/2 top-1/2 font-mono font-extrabold text-[12px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/80"
-      initial={{ x: '-50%', y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
-      animate={{ x: '-50%', y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
+      className="absolute left-full ml-2 top-1/2 font-mono font-extrabold text-[12px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/80"
+      initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
+      animate={{ y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ type: 'spring', stiffness: 700, damping: 20 }}
     >

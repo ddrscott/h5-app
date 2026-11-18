@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from 'motion/react';
 import type { Card as CardType } from '../../types/game';
 import { CardFace, CardBack } from '../ui/CardFace';
-import type { Viewport } from '../../fx/layout';
+import type { Viewport, Slot } from '../../fx/layout';
+import { fan } from '../../fx/layout';
 import { sfx } from '../../fx/sound';
 import { haptics } from '../../fx/haptics';
 
@@ -17,31 +18,6 @@ interface PlayerHandProps {
 }
 
 const keyOf = (c: CardType) => c.code || `${c.rank}${c.suit}`;
-
-interface Slot { x: number; y: number; rot: number; z: number }
-
-/** Lay the hand out on a wide arc, wrapping to two rows when one row would bury the indices. */
-function fan(n: number, vp: Viewport): Slot[] {
-  const avail = Math.min(vp.w - 34, 1000);
-  const minSlice = vp.portrait ? 22 : 26;
-  const spacing = (m: number) => (m > 1 ? Math.min(vp.W * 0.62, (avail - vp.W) / (m - 1)) : 0);
-  let rows = 1;
-  let perRow = n;
-  if (n > 1 && spacing(n) < minSlice) { rows = 2; perRow = Math.ceil(n / 2); }
-  const s = spacing(perRow);
-  const R = Math.max(vp.w * 1.25, 900);
-  const out: Slot[] = [];
-  for (let i = 0; i < n; i++) {
-    const row = rows === 2 && i >= perRow ? 1 : 0;
-    const j = row ? i - perRow : i;
-    const m = rows === 2 ? (row ? n - perRow : perRow) : n;
-    const x = (j - (m - 1) / 2) * s;
-    const yArc = (x * x) / (2 * R);
-    const rowLift = rows === 2 && row === 0 ? -vp.H * 0.5 : 0;
-    out.push({ x, y: yArc + rowLift, rot: (x / R) * (180 / Math.PI) * 1.25, z: i });
-  }
-  return out;
-}
 
 interface HandCardProps {
   card: CardType;
@@ -59,6 +35,9 @@ const HandCard: React.FC<HandCardProps> = React.memo(({ card, slot, index, vp, s
   const code = keyOf(card);
   const reduce = useReducedMotion();
   const [hover, setHover] = useState(false);
+  // Our own press dip. Motion's whileTap would turn Enter on a focused card into a synthetic
+  // pointerdown, which toggles the card off just as Enter plays it.
+  const [pressed, setPressed] = useState(false);
   // Tilt toward the pointer (desktop): springy rotateX/Y plus a highlight that follows it.
   const px = useMotionValue(0.5);
   const py = useMotionValue(0.5);
@@ -88,14 +67,15 @@ const HandCard: React.FC<HandCardProps> = React.memo(({ card, slot, index, vp, s
         zIndex: slot.z, transformOrigin: '50% 100%', touchAction: 'none',
       }}
       initial={dealing && !reduce ? { x: 0, y: travelY, rotate: (index % 2 ? 1 : -1) * (20 + index * 7), scale: 0.5, opacity: 0 } : false}
-      animate={{ x: slot.x, y: slot.y - lift, rotate: hover ? slot.rot * 0.4 : slot.rot, scale, opacity: 1 }}
+      animate={{ x: slot.x, y: slot.y - lift, rotate: hover ? slot.rot * 0.4 : slot.rot, scale: pressed ? scale * 0.94 : scale, opacity: 1 }}
       transition={{
         type: 'spring', stiffness: selected || hover ? 520 : 380, damping: selected ? 19 : 26, mass: 0.8,
         delay: dealing ? dealDelay : 0,
         opacity: { duration: 0.12, delay: dealing ? dealDelay : 0 },
       }}
-      whileTap={{ scale: scale * 0.94 }}
-      onPointerDown={(e) => onPointerDown(code, e)}
+      onPointerDown={(e) => { setPressed(true); onPointerDown(code, e); }}
+      onPointerUp={() => setPressed(false)}
+      onPointerCancel={() => setPressed(false)}
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') { setHover(true); sfx.hover(); } }}
       onPointerMove={(e) => {
         if (e.pointerType !== 'mouse') return;
@@ -103,8 +83,8 @@ const HandCard: React.FC<HandCardProps> = React.memo(({ card, slot, index, vp, s
         px.set((e.clientX - r.left) / r.width);
         py.set((e.clientY - r.top) / r.height);
       }}
-      onPointerLeave={() => { setHover(false); px.set(0.5); py.set(0.5); }}
-      onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); onKeyToggle(code); } }}
+      onPointerLeave={() => { setHover(false); setPressed(false); px.set(0.5); py.set(0.5); }}
+      onKeyDown={(e) => { if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); onKeyToggle(code); } }}
     >
       {/* idle sway: each card breathes on its own phase */}
       <div className="w-full h-full idle-float" style={{ animationDelay: `${-(index * 0.41) % 3.6}s` }}>
@@ -149,7 +129,7 @@ const HandCard: React.FC<HandCardProps> = React.memo(({ card, slot, index, vp, s
 HandCard.displayName = 'HandCard';
 
 export const PlayerHand: React.FC<PlayerHandProps> = ({ hand, selectedCards, onCardSelect, vp, dealId, myTurn }) => {
-  const slots = useMemo(() => fan(hand.length, vp), [hand.length, vp]);
+  const slots = useMemo(() => fan(hand.length, vp).slots, [hand.length, vp]);
   const selectedRef = useRef(selectedCards);
   selectedRef.current = selectedCards;
 

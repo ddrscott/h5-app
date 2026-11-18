@@ -85,9 +85,9 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleJoinSpecificRoom(); }}
-                  placeholder="Enter room code"
+                  placeholder="Room code"
                   aria-label="Room code"
-                  className="field flex-1 min-w-0 text-center tracking-[0.3em] uppercase"
+                  className="field flex-1 min-w-0 text-center tracking-[0.3em] uppercase placeholder:tracking-[0.12em]"
                   maxLength={10}
                 />
                 <button onClick={handleJoinSpecificRoom} disabled={!named || !roomCode.trim()} className="btn-primary px-5 shrink-0">
