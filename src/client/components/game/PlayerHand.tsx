@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from 'motion/react';
 import type { Card as CardType } from '../../types/game';
 import { CardFace, CardBack } from '../ui/CardFace';
@@ -167,22 +167,25 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ hand, selectedCards, onC
   }, [dealId, hand.length > 0]);
   const dealing = dealingFor !== 0 && dealingFor === dealId;
 
-  const toggle = (code: string) => {
+  const onSelectRef = useRef(onCardSelect);
+  onSelectRef.current = onCardSelect;
+  // Stable callbacks so a re-render of the table doesn't re-render every card.
+  const toggle = useCallback((code: string) => {
     const wasSelected = selectedRef.current.has(code);
-    onCardSelect(code);
+    onSelectRef.current(code);
     if (wasSelected) sfx.deselect();
     else { sfx.select(selectedRef.current.size + 1); haptics.tap(); }
-  };
+  }, []);
 
   // Press on a card to toggle it; keep the pointer down and sweep across others to give them
   // the same state (select a run in one stroke, or clear several).
   const drag = useRef<{ mode: 'select' | 'deselect'; seen: Set<string> } | null>(null);
-  const onPointerDown = (code: string, e: React.PointerEvent) => {
+  const onPointerDown = useCallback((code: string, e: React.PointerEvent) => {
     if (e.button !== 0) return;
     const mode = selectedRef.current.has(code) ? 'deselect' : 'select';
     drag.current = { mode, seen: new Set([code]) };
     toggle(code);
-  };
+  }, [toggle]);
   useEffect(() => {
     const move = (e: PointerEvent) => {
       const d = drag.current;

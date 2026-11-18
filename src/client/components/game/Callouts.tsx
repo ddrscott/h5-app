@@ -26,7 +26,7 @@ const STYLE: Record<number, { size: string; color: string; stroke: string; hold:
   1: { size: 'clamp(26px, 7vw, 40px)', color: '#F6F0E2', stroke: '#0A1012', hold: 650, glow: 'rgba(0,0,0,0)' },
   2: { size: 'clamp(32px, 9vw, 60px)', color: '#F2CF7E', stroke: '#0A1012', hold: 900, glow: 'rgba(214,165,74,.45)' },
   3: { size: 'clamp(44px, 13vw, 104px)', color: '#FF7A1A', stroke: '#0A1012', hold: 1250, glow: 'rgba(232,93,0,.7)' },
-  4: { size: 'clamp(40px, 12vw, 84px)', color: '#F6F0E2', stroke: '#8E1F1A', hold: 1500, glow: 'rgba(199,53,44,.8)' },
+  4: { size: 'clamp(34px, 10vw, 84px)', color: '#F6F0E2', stroke: '#8E1F1A', hold: 1500, glow: 'rgba(199,53,44,.8)' },
 };
 
 export const Callouts: React.FC = () => {

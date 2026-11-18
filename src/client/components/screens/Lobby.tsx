@@ -1,7 +1,10 @@
 import { BASE } from '../../base';
 import React from 'react';
 import type { Player } from '../../types/game';
-import { Card } from '../ui/Card';
+import { motion, AnimatePresence } from 'motion/react';
+import { Bot, Check, Copy, Link2, LogOut, Play } from 'lucide-react';
+import { MuteButton } from '../ui/MuteButton';
+import { sfx } from '../../fx/sound';
 import { PlayerPlaceholders } from './PlayerPlaceholders';
 import { BOT_CONFIGS } from '../../bots/configs';
 import BotManagerSingleton from '../../bots/BotManagerSingleton';
@@ -46,7 +49,8 @@ export const Lobby: React.FC<LobbyProps> = ({
   const previousRoomIdRef = React.useRef<string>(roomId);
 
   const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard?.writeText(text).catch(() => {});
+    sfx.select(4);
     setCopiedText(label);
     setTimeout(() => setCopiedText(null), 2000);
   };
@@ -72,6 +76,13 @@ export const Lobby: React.FC<LobbyProps> = ({
     onLeaveRoom();
   };
 
+  // A soft tick when someone takes a seat.
+  const seatCount = React.useRef(players.length);
+  React.useEffect(() => {
+    if (players.length > seatCount.current) sfx.land(1);
+    seatCount.current = players.length;
+  }, [players.length]);
+
   // Only cleanup bots when we actually change rooms
   React.useEffect(() => {
     const previousRoomId = previousRoomIdRef.current;
@@ -96,175 +107,139 @@ export const Lobby: React.FC<LobbyProps> = ({
     };
   }, [roomId]); // Only depend on roomId
 
+  const shareUrl = `${window.location.origin + BASE}/play?room=${roomId}`;
+
   return (
-    <div className="min-h-screen felt-texture p-4 landscape:p-2 flex flex-col relative">
-      {/* Copy Success Toast */}
-      {copiedText && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
-          <div className="bg-gray-800/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-xl">
-            <p className="text-sm text-green-400">✓ {copiedText} copied!</p>
+    <div className="min-h-screen felt-texture p-3 sm:p-5 flex flex-col relative overflow-y-auto">
+      <AnimatePresence>
+        {copiedText && (
+          <motion.div
+            className="fixed top-4 left-1/2 z-50 flex items-center gap-2 px-3 py-2 panel text-sm text-bone"
+            initial={{ x: '-50%', y: -16, opacity: 0 }}
+            animate={{ x: '-50%', y: 0, opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <Check size={15} className="text-ember" /> {copiedText} copied
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header */}
+      <div className="flex justify-between items-center mb-3">
+        <div className="flex items-center gap-2">
+          <div className="font-seal grid place-items-center w-9 h-9 bg-cinnabar text-paper font-black text-[11px] leading-[1.05] text-center -rotate-3 shadow-[inset_0_0_0_2px_rgba(246,240,226,.5)]" aria-hidden>红心<br />五</div>
+          <div>
+            <p className="section-head">lobby</p>
+            <h1 className="font-display font-black text-xl text-paper leading-none">Pull up a chair</h1>
           </div>
         </div>
-      )}
-      
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-4 landscape:mb-2">
-          <h1 className="text-2xl landscape:text-xl font-bold text-gold">Game Lobby</h1>
-          <button 
-            onClick={() => setShowLeaveConfirm(true)} 
-            className="bg-gray-800/90 hover:bg-gray-700 rounded-full p-2 transition-colors"
+        <div className="flex gap-2">
+          <MuteButton />
+          <button
+            onClick={() => setShowLeaveConfirm(true)}
+            className="grid place-items-center w-10 h-10 bg-ink/80 border border-white/15 text-bone hover:border-ember transition-colors"
             title="Leave Room"
+            aria-label="Leave room"
           >
-            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
+            <LogOut size={18} />
           </button>
         </div>
+      </div>
 
-        {/* Table Preview - Full screen */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex-grow flex items-center gap-4 portrait:flex-col">
-            {/* Left side - Player placeholders */}
-              <div className="flex-grow relative
-                  rounded-lg landscape:min-h-full"
-              >
-                  <PlayerPlaceholders
-                    players={players}
-                    hostId={hostId}
-                    myPlayerId={myPlayerId}
-                    onKick={isHost ? onKick : undefined}
-                  />
-              
-              {/* Center content - Room Code */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-                <div className="mb-3">
-                  <p className="text-sm text-gray-400 mb-1">Room Code</p>
-                  <div className="bg-gray-900/80 rounded-lg px-4 py-2 flex items-center gap-2">
-                    <p className="text-xl font-mono font-bold text-gold">{roomId}</p>
-                    <button
-                      onClick={() => copyToClipboard(roomId, "Room code")}
-                      className="p-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors"
-                      title="Copy room code"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                  </div>
-                  
-                  {/* Share Link */}
-                  <div className="mt-2 text-xs">
-                    <button
-                      onClick={() => {
-                        const webUrl = window.location.origin + BASE;
-                        const shareUrl = `${webUrl}/play?room=${roomId}`;
-                        copyToClipboard(shareUrl, "Share link");
-                      }}
-                      className="text-gray-400 hover:text-gray-300 underline"
-                    >
-                      Copy share link
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Right side - Game controls and bot panel */}
-            <div className="flex-shrink-0 w-full max-w-sm portrait:max-w-md">
-              <div className="bg-gray-800 rounded-lg p-6 shadow-2xl">
-                {isHost ? (
-                  <>
-                    {/* Bot Controls - Only for host */}
-                    {players.length < 6 && (
-                      <div className="mb-6">
-                        <label className="block text-sm font-medium mb-2">Need Player? Try adding a bot...</label>
-                        <div className="flex gap-2">
-                          <select
-                            value={selectedBot}
-                            onChange={(e) => setSelectedBot(e.target.value)}
-                            className="flex-1 bg-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold"
-                          >
-                            {Object.entries(BOT_CONFIGS).map(([key, config]) => (
-                              <option key={key} value={key}>
-                                {config.avatar} {config.name}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            onClick={handleAddBot}
-                            disabled={isAddingBot || players.length >= 6}
-                            className="btn-secondary py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isAddingBot ? 'Adding...' : 'Add Bot'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Start Game Button - Only for host */}
-                    <div className="space-y-3">
-                      <button
-                        onClick={onStartGame}
-                        disabled={!canStart}
-                        className={`w-full ${
-                          canStart ? 'btn-primary' : 'bg-gray-600 text-gray-400 py-2 px-6 rounded-lg cursor-not-allowed'
-                        }`}
+      <div className="flex-1 flex items-center gap-5 portrait:flex-col max-w-6xl w-full mx-auto">
+        {/* The table, seen from above */}
+        <div className="relative w-full flex-1 aspect-[4/3] portrait:aspect-square max-h-[70vh] min-h-[300px]">
+          <div
+            className="absolute inset-[13%] rounded-[50%]"
+            style={{
+              background: 'radial-gradient(ellipse at 50% 40%, #276457 0%, #154038 55%, #0C2723 100%)',
+              boxShadow: '0 0 0 6px #3A2414, 0 0 0 8px #D6A54A55, 0 24px 60px -10px rgba(0,0,0,.7), inset 0 0 40px rgba(0,0,0,.45)',
+            }}
+          />
+          <PlayerPlaceholders players={players} hostId={hostId} myPlayerId={myPlayerId} onKick={isHost ? onKick : undefined} />
+
+          {/* Room code in the middle of the table */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
+            <p className="section-head mb-1.5">room_code</p>
+            <button
+              onClick={() => copyToClipboard(roomId, 'Room code')}
+              className="group flex items-center gap-2 px-3 py-2 bg-ink/85 border border-brass/40 hover:border-ember transition-colors"
+              title="Copy room code"
+            >
+              <span className="font-mono font-extrabold text-2xl sm:text-3xl tracking-[0.25em] text-brass-light">{roomId}</span>
+              <Copy size={16} className="text-mist group-hover:text-ember" />
+            </button>
+            <button
+              onClick={() => copyToClipboard(shareUrl, 'Share link')}
+              className="mt-2 inline-flex items-center gap-1.5 text-[12px] text-mist hover:text-ember transition-colors"
+            >
+              <Link2 size={13} /> Copy share link
+            </button>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex-shrink-0 w-full max-w-sm portrait:max-w-md">
+          <div className="panel p-5">
+            {isHost ? (
+              <>
+                {players.length < 6 && (
+                  <div className="mb-5">
+                    <label className="section-head block mb-2">add_a_bot</label>
+                    <div className="flex gap-2">
+                      <select
+                        value={selectedBot}
+                        onChange={(e) => setSelectedBot(e.target.value)}
+                        className="field flex-1 !py-2 text-sm"
+                        aria-label="Bot"
                       >
-                        {!canStart
-                          ? `Need ${2 - players.length} more Player or Bot`
-                          : 'Start Game'}
+                        {Object.entries(BOT_CONFIGS).map(([key, config]) => (
+                          <option key={key} value={key}>{config.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleAddBot}
+                        disabled={isAddingBot || players.length >= 6}
+                        className="btn-secondary !px-3"
+                      >
+                        <Bot size={16} /> {isAddingBot ? 'Adding...' : 'Add Bot'}
                       </button>
-                      {!canStart && (
-                        <p className="text-xs text-gray-400 text-center">
-                          Minimum 2 players required
-                        </p>
-                      )}
                     </div>
-                  </>
-                ) : (
-                  /* Non-host players see this */
-                  <div className="text-center">
-                    <div className="text-4xl mb-4 animate-spin">⏳</div>
-                    <p className="text-gray-300">Waiting for {hostName} to start</p>
                   </div>
                 )}
+                <button onClick={onStartGame} disabled={!canStart} className="btn-primary w-full h-12 text-[15px]">
+                  {!canStart ? `Need ${2 - players.length} more player` : <><Play size={17} /> Start Game</>}
+                </button>
+                {!canStart && <p className="text-xs text-mist text-center mt-2">Two players or more. Bots count.</p>}
+              </>
+            ) : (
+              <div className="text-center py-2">
+                <div className="flex justify-center gap-1.5 mb-3" aria-hidden>
+                  {[0, 1, 2].map((i) => (
+                    <motion.span key={i} className="w-2 h-2 bg-ember" animate={{ y: [0, -6, 0] }} transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15 }} />
+                  ))}
+                </div>
+                <p className="text-bone">Waiting for <span className="font-semibold text-brass-light">{hostName}</span> to start</p>
               </div>
-            </div>
+            )}
           </div>
-          {lastError && (
-            <p role="alert" className="text-sm text-red-300 text-center pt-2">{lastError}</p>
-          )}
-          <p className="text-xs text-gray-400 text-center py-2">
-            {players.length}/6 Players • {players.length === 6 ? 'Room is full!' : `${6 - players.length} spots available`}
+          {lastError && <p role="alert" className="text-sm text-cinnabar text-center pt-3">{lastError}</p>}
+          <p className="font-mono text-[11px] tracking-[0.15em] text-mist text-center pt-3">
+            {players.length}/6 SEATED · {players.length === 6 ? 'TABLE FULL' : `${6 - players.length} OPEN`}
           </p>
         </div>
       </div>
 
-      {/* Leave Confirmation Modal */}
       {showLeaveConfirm && (
         <>
-          {/* Dimmed background for modal */}
-          <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowLeaveConfirm(false)} />
+          <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setShowLeaveConfirm(false)} />
           <DialogBox className="max-w-sm">
-            <h3 className="text-lg font-bold mb-3">Leave Room?</h3>
-            <p className="text-gray-300 mb-4">Are you sure you want to leave the room?</p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => {
-                  setShowLeaveConfirm(false);
-                  handleLeaveRoom();
-                }}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition-colors"
-              >
-                Leave
-              </button>
-              <button
-                onClick={() => setShowLeaveConfirm(false)}
-                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
+            <p className="section-head mb-2">leave_room</p>
+            <h3 className="font-display text-2xl font-bold mb-2">Leave the room?</h3>
+            <p className="text-gray-300 mb-5 text-sm">Your bots leave with you.</p>
+            <div className="flex gap-3">
+              <button onClick={() => { setShowLeaveConfirm(false); handleLeaveRoom(); }} className="btn-primary flex-1">Leave</button>
+              <button onClick={() => setShowLeaveConfirm(false)} className="btn-secondary flex-1">Stay</button>
             </div>
           </DialogBox>
         </>

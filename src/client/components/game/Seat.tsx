@@ -88,7 +88,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
             <motion.div
               key={i}
               className="absolute top-0"
-              style={{ width: backW, height: backW * 1.4, left: i * backW * 0.32, filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.4))' }}
+              style={{ width: backW, height: backW * 1.4, left: i * backW * 0.32, borderRadius: 2, boxShadow: '0 2px 3px rgba(0,0,0,.4)' }}
               initial={{ opacity: 0, y: -12, rotate: 0 }}
               animate={{ opacity: 1, y: Math.abs(c) * 1.5, rotate: c * 7 }}
               exit={{ opacity: 0, y: -10 }}

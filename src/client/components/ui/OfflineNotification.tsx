@@ -34,7 +34,7 @@ export const OfflineNotification: React.FC = () => {
 
   return (
     <div className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      isOnline ? 'bg-green-600' : 'bg-red-600'
+      isOnline ? 'bg-jade-600' : 'bg-cinnabar-deep'
     }`}>
       <div className="text-center py-3 px-4">
         <p className="text-white font-medium">

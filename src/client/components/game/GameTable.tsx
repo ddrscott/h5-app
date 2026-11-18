@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useAnimate } from 'motion/react';
-import { Crown, LogOut, Volume2, VolumeX, X } from 'lucide-react';
+import { Crown, LogOut, X } from 'lucide-react';
+import { MuteButton } from '../ui/MuteButton';
 import type { Card as CardType, Player, Meld } from '../../types/game';
 import { GamePhase } from '../../types/game';
 import { PlayerHand } from './PlayerHand';
@@ -16,7 +17,7 @@ import { bus } from '../../fx/bus';
 import { sfx } from '../../fx/sound';
 import { haptics } from '../../fx/haptics';
 import { particles, FxCanvas } from '../../fx/particles';
-import { useMuted, reducedMotion } from '../../fx/prefs';
+import { reducedMotion } from '../../fx/prefs';
 import { selectionLabel } from '../../fx/meld';
 import type { PlayFx } from '../../fx/meld';
 
@@ -56,21 +57,6 @@ const MELD_NAME: Record<string, string> = {
   FULL_HOUSE: 'full house', RUN: 'straight', STRAIGHT_FLUSH: 'straight flush',
 };
 const ORD = ['', '1st', '2nd', '3rd', '4th', '5th', '6th'];
-
-export const MuteButton: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const [muted, setMuted] = useMuted();
-  return (
-    <button
-      onClick={() => { setMuted(!muted); if (muted) setTimeout(() => sfx.select(3), 30); }}
-      className={`grid place-items-center w-10 h-10 bg-ink/80 border border-white/15 text-bone hover:border-ember transition-colors ${className}`}
-      title={muted ? 'Sound and vibration off' : 'Sound and vibration on'}
-      aria-label={muted ? 'Turn sound on' : 'Turn sound off'}
-      aria-pressed={!muted}
-    >
-      {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-    </button>
-  );
-};
 
 /** The inlay on the table where melds land, with the house motto running around it. */
 const TableInlay: React.FC<{ vp: Viewport }> = ({ vp }) => {
@@ -164,7 +150,9 @@ export const GameTable: React.FC<GameTableProps> = ({
     const rot = at < 0 ? order : [...order.slice(at + 1), ...order.slice(0, at)];
     return rot.filter((id) => id !== myPlayerId);
   }, [order, myPlayerId]);
-  const spots = seatSpots(opponents.length, vp.w, vp.h, vp.portrait);
+  const plateHalf = vp.w < 640 ? 66 : 100;
+  const spots = seatSpots(opponents.length, vp.w, vp.h, vp.portrait)
+    .map((p) => ({ x: Math.min(vp.w - plateHalf - 4, Math.max(plateHalf + 4, p.x)), y: p.y }));
   const placeOf = (p?: Player) => (p?.isOut && p.position ? p.position : undefined);
 
   // ---------- screen shake ----------

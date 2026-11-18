@@ -2,6 +2,7 @@ import { BASE } from '../../base';
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../ui/Card';
+import { Brain, Users, Zap } from 'lucide-react';
 import { Tutor } from './Tutor';
 
 export const Landing: React.FC = () => {
@@ -39,7 +40,7 @@ export const Landing: React.FC = () => {
             <div className="text-center space-y-6">
             {/* Title with cards animation */}
             <div className="relative">
-              <h1 className="text-5xl lg:text-7xl font-bold text-gold mb-4">
+              <h1 className="font-display font-black text-5xl lg:text-7xl text-paper mb-4">
                 Heart of Five
               </h1>
               <p className="text-xl lg:text-2xl text-gray-300">
@@ -129,7 +130,7 @@ export const Landing: React.FC = () => {
           
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             <div className="text-center space-y-3">
-              <div className="text-4xl mb-4">⚡</div>
+              <Zap size={34} className="mx-auto mb-4 text-ember" />
               <h3 className="text-xl font-bold text-gold">Fast-Paced</h3>
               <p className="text-gray-400">
                 Quick games with no set limit - play one game or many in a session
@@ -137,7 +138,7 @@ export const Landing: React.FC = () => {
             </div>
             
             <div className="text-center space-y-3">
-              <div className="text-4xl mb-4">🧠</div>
+              <Brain size={34} className="mx-auto mb-4 text-ember" />
               <h3 className="text-xl font-bold text-gold">Strategic Depth</h3>
               <p className="text-gray-400">
                 Decide when to play powerful combinations and when to hold back
@@ -145,7 +146,7 @@ export const Landing: React.FC = () => {
             </div>
             
             <div className="text-center space-y-3">
-              <div className="text-4xl mb-4">👥</div>
+              <Users size={34} className="mx-auto mb-4 text-ember" />
               <h3 className="text-xl font-bold text-gold">Social Fun</h3>
               <p className="text-gray-400">
                 Play with 2-6 friends online, perfect for game nights

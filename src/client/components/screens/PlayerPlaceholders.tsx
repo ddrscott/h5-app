@@ -1,6 +1,7 @@
 import React from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import type { Player } from '../../types/game';
-import { User, WifiOff } from 'lucide-react';
+import { Bot, Crown, UserPlus, WifiOff } from 'lucide-react';
 import { KickButton } from '../ui/KickButton';
 
 interface PlayerPlaceholdersProps {
@@ -12,6 +13,7 @@ interface PlayerPlaceholdersProps {
   onKick?: (playerId: string) => void;
 }
 
+/** Six seats around the lobby table; players drop into them as they join. */
 export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
   players,
   hostId,
@@ -19,81 +21,55 @@ export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
   myPlayerId,
   onKick,
 }) => {
-  // Define specific positions for different player counts
-  const getPlayerPositions = (playerCount: number) => {
-    // All positions (0=bottom, 1=top, 2=right, 3=left, 4=bottom-right, 5=bottom-left)
-    switch (playerCount) {
-      case 2:
-        return [0, 1]; // Bottom and top
-      case 3:
-        return [0, 1, 2]; // Bottom, top, right
-      case 4:
-        return [0, 1, 2, 3]; // Bottom, top, right, left
-      case 5:
-        return [0, 1, 2, 3, 4]; // Bottom, top, right, left, bottom-right
-      case 6:
-        return [0, 1, 2, 3, 4, 5]; // All positions
-      default:
-        return [0]; // Single player at bottom
-    }
-  };
-
-  // Position angles for each spot (in degrees)
-  const positionAngles: Record<number, number> = {
-    0: 90,   // Bottom
-    1: 270,  // Top
-    2: 0,    // Right
-    3: 180,  // Left
-    4: 45,   // Bottom-right
-    5: 135   // Bottom-left
-  };
-
-  const activePositions = getPlayerPositions(players.length);
-
+  // Seat 0 is at the bottom (the creator), then clockwise.
+  const angles = [90, 150, 210, 270, 330, 30].slice(0, maxPlayers);
   return (
     <>
-      {activePositions.map((position, index) => {
+      {angles.map((angle, index) => {
         const player = players[index];
-        const angle = positionAngles[position];
-        const radius = 140;
-        const x = Math.cos((angle * Math.PI) / 180) * radius;
-        const y = Math.sin((angle * Math.PI) / 180) * radius;
-
+        const rad = (angle * Math.PI) / 180;
+        const portrait = typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
+        const x = 50 + Math.cos(rad) * (portrait ? 30 : 41);
+        const y = 50 + Math.sin(rad) * (portrait ? 42 : 40);
         return (
-          <div
-            key={index}
-              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-            style={{
-              left: `calc(50% + ${x}px)`,
-              top: `calc(50% + ${y}px)`,
-            }}
-          >
-            {player ? (
-              <div className="bg-gray-800/90 rounded-lg px-3 py-2 shadow-lg">
-                <div className="flex items-center space-x-1">
-                  {player.isActive === false
-                    ? <WifiOff size={14} className="text-yellow-500" aria-label="Disconnected" />
-                    : <User size={14} className="text-gray-300" />}
-                  <span className={`text-sm font-medium ${player.isActive === false ? 'text-gray-400' : ''}`}>{player.name}</span>
+          <div key={index} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${x}%`, top: `${y}%` }}>
+            <AnimatePresence mode="popLayout">
+              {player ? (
+                <motion.div
+                  key={player.id}
+                  className={`relative flex items-center gap-2 pl-1 pr-2.5 py-1 bg-ink/85 border ${player.id === myPlayerId ? 'border-ember' : 'border-white/15'} shadow-lg`}
+                  initial={{ scale: 0.3, opacity: 0, y: -24 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.5, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 520, damping: 20 }}
+                >
+                  <div className={`grid place-items-center w-8 h-8 font-mono font-extrabold text-[11px] ${player.isActive === false ? 'bg-gray-600 text-gray-300' : player.id === myPlayerId ? 'bg-ember text-ink' : 'bg-bone text-ink'}`}>
+                    {player.isActive === false ? <WifiOff size={14} aria-label="Disconnected" /> : player.isBot ? <Bot size={15} /> : player.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="leading-tight min-w-0">
+                    <p className={`text-[13px] font-semibold truncate max-w-[84px] sm:max-w-[120px] ${player.isActive === false ? 'text-gray-400' : 'text-bone'}`}>{player.name}</p>
+                    <p className="font-mono text-[9px] tracking-[0.15em] text-mist flex items-center gap-1">
+                      {player.id === hostId && <><Crown size={10} className="text-brass" /> <span className="text-brass">HOST</span></>}
+                      {player.isActive === false && <span className="text-brass">RECONNECTING…</span>}
+                      {player.id !== hostId && player.isActive !== false && <span>{player.id === myPlayerId ? 'YOU' : 'SEATED'}</span>}
+                    </p>
+                  </div>
                   {onKick && player.isActive === false && player.id !== myPlayerId && (
                     <KickButton name={player.name} onConfirm={() => onKick(player.id)} />
                   )}
-                </div>
-                {player.id === hostId && (
-                  <span className="text-xs text-gold">HOST</span>
-                )}
-                {player.isActive === false && (
-                  <span className="text-xs text-yellow-500 ml-1">reconnecting…</span>
-                )}
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-600 rounded-lg px-3 py-2">
-                <div className="flex items-center space-x-1">
-                  <User size={14} className="text-gray-500" />
-                  <span className="text-sm text-gray-500">Empty</span>
-                </div>
-              </div>
-            )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={`empty-${index}`}
+                  className="flex items-center gap-1.5 px-2.5 py-2 border border-dashed border-white/20 text-gray-500"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <UserPlus size={14} />
+                  <span className="font-mono text-[10px] tracking-[0.15em]">OPEN</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         );
       })}

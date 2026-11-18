@@ -16,10 +16,10 @@ interface ConnectionOverlayProps {
 export const ConnectionOverlay: React.FC<ConnectionOverlayProps> = ({ status, lost, onHome }) => {
   if (status === 'reconnecting') {
     return (
-      <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-600/95 shadow-lg" role="status" aria-live="polite">
+      <div className="fixed top-0 left-0 right-0 z-[90] bg-brass text-ink shadow-lg" role="status" aria-live="polite">
         <div className="flex items-center justify-center gap-2 py-2 px-4">
-          <Loader2 size={16} className="animate-spin text-white" />
-          <p className="text-white font-medium text-sm">Reconnecting… your seat is saved.</p>
+          <Loader2 size={16} className="animate-spin text-ink" />
+          <p className="text-ink font-semibold text-sm">Reconnecting… your seat is saved.</p>
         </div>
       </div>
     );
@@ -30,7 +30,7 @@ export const ConnectionOverlay: React.FC<ConnectionOverlayProps> = ({ status, lo
   const seatGone = !!lost?.seatGone;
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" role="alertdialog" aria-labelledby="lost-title">
-      <div className="bg-gray-800 rounded-lg shadow-2xl p-6 max-w-sm w-full">
+      <div className="panel p-6 max-w-sm w-full">
         <div className="flex items-center gap-2 mb-3">
           <WifiOff size={20} className="text-red-500" />
           <h2 id="lost-title" className="text-lg font-bold text-red-500">Lost connection</h2>

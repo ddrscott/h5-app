@@ -34,6 +34,15 @@ const CONTACT = 0.44; // seconds from launch to touching the table
 const DURATION = 0.62;
 const STAGGER = 0.04;
 
+const cache = new Map<string, ReturnType<typeof cardSlots>>();
+/** Same array for the same size, so memoized cards don't re-render. */
+function slotCache(n: number, vp: Viewport) {
+  const k = `${n}:${vp.w}:${vp.PW}`;
+  let v = cache.get(k);
+  if (!v) { v = cardSlots(n, vp); cache.set(k, v); }
+  return v;
+}
+
 function cardSlots(n: number, vp: Viewport) {
   const sp = n > 1 ? Math.min(vp.PW * 0.46, (Math.min(vp.w, 900) * 0.8 - vp.PW) / (n - 1)) : 0;
   return Array.from({ length: n }, (_, i) => {
@@ -140,7 +149,7 @@ export const TablePile: React.FC<Props> = ({ trickMelds, vp, myPlayerId, onLand,
       {shown.map((s, i) => {
         const age = n - 1 - i;
         const off = ageOffset(age, s.index, vp);
-        const slots = cardSlots(s.meld.cards.length, vp);
+        const slots = slotCache(s.meld.cards.length, vp);
         return (
           <motion.div
             key={s.key}
@@ -228,7 +237,7 @@ const PileCard: React.FC<{
 
   const flipDown = !!flight && flight.faceDown && !reduce;
   return (
-    <motion.div className="absolute" style={{ ...base, filter: 'drop-shadow(0 6px 8px rgba(0,0,0,.45))' }} initial={initial} animate={animate} transition={transition}>
+    <motion.div className="absolute" style={{ ...base, borderRadius: '6% / 4.3%', boxShadow: '0 8px 14px -4px rgba(0,0,0,.5)' }} initial={initial} animate={animate} transition={transition}>
       <CardFace suit={card.suit} rank={card.rank} />
       {flipDown && (
         <motion.div className="absolute inset-0" initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: 0.06, delay: delay + DURATION * 0.3 }}>
