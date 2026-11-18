@@ -1,6 +1,11 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import '@fontsource-variable/fraunces/soft.css'
+import '@fontsource/jetbrains-mono/500.css'
+import '@fontsource/jetbrains-mono/700.css'
+import '@fontsource/jetbrains-mono/800.css'
 import './index.css'
+import { MotionConfig } from 'motion/react'
 import App from './App.tsx'
 import { RoomProvider } from './contexts/RoomContext'
 import { registerSW } from 'virtual:pwa-register'
@@ -22,8 +27,10 @@ const updateSW = registerSW({
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RoomProvider>
-      <App />
-    </RoomProvider>
+    <MotionConfig reducedMotion="user">
+      <RoomProvider>
+        <App />
+      </RoomProvider>
+    </MotionConfig>
   </StrictMode>,
 )

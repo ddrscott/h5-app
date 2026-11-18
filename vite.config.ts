@@ -27,7 +27,7 @@ export default defineConfig({
       includeAssets: [],
       workbox: {
         // Only this app's files: the build root holds the Worker's output too.
-        globPatterns: ['index.html', 'h5/**/*.{js,css,html,svg,png,ico,webmanifest}'],
+        globPatterns: ['index.html', 'h5/**/*.{js,css,html,svg,png,ico,webmanifest,woff2}'],
         globIgnores: ['h5/sw.js', 'h5/workbox-*.js'],
         // Precache URLs are relative to the service worker (/h5/sw.js), so make them absolute.
         // index.html is served at /h5/ (single-page fallback); /index.html belongs to the main site.

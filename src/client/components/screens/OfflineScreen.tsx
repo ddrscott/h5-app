@@ -3,8 +3,8 @@ import React from 'react';
 export const OfflineScreen: React.FC = () => {
   return (
     <div className="min-h-screen felt-texture flex items-center justify-center">
-      <div className="bg-gray-800 rounded-lg p-8 max-w-md text-center">
-        <div className="text-6xl mb-4">📡</div>
+      <div className="panel p-8 max-w-md text-center">
+        
         <h1 className="text-2xl font-bold text-red-400 mb-4">No Internet Connection</h1>
         <p className="text-gray-300 mb-6">
           Heart of Five is a real-time multiplayer game that requires an active internet connection to play.

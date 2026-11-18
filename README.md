@@ -87,6 +87,15 @@ A room that turns a player away closes the socket with a 4xxx code and a reason 
 
 Taking a seat back: open `/h5/api/rooms/:code/ws?session=<sessionId>&token=<token>`. The room answers with the same `joined` frame, the state, `game_state`, `your_hand`, and `your_turn` when it's your turn.
 
+## Look and feel
+
+The art direction, card design, palette, type and motion rules are in [docs/VISUALS.md](docs/VISUALS.md). In short, the game has a lacquered jade table, warm card stock, cinnabar and brass, and Signal Orange for whatever is live. Cards are springy physical objects. Plays fly in from the seat that made them, and combo callouts, shake and particles scale with the play's strength. All sound is synthesized with the Web Audio API (`src/client/fx/sound.ts`), and one mute switch covers sound and vibration. The motion library is `motion` (`motion/react`), and the app runs inside `MotionConfig reducedMotion="user"`, so `prefers-reduced-motion` turns movement into fades.
+
+Two pages help when working on it:
+
+- `/h5/animation` is the **FX lab**: the real `GameTable` on a scripted offline game, with buttons (and `window.__lab` for scripts) for the deal, every meld type, a bomb, the Heart 5, passes, the sweep, going out, an error and game over.
+- `/h5/cards` shows every card face and the back.
+
 ## Served at askscottpierce.com/h5
 
 The Worker owns only `/h5` and `/h5/*` on askscottpierce.com, through two zone routes, with no workers.dev URL. Pages, assets, the service worker, the API, and the room sockets all live under `/h5`. Four places hard-code the prefix, and they have to change together:
@@ -135,6 +144,7 @@ Check that the output lists the two `askscottpierce.com/h5` triggers and the `RO
 ### Project structure
 
 ```
+├── docs/VISUALS.md           # art direction and motion rules
 ├── index.html               # client entry (built to dist/client/index.html, served at /h5/)
 ├── public/h5/               # icons and web manifest, served at /h5/...
 ├── src/
@@ -143,6 +153,7 @@ Check that the output lists the two `askscottpierce.com/h5` triggers and the `RO
 │   │   ├── net/rooms.ts     # WebSocket room client
 │   │   ├── bots/            # in-browser bots that join as players
 │   │   ├── components/ contexts/ hooks/ types/
+│   │   ├── fx/              # sound, haptics, particles, layout and the FX event bus
 │   └── worker/
 │       ├── index.ts         # Worker entry: routes /h5/api to rooms, the rest to assets
 │       ├── room.ts          # HeartOfFiveRoom Durable Object

@@ -1,8 +1,11 @@
 import { storageKey } from '../../base';
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
+import { BookOpen, Dice5, Home, Layers, Plus } from 'lucide-react';
 import { Banner } from '../ui/Banner';
 import { Tutor } from './Tutor';
+import { MuteButton } from '../ui/MuteButton';
 
 interface WelcomeProps {
   onJoinGame: (playerName: string, roomId?: string) => void;
@@ -10,7 +13,7 @@ interface WelcomeProps {
   onViewCards?: () => void;
 }
 
-export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame, onViewCards }) => {
+export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [showTutor, setShowTutor] = useState(false);
@@ -19,144 +22,95 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame, onViewCards }) => 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const roomFromUrl = urlParams.get('room');
-    if (roomFromUrl) {
-      setRoomCode(roomFromUrl);
-    }
-    
-    // Load saved name from localStorage
+    if (roomFromUrl) setRoomCode(roomFromUrl);
     const savedName = localStorage.getItem(storageKey('playerName'));
-    if (savedName) {
-      setPlayerName(savedName);
-    }
+    if (savedName) setPlayerName(savedName);
   }, []);
 
-  // Save name to localStorage whenever it changes
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value;
     setPlayerName(newName);
-    if (newName.trim()) {
-      localStorage.setItem(storageKey('playerName'), newName.trim());
-    }
+    if (newName.trim()) localStorage.setItem(storageKey('playerName'), newName.trim());
   };
 
-  const handleCreateRoom = () => {
-    if (playerName.trim()) {
-      onJoinGame(playerName); // Always pass only playerName, no roomCode
-    }
-  };
+  const handleCreateRoom = () => { if (playerName.trim()) onJoinGame(playerName); };
+  const handleJoinSpecificRoom = () => { if (playerName.trim() && roomCode.trim()) onJoinGame(playerName, roomCode); };
+  const handleJoinRandomRoom = () => { if (playerName.trim()) onJoinGame(playerName, ''); };
 
-  const handleJoinSpecificRoom = () => {
-    if (playerName.trim() && roomCode.trim()) {
-      onJoinGame(playerName, roomCode);
-    }
-  };
-
-  const handleJoinRandomRoom = () => {
-    if (playerName.trim()) {
-      onJoinGame(playerName, ''); // Empty roomCode will trigger joinOrCreate
-    }
-  };
+  const named = !!playerName.trim();
 
   return (
-    <div className="min-h-screen felt-texture flex items-center justify-center p-4">
-        {/* Simple landscape layout - just side by side */}
-          <div className="flex items-center gap-4 portrait:flex-col max-w-7xl mx-auto w-full">
-          {/* Left side - Title and Cards */}
-          <Banner className="flex-1" />
+    <div className="min-h-screen felt-texture flex items-center justify-center p-4 overflow-y-auto">
+      <div className="absolute top-3 right-3 z-10"><MuteButton /></div>
+      <div className="flex items-center gap-6 lg:gap-14 portrait:flex-col max-w-6xl mx-auto w-full py-6">
+        <Banner className="flex-1 w-full" />
 
-          {/* Right side - Form */}
-          <div className="flex-1 min-w-0">
-            <div className="bg-gray-800 rounded-lg p-4 sm:p-6 shadow-2xl">
-              {/* Name input */}
-              <div className="mb-4">
-                <label className="block text-xs sm:text-sm font-medium mb-2">Your Name</label>
+        <motion.div
+          className="flex-1 w-full max-w-md"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 24, delay: 0.3 }}
+        >
+          <div className="panel p-5 sm:p-6">
+            <label htmlFor="player-name" className="section-head block mb-2">your_name</label>
+            <input
+              id="player-name"
+              type="text"
+              value={playerName}
+              onChange={handleNameChange}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCreateRoom(); }}
+              placeholder="Enter your name"
+              className="field text-base"
+              maxLength={20}
+              autoComplete="nickname"
+            />
+
+            <div className="flex flex-col gap-2.5 mt-4">
+              <button onClick={handleCreateRoom} disabled={!named} className="btn-primary h-12">
+                <Plus size={18} /> Create New Room
+              </button>
+              <button onClick={handleJoinRandomRoom} disabled={!named} className="btn-secondary h-11">
+                <Dice5 size={17} /> Join Random Room
+              </button>
+
+              <div className="flex items-center gap-3 my-1.5">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="section-head">or_join_a_table</span>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
+
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  value={playerName}
-                  onChange={handleNameChange}
-                  placeholder="Enter your name"
-                  className="w-full px-3 sm:px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold text-sm sm:text-base"
-                  maxLength={20}
+                  value={roomCode}
+                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleJoinSpecificRoom(); }}
+                  placeholder="Room code"
+                  aria-label="Room code"
+                  className="field flex-1 min-w-0 text-center tracking-[0.3em] uppercase placeholder:tracking-[0.12em]"
+                  maxLength={10}
                 />
+                <button onClick={handleJoinSpecificRoom} disabled={!named || !roomCode.trim()} className="btn-primary px-5 shrink-0">
+                  Join
+                </button>
               </div>
-
-              {/* Action buttons - keep vertical */}
-              <div className="flex flex-col space-y-2">
-                  <button
-                      onClick={handleCreateRoom}
-                      disabled={!playerName.trim()}
-                      className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
-                  >
-                      Create New Room
-                  </button>
-                  
-                  <button
-                      onClick={handleJoinRandomRoom}
-                      disabled={!playerName.trim()}
-                      className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
-                  >
-                      Join Random Room
-                  </button>
-                  
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-600"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-gray-800 text-gray-400">or</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                      <input
-                          type="text"
-                          value={roomCode}
-                          onChange={(e) => setRoomCode(e.target.value)}
-                          placeholder="Enter room code"
-                          className="flex-1 min-w-0 px-2 sm:px-3 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold text-center text-sm sm:text-base"
-                          maxLength={10}
-                      />
-                      <button
-                          onClick={handleJoinSpecificRoom}
-                          disabled={!playerName.trim() || !roomCode.trim()}
-                          className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed px-3 sm:px-4 text-sm sm:text-base flex-shrink-0"
-                      >
-                          Join
-                      </button>
-                  </div>
-                </div>
-              </div>
-
-            {/* Game info */}
-            <div className="mt-6 text-center text-gray-400 text-sm landscape:hidden">
-              <p>2-6 players • Strategic card game • Win by going out first!</p>
-            </div>
-
-            {/* How to Play and View Cards buttons */}
-            <div className="mt-4 text-center space-x-4">
-              <button
-                onClick={() => setShowTutor(true)}
-                className="text-sm text-gray-400 hover:text-gold underline transition-colors"
-              >
-                How to Play
-              </button>
-              <Link
-                to="/cards"
-                className="text-sm text-gray-400 hover:text-gold underline transition-colors"
-              >
-                View Cards
-              </Link>
-              <Link
-                to="/"
-                className="text-sm text-gray-400 hover:text-gold underline transition-colors"
-              >
-                Back to Home
-              </Link>
             </div>
           </div>
-        </div>
 
-      {/* Tutor Modal */}
+          <div className="mt-4 flex justify-center gap-5 text-[13px] text-mist">
+            <button onClick={() => setShowTutor(true)} className="inline-flex items-center gap-1.5 hover:text-ember transition-colors">
+              <BookOpen size={14} /> How to Play
+            </button>
+            <Link to="/cards" className="inline-flex items-center gap-1.5 hover:text-ember transition-colors">
+              <Layers size={14} /> View Cards
+            </Link>
+            <Link to="/" className="inline-flex items-center gap-1.5 hover:text-ember transition-colors">
+              <Home size={14} /> Back to Home
+            </Link>
+          </div>
+        </motion.div>
+      </div>
+
       {showTutor && <Tutor onClose={() => setShowTutor(false)} />}
     </div>
   );

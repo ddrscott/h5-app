@@ -1,238 +1,221 @@
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from 'motion/react';
 import type { Card as CardType } from '../../types/game';
-import { Card } from '../ui/Card';
+import { CardFace, CardBack } from '../ui/CardFace';
+import type { Viewport, Slot } from '../../fx/layout';
+import { fan } from '../../fx/layout';
+import { sfx } from '../../fx/sound';
+import { haptics } from '../../fx/haptics';
 
 interface PlayerHandProps {
   hand: CardType[];
   selectedCards: Set<string>;
   onCardSelect: (cardKey: string) => void;
-  rotationOffset: number;
-  setRotationOffset: (rotation: number) => void;
-  isDragging: boolean;
-  setIsDragging: (dragging: boolean) => void;
-  animateToRotation: (targetRotation: number, duration?: number) => void;
-  applyElasticResistance: (targetRotation: number) => number;
+  vp: Viewport;
+  /** Changes when a new deal lands, so the hand animates in from the table. */
+  dealId: number;
+  myTurn: boolean;
 }
 
-export const PlayerHand: React.FC<PlayerHandProps> = ({
-  hand,
-  selectedCards,
-  onCardSelect,
-  rotationOffset,
-  setRotationOffset,
-  isDragging,
-  setIsDragging,
-  animateToRotation,
-  applyElasticResistance
-}) => {
-  const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
-  const [containerWidth, setContainerWidth] = React.useState(window.innerWidth);
-  const [cardScale, setCardScale] = React.useState(1);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  
-  // Touch/swipe state
-  const [touchStart, setTouchStart] = React.useState<{ x: number; time: number } | null>(null);
-  const [lastTap, setLastTap] = React.useState<number>(0);
-  
-  // Carousel rotation limits - adjust these for better UX
-  const maxRotationLeft = -20; // Maximum rotation to the left (negative degrees)
-  const maxRotationRight = 20;  // Maximum rotation to the right (positive degrees);
+const keyOf = (c: CardType) => c.code || `${c.rank}${c.suit}`;
 
-  React.useEffect(() => {
-    const updateDimensions = () => {
-      // Update container width
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
-      } else {
-        setContainerWidth(window.innerWidth);
-      }
-      
-      // Calculate dynamic card scale based on screen width and number of cards
-      // Base card width is 64px (4em at 16px base)
-      const baseCardWidth = 64;
-      const minCardWidth = 48; // Minimum card width
-      const maxCardWidth = 64; // Maximum card width
-      const cardOverlap = 0.4; // Cards overlap by 40%
-      
-      // Calculate how many cards we need to fit
-      const effectiveCardWidth = baseCardWidth * (1 - cardOverlap);
-      const currentContainerWidth = containerRef.current?.offsetWidth || window.innerWidth;
-      const availableWidth = currentContainerWidth * 0.9; // Use 90% of container
-      const totalCardsWidth = hand.length * effectiveCardWidth;
-      
-      if (totalCardsWidth > availableWidth) {
-        // Scale down cards to fit
-        const requiredScale = availableWidth / totalCardsWidth;
-        const finalScale = Math.max(requiredScale, minCardWidth / baseCardWidth);
-        setCardScale(finalScale);
-      } else {
-        // Cards fit, use full size up to max
-        setCardScale(Math.min(1, maxCardWidth / baseCardWidth));
-      }
-    };
-    
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, [hand.length]);
+interface HandCardProps {
+  card: CardType;
+  slot: Slot;
+  index: number;
+  vp: Viewport;
+  selected: boolean;
+  dealing: boolean;
+  dealDelay: number;
+  onPointerDown: (code: string, e: React.PointerEvent) => void;
+  onKeyToggle: (code: string) => void;
+}
 
-  // Calculate arc positions for each card
-  const getCardTransform = (index: number, total: number, containerWidth: number, scale: number) => {
-    if (total <= 1) return { rotate: 0, translateX: 0, translateY: 0 };
-    
-    // ignore for now.
-    var containerWidth = 500;
-    // Constants for card layout
-    const baseCardWidth = 64; // Base card width in pixels
-    const scaledCardWidth = baseCardWidth * scale; // Apply dynamic scaling
-    const minSpacing = scaledCardWidth * 0.6; // Cards overlap by 40%
-    const maxSpread = containerWidth * 0.9; // Use up to 90% of container width
-    
-    // Calculate ideal spread based on number of cards
-    const idealSpread = (total - 1) * minSpacing;
-    const actualSpread = Math.min(idealSpread, maxSpread);
-    
-    // Position cards evenly across the spread
-    const cardSpacing = actualSpread / Math.max(1, total - 1);
-    const startX = -actualSpread / 2;
-    const cardX = startX + (index * cardSpacing);
-    
-    // Large circle parameters - center is below the screen
-    const circleRadius = containerWidth * 0.8; // Large radius
-    const circleCenterY = window.innerHeight + circleRadius * 0.95; // Center below viewport - increased to lower cards
-    
-    // Calculate the angle for this card position on the circle
-    // Cards are spread along a small arc of the large circle
-    const maxAnglePerCard = 6; // Maximum 10 degrees between cards
-    const idealMaxAngle = 45; // Ideal maximum angle spread in degrees
-    const actualMaxAngle = Math.min(idealMaxAngle, (total - 1) * maxAnglePerCard);
-    const angleStep = total > 1 ? actualMaxAngle / (total - 1) : 0;
-    const baseCardAngle = -actualMaxAngle / 2 + (index * angleStep) - 5;
-    const cardAngleRad = (baseCardAngle * Math.PI) / 180; // Convert to radians for positioning
-    
-    // Calculate position on the circle circumference
-    // x = cx + r * sin(θ)
-    // y = cy - r * cos(θ) (subtract because CSS Y increases downward)
-    const circleX = 0; // Circle centered horizontally
-    const circleY = circleCenterY - circleRadius * Math.cos(cardAngleRad);
-    
-    // The actual card position relative to container
-    const actualX = circleRadius * Math.sin(cardAngleRad);
-    const actualY = window.innerHeight - circleY; // Convert to position from bottom
-    
-    // Card rotation matches the arc angle (no additional rotation offset here)
-    const rotation = baseCardAngle;
-    
-    return { 
-      rotate: rotation,
-      translateX: actualX,
-      translateY: -actualY // Negative because we're lifting from bottom
-    };
-  };
+const HandCard: React.FC<HandCardProps> = React.memo(({ card, slot, index, vp, selected, dealing, dealDelay, onPointerDown, onKeyToggle }) => {
+  const code = keyOf(card);
+  const reduce = useReducedMotion();
+  const [hover, setHover] = useState(false);
+  // Our own press dip. Motion's whileTap would turn Enter on a focused card into a synthetic
+  // pointerdown, which toggles the card off just as Enter plays it.
+  const [pressed, setPressed] = useState(false);
+  // Tilt toward the pointer (desktop): springy rotateX/Y plus a highlight that follows it.
+  const px = useMotionValue(0.5);
+  const py = useMotionValue(0.5);
+  const sx = useSpring(px, { stiffness: 260, damping: 18 });
+  const sy = useSpring(py, { stiffness: 260, damping: 18 });
+  const rotateY = useTransform(sx, [0, 1], [-16, 16]);
+  const rotateX = useTransform(sy, [0, 1], [14, -14]);
+  const shineX = useTransform(sx, [0, 1], ['0%', '100%']);
+  const shineY = useTransform(sy, [0, 1], ['0%', '100%']);
+  const shine = useTransform([shineX, shineY], ([x, y]) => `radial-gradient(circle at ${x} ${y}, rgba(255,255,255,.45), rgba(255,255,255,0) 55%)`);
 
-  // Touch/Swipe handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    setTouchStart({ x: touch.clientX, time: Date.now() });
-    setIsDragging(true);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStart || !isDragging) return;
-    
-    const touch = e.touches[0];
-    const deltaX = touch.clientX - touchStart.x;
-    const sensitivity = 0.15; // Reduced sensitivity for better control
-    const targetRotation = deltaX * sensitivity;
-    const newRotation = applyElasticResistance(targetRotation);
-    
-    setRotationOffset(newRotation);
-    e.preventDefault(); // Prevent scrolling
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStart || !isDragging) return;
-    
-    const currentTime = Date.now();
-    const tapLength = currentTime - touchStart.time;
-    
-    // Check for double-tap (quick tap without significant movement)
-    if (tapLength < 200 && Math.abs(e.changedTouches[0].clientX - touchStart.x) < 10) {
-      if (currentTime - lastTap < 300) {
-        // Double tap detected - reset to center with smooth animation
-        animateToRotation(0, 400);
-      }
-      setLastTap(currentTime);
-    } else {
-      // Smooth bounce back to limits if we're in the elastic zone
-      if (rotationOffset < maxRotationLeft || rotationOffset > maxRotationRight) {
-        const targetRotation = Math.max(maxRotationLeft, Math.min(maxRotationRight, rotationOffset));
-        animateToRotation(targetRotation, 250); // Shorter bounce-back animation
-      }
-    }
-    
-    // End the drag
-    setTouchStart(null);
-    setIsDragging(false);
-  };
-
-  // Calculate the transform origin to match the circle center used for positioning
-  const circleRadius = 500 * 0.8; // Same as in getCardTransform
-  const circleCenterY = window.innerHeight + circleRadius * 0.95;
-  const transformOriginY = circleCenterY - window.innerHeight; // Distance from bottom of viewport
+  const lift = selected ? vp.H * 0.26 : hover ? vp.H * 0.12 : 0;
+  const scale = hover ? 1.07 : selected ? 1.03 : 1;
+  const travelY = -(vp.h - vp.handBase - vp.H / 2 - vp.pileY);
 
   return (
-      <div className="absolute bottom-[-1em] portrait:bottom-[1em] left-0 right-[-4em] flex justify-center" ref={containerRef}>
-      <div 
-        className="relative"
-        style={{
-          width: '100%',
-          height: '8em',
-          touchAction: 'pan-x', // Allow horizontal touch gestures
-          transform: `rotate(${rotationOffset}deg)`, // Apply carousel rotation to entire container
-          transformOrigin: `center ${transformOriginY}px`, // Rotate around the center of the large circle below
-          transition: isDragging ? 'none' : 'transform 0.2s ease-out', // Smooth transitions when not dragging
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        {hand.map((card, index) => {
-          const cardKey = card.code || `${card.suit}-${card.rank}`;
-          const isSelected = selectedCards.has(cardKey);
-          const { rotate, translateX, translateY } = getCardTransform(index, hand.length, containerWidth, cardScale);
+    <motion.div
+      data-card={code}
+      data-rot={slot.rot.toFixed(2)}
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      aria-label={`${card.code ?? ''}${selected ? ', selected' : ''}`}
+      className="absolute cursor-pointer outline-none focus-visible:[&_.ring-focus]:opacity-100"
+      style={{
+        left: '50%', bottom: vp.handBase, width: vp.W, height: vp.H, marginLeft: -vp.W / 2,
+        zIndex: slot.z, transformOrigin: '50% 100%', touchAction: 'none',
+      }}
+      initial={dealing && !reduce ? { x: 0, y: travelY, rotate: (index % 2 ? 1 : -1) * (20 + index * 7), scale: 0.5, opacity: 0 } : false}
+      animate={{ x: slot.x, y: slot.y - lift, rotate: hover ? slot.rot * 0.4 : slot.rot, scale: pressed ? scale * 0.94 : scale, opacity: 1 }}
+      transition={{
+        type: 'spring', stiffness: selected || hover ? 520 : 380, damping: selected ? 19 : 26, mass: 0.8,
+        delay: dealing ? dealDelay : 0,
+        opacity: { duration: 0.12, delay: dealing ? dealDelay : 0 },
+      }}
+      onPointerDown={(e) => { setPressed(true); onPointerDown(code, e); }}
+      onPointerUp={() => setPressed(false)}
+      onPointerCancel={() => setPressed(false)}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') { setHover(true); sfx.hover(); } }}
+      onPointerMove={(e) => {
+        if (e.pointerType !== 'mouse') return;
+        const r = e.currentTarget.getBoundingClientRect();
+        px.set((e.clientX - r.left) / r.width);
+        py.set((e.clientY - r.top) / r.height);
+      }}
+      onPointerLeave={() => { setHover(false); setPressed(false); px.set(0.5); py.set(0.5); }}
+      onKeyDown={(e) => { if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); onKeyToggle(code); } }}
+    >
+      {/* idle sway: each card breathes on its own phase */}
+      <div className="w-full h-full idle-float" style={{ animationDelay: `${-(index * 0.41) % 3.6}s` }}>
+        <motion.div
+          className="relative w-full h-full"
+          style={{ rotateX: reduce ? 0 : rotateX, rotateY: reduce ? 0 : rotateY, transformPerspective: 600 }}
+          initial={dealing && !reduce ? { scaleX: 1 } : false}
+          animate={dealing && !reduce ? { scaleX: [1, 0.04, 1] } : undefined}
+          transition={{ duration: 0.34, delay: dealDelay + 0.32, times: [0, 0.5, 1] }}
+        >
+          {/* contact shadow: grows and softens as the card lifts */}
+          <motion.div
+            aria-hidden
+            className="absolute inset-0"
+            style={{ borderRadius: '6% / 4.3%', background: 'rgba(0,0,0,.55)', filter: 'blur(6px)' }}
+            animate={{ y: 4 + lift * 0.35, scale: 1 - lift / vp.H * 0.12, opacity: 0.55 - lift / vp.H * 0.6 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+          />
+          <CardFace suit={card.suit} rank={card.rank} />
+          {dealing && !reduce && (
+            <motion.div className="absolute inset-0" initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: 0.01, delay: dealDelay + 0.49 }}>
+              <CardBack />
+            </motion.div>
+          )}
+          {/* light catching the card as you tilt it */}
+          <motion.div aria-hidden className="absolute inset-0 pointer-events-none" style={{ borderRadius: '6% / 4.3%', background: shine, opacity: hover ? 1 : 0, mixBlendMode: 'soft-light' }} />
+          {/* selection: ember edge and a warm underglow */}
+          <motion.div
+            aria-hidden
+            className="absolute -inset-[3px] pointer-events-none"
+            style={{ borderRadius: '8% / 6%', boxShadow: '0 0 0 2.5px #E85D00, 0 0 18px 2px rgba(232,93,0,.55)' }}
+            initial={false}
+            animate={{ opacity: selected ? 1 : 0 }}
+            transition={{ duration: 0.12 }}
+          />
+          <div aria-hidden className="ring-focus absolute -inset-[5px] opacity-0 pointer-events-none" style={{ outline: '2px dashed #F2CF7E', borderRadius: 4 }} />
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+});
+HandCard.displayName = 'HandCard';
 
-          // Calculate lift for hover and selected states
-          const isHovered = hoveredIndex === index;
-          const baseLift = 0; // No base lift, arc handles positioning
-          // Only apply lift once - either for hover OR selected, not both
-          const cardLift = (isHovered || isSelected) ? -15 : 0;
-          const totalTranslateY = baseLift + translateY + cardLift;
+export const PlayerHand: React.FC<PlayerHandProps> = ({ hand, selectedCards, onCardSelect, vp, dealId, myTurn }) => {
+  const slots = useMemo(() => fan(hand.length, vp).slots, [hand.length, vp]);
+  const selectedRef = useRef(selectedCards);
+  selectedRef.current = selectedCards;
 
+  // A new deal plays the deal-in animation for about a second; anything after that is instant.
+  const [dealingFor, setDealingFor] = useState(0);
+  useEffect(() => {
+    if (!dealId || hand.length === 0) return;
+    setDealingFor(dealId);
+    const n = hand.length;
+    const timers: number[] = [];
+    for (let i = 0; i < n; i++) timers.push(window.setTimeout(() => sfx.deal(), i * 55 + 30));
+    timers.push(window.setTimeout(() => setDealingFor(0), n * 55 + 900));
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealId, hand.length > 0]);
+  const dealing = dealingFor !== 0 && dealingFor === dealId;
+
+  const onSelectRef = useRef(onCardSelect);
+  onSelectRef.current = onCardSelect;
+  // Stable callbacks so a re-render of the table doesn't re-render every card.
+  const toggle = useCallback((code: string) => {
+    const wasSelected = selectedRef.current.has(code);
+    onSelectRef.current(code);
+    if (wasSelected) sfx.deselect();
+    else { sfx.select(selectedRef.current.size + 1); haptics.tap(); }
+  }, []);
+
+  // Press on a card to toggle it; keep the pointer down and sweep across others to give them
+  // the same state (select a run in one stroke, or clear several).
+  const drag = useRef<{ mode: 'select' | 'deselect'; seen: Set<string> } | null>(null);
+  const onPointerDown = useCallback((code: string, e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    const mode = selectedRef.current.has(code) ? 'deselect' : 'select';
+    drag.current = { mode, seen: new Set([code]) };
+    toggle(code);
+  }, [toggle]);
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const d = drag.current;
+      if (!d) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-card]');
+      const code = el?.dataset.card;
+      if (!code || d.seen.has(code)) return;
+      d.seen.add(code);
+      const isSel = selectedRef.current.has(code);
+      if ((d.mode === 'select') !== isSel) toggle(code);
+    };
+    const up = () => { drag.current = null; };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="absolute inset-x-0 bottom-0 pointer-events-none" style={{ height: vp.handBase + vp.H * 2.2 }}>
+      {/* your-turn warmth under the hand */}
+      <motion.div
+        aria-hidden
+        className="absolute left-1/2 pointer-events-none"
+        style={{ bottom: vp.handBase - vp.H * 0.6, width: Math.min(vp.w * 1.1, 1100), height: vp.H * 2.4, marginLeft: -Math.min(vp.w * 1.1, 1100) / 2,
+          background: 'radial-gradient(ellipse 50% 50% at 50% 60%, rgba(232,93,0,.30), rgba(232,93,0,0) 70%)' }}
+        initial={false}
+        animate={{ opacity: myTurn ? 1 : 0 }}
+        transition={{ duration: 0.4 }}
+      />
+      <div className="absolute inset-0 pointer-events-auto" style={{ pointerEvents: 'none' }}>
+        {hand.map((card, i) => {
+          const code = keyOf(card);
           return (
-            <div
-              key={cardKey}
-              className={`player-card ${isSelected ? 'selected' : ''}`}
-              style={{
-                position: 'absolute',
-                left: '50%',
-                width: `${4 * cardScale}em`,
-                height: `${6 * cardScale}em`,
-                marginLeft: `${-2 * cardScale}em`, // Half of card width to center
-                zIndex: index,
-                transform: `translateX(${translateX}px) translateY(${totalTranslateY}px) rotate(${rotate}deg) ${isHovered ? 'scale(1.05)' : ''}`,
-                transformOrigin: 'center bottom',
-                cursor: 'pointer',
-                transition: isDragging ? 'none' : 'transform 0.2s ease-out', // Smooth transitions when not dragging
-              }}
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
-            >
-              <Card
-                {...card}
-                onClick={() => onCardSelect(cardKey)}
-                selected={isSelected}
-                className="w-full h-full"
+            <div key={`${dealId}-${code}`} className="pointer-events-auto">
+              <HandCard
+                card={card}
+                slot={slots[i]}
+                index={i}
+                vp={vp}
+                selected={selectedCards.has(code)}
+                dealing={dealing}
+                dealDelay={i * 0.055}
+                onPointerDown={onPointerDown}
+                onKeyToggle={toggle}
               />
             </div>
           );

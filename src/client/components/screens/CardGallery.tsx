@@ -49,7 +49,7 @@ export const CardGallery: React.FC<CardGalleryProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 felt-texture overflow-auto">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-green-800/95 backdrop-blur-sm p-2 sm:p-4 flex justify-between items-center border-b border-green-700">
+      <div className="sticky top-0 z-40 bg-ink/90 backdrop-blur-sm p-2 sm:p-4 flex justify-between items-center border-b border-white/10">
         <h1 className="text-lg sm:text-2xl font-bold text-gold">Card Gallery</h1>
         <Link
           to="/"

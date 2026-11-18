@@ -15,6 +15,7 @@ import { useGameState } from './hooks/useGameState';
 import { GamePhase } from './types/game';
 import { ConnectionOverlay } from './components/ui/ConnectionOverlay';
 import { loadSeat } from './net/seat';
+import { Card } from './components/ui/Card';
 import BotManagerSingleton from './bots/BotManagerSingleton';
 
 type AppState = 'play' | 'connecting' | 'lobby' | 'game';
@@ -119,8 +120,9 @@ function GameApp() {
     
     return (
       <div className="min-h-screen felt-texture flex items-center justify-center">
-        <div className="bg-gray-800 rounded-lg p-8 max-w-md">
-          <h2 className="text-xl font-bold text-red-500 mb-4">Connection Error</h2>
+        <div className="panel p-8 max-w-md">
+          <p className="section-head mb-2">connection_error</p>
+          <h2 className="font-display text-2xl font-bold text-paper mb-3">Couldn't reach the table</h2>
           <p className="text-gray-300 mb-4">{error}</p>
           <div className="space-y-3">
             {isRoomLocked ? (
@@ -161,8 +163,8 @@ function GameApp() {
     return (
       <div className="min-h-screen felt-texture flex items-center justify-center">
         <div className="text-center">
-          <div className="text-4xl mb-4 animate-pulse">🃏</div>
-          <p className="text-xl text-gold">Connecting to game server...</p>
+          <div className="mx-auto mb-5 w-14 idle-float" style={{ filter: 'drop-shadow(0 10px 12px rgba(0,0,0,.5))' }}><Card isBack className="w-14 h-20" /></div>
+          <p className="font-mono text-sm tracking-[0.2em] text-mist prompt">CONNECTING TO THE TABLE</p>
         </div>
       </div>
     );
@@ -215,6 +217,7 @@ function GameApp() {
         discardTop={gameState.discardTop || undefined}
         consecutivePasses={gameState.consecutivePasses}
         trickMelds={gameState.trickMelds}
+        turnOrder={gameState.turnOrder}
         lastTrickMelds={gameState.lastTrickMelds}
         lastError={gameState.lastError}
         lastNotification={gameState.lastNotification}

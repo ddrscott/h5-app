@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useRoom } from '../contexts/RoomContext';
 import { GamePhase } from '../types/game';
 import type { Card, Player, Meld, ChatMessage } from '../types/game';
+import { bus } from '../fx/bus';
+import { registry } from '../fx/layout';
 
 // Global flag to track if we've already set up listeners for a room
 const roomListenerMap = new WeakMap<any, boolean>();
@@ -12,6 +14,8 @@ interface GameStateData {
   currentTurnPlayerId: string | null;
   leadPlayerId: string | null;
   hostId: string | null;
+  /** Seat order, used to place opponents around the table. */
+  turnOrder: string[];
   players: Map<string, Player>;
   currentMeld: Meld | null;
   consecutivePasses: number;
@@ -46,6 +50,7 @@ export const useGameState = () => {
     currentTurnPlayerId: null,
     leadPlayerId: null,
     hostId: null,
+    turnOrder: [],
     players: new Map(),
     currentMeld: null,
     consecutivePasses: 0,
@@ -144,6 +149,7 @@ export const useGameState = () => {
           currentTurnPlayerId: state.currentTurnPlayerId,
           leadPlayerId: state.leadPlayerId,
           hostId: state.hostId ?? null,
+          turnOrder: Array.isArray(state.turnOrder) ? state.turnOrder : prev.turnOrder,
           players: new Map(state.players),
           currentMeld: state.currentMeld,
           consecutivePasses: state.consecutivePasses,
@@ -183,6 +189,7 @@ export const useGameState = () => {
     // Listen for game started
     room.onMessage('game_started', (data: { currentTurn: string, leadPlayer: string, round: number }) => {
       console.log('Game started!', data);
+      bus.emit({ type: 'gameStarted', round: data.round });
       setGameState(prev => ({
         ...prev,
         currentTurnPlayerId: data.currentTurn,
@@ -198,25 +205,25 @@ export const useGameState = () => {
 
     // Listen for meld played
     room.onMessage('meld_played', (data: { playerId: string, cards: string[], meldType: string }) => {
-      console.log(`Player ${data.playerId} played ${data.meldType}:`, data.cards);
+      bus.emit({ type: 'meld', playerId: data.playerId, cards: data.cards, meldType: data.meldType });
     });
 
     // Listen for player passed
     room.onMessage('player_passed', (data: { playerId: string }) => {
-      console.log(`Player ${data.playerId} passed`);
+      bus.emit({ type: 'pass', playerId: data.playerId });
     });
 
     // Listen for new leader after all passes
     room.onMessage('new_leader', (data: { playerId: string, message: string }) => {
-      console.log('New leader:', data.playerId);
+      bus.emit({ type: 'newLeader', playerId: data.playerId });
       
       setGameState(prev => {
         const leaderPlayer = prev.players.get(data.playerId);
         const leaderName = leaderPlayer?.name || 'Unknown';
         // Personalize message based on whether it's the current player
-        const notification = data.playerId === myPlayerId 
-          ? "🎯 You are the new leader!" 
-          : `🎯 ${leaderName} is the new leader!`;
+        const notification = data.playerId === myPlayerId
+          ? 'Your lead'
+          : `${leaderName} leads`;
         
         // Clear notification after 1 second
         setTimeout(() => {
@@ -273,7 +280,7 @@ export const useGameState = () => {
 
     // Listen for game ended
     room.onMessage('game_ended', (data: { winner: any, finalStandings: any[] }) => {
-      console.log('[useGameState] *** GAME_ENDED MESSAGE RECEIVED ***');
+      bus.emit({ type: 'gameEnded', winnerId: data.winner?.id ?? null });
       console.log('[useGameState] Game ended! Setting phase to GAME_END', data);
       console.log('[useGameState] Winner:', JSON.stringify(data.winner));
       console.log('[useGameState] Final standings:', JSON.stringify(data.finalStandings));
@@ -325,14 +332,8 @@ export const useGameState = () => {
     });
 
     // Listen for your turn notifications
-    room.onMessage('your_turn', (data: { 
-      isLeader: boolean; 
-      canPlayAnything: boolean;
-      currentMeld: any;
-      consecutivePasses: number;
-      message: string 
-    }) => {
-      console.log('[your_turn] Received turn notification:', data);
+    room.onMessage('your_turn', () => {
+      bus.emit({ type: 'yourTurn' });
       
       // Could show a notification or update UI based on this
       // For now, just log it for debugging
@@ -348,6 +349,7 @@ export const useGameState = () => {
         errorMessage = "As the leader, you must play something to start the trick!";
       }
       
+      bus.emit({ type: 'error', message: errorMessage });
       setGameState(prev => ({ ...prev, lastError: errorMessage }));
       
       // Clear error after 3 seconds
@@ -386,6 +388,8 @@ export const useGameState = () => {
     if (!room || gameState.selectedCards.size === 0) return;
     
     const selectedCardCodes = Array.from(gameState.selectedCards);
+    // Note where these cards sit in the hand, so they fly to the table from there.
+    registry.captureHand(selectedCardCodes);
     room.send('play', { cards: selectedCardCodes });
     clearSelection();
   };

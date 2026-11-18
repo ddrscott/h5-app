@@ -1,277 +1,152 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Card } from '../ui/Card';
-import { AnimatedCards } from '../animations/AnimatedCards';
-import { useAnimatedCards } from '../../hooks/useAnimatedCards';
-import { PlayerHand } from '../game/PlayerHand';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { Card, Meld, Player } from '../../types/game';
+import { GamePhase, MeldType } from '../../types/game';
+import { GameTable } from '../game/GameTable';
+import { bus } from '../../fx/bus';
+import { registry } from '../../fx/layout';
+
+/**
+ * /h5/animation: the real GameTable driven by a scripted, offline game, so every effect (deal,
+ * plays, bomb, Heart 5, pass, sweep, going out, game over) can be triggered and judged on demand.
+ */
+const S = ['C', 'D', 'H', 'S'];
+const code = (rank: number, suit: string) => (rank === 16 ? 'jj' : rank === 17 ? 'JJ' : `${({ 10: 'T', 11: 'J', 12: 'Q', 13: 'K', 14: 'A', 15: '2' } as Record<number, string>)[rank] ?? rank}${suit}`);
+const card = (rank: number, suit: string): Card => ({ rank, suit: rank >= 16 ? 'J' : suit, code: code(rank, suit) });
+
+const ME = 'me';
+const OPP = ['ann', 'bo', 'cy'];
+
+function startingHand(): Card[] {
+  return [card(3, 'H'), card(4, 'S'), card(5, 'H'), card(6, 'D'), card(7, 'C'), card(8, 'H'), card(9, 'S'),
+    card(10, 'D'), card(11, 'C'), card(12, 'H'), card(12, 'S'), card(13, 'D'), card(14, 'C'), card(17, 'J')];
+}
+
+function basePlayers(hand: number): Map<string, Player> {
+  const mk = (id: string, name: string, handCount: number, wins = 0, losses = 0): Player =>
+    ({ id, name, handCount, isActive: true, hasPassed: false, isOut: false, wins, losses });
+  return new Map([
+    [ME, mk(ME, 'Scott', hand, 2, 1)],
+    ['ann', mk('ann', 'Grandma Ann', 13, 3, 0)],
+    ['bo', mk('bo', 'Bo', 13, 0, 2)],
+    ['cy', mk('cy', 'Cousin Cy', 13, 1, 3)],
+  ]);
+}
 
 export const AnimationTest: React.FC = () => {
-  const [selectedPosition, setSelectedPosition] = useState<'bottom' | 'top' | 'left' | 'right'>('bottom');
-  const [handCount, setHandCount] = useState(0);
-  const [allHands, setAllHands] = useState<Array<{cards: any[], rotation: number, key: string, isFromHand?: boolean, isOld?: boolean}>>([]);
-  const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
-  const [handRotationOffset, setHandRotationOffset] = useState(0);
-  const [isDraggingHand, setIsDraggingHand] = useState(false);
-  const { animatingCards, animationConfig, animateCards, clearAnimation } = useAnimatedCards();
-  
-  // Hand rotation helpers
-  const animateToRotation = (targetRotation: number, duration: number = 300) => {
-    // Simple version for animation test
-    setHandRotationOffset(targetRotation);
+  const [hand, setHand] = useState<Card[]>(startingHand);
+  const [players, setPlayers] = useState(() => basePlayers(14));
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [trick, setTrick] = useState<Meld[]>([]);
+  const [turn, setTurn] = useState<string>(ME);
+  const [lead, setLead] = useState<string>(ME);
+  const [phase, setPhase] = useState<GamePhase>(GamePhase.PLAYING);
+  const [note, setNote] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [panel, setPanel] = useState(true);
+
+  const setCount = (id: string, delta: number, patch: Partial<Player> = {}) =>
+    setPlayers((m) => {
+      const n = new Map(m);
+      const p = n.get(id)!;
+      n.set(id, { ...p, handCount: Math.max(0, p.handCount + delta), ...patch });
+      return n;
+    });
+
+  const oppPlay = (id: string, cards: Card[], type: MeldType) => {
+    setTrick((t) => [...t, { cards, type, playerId: id }]);
+    setCount(id, -cards.length, { hasPassed: false });
+    bus.emit({ type: 'meld', playerId: id, cards: cards.map((c) => c.code!), meldType: type });
+    const next = OPP[(OPP.indexOf(id) + 1) % OPP.length] ?? ME;
+    setTurn(id === 'cy' ? ME : next);
   };
-  
-  const applyElasticResistance = (targetRotation: number) => {
-    // Simple version without elastic resistance
-    return targetRotation;
+  const pass = (id: string) => {
+    bus.emit({ type: 'pass', playerId: id });
+    setCount(id, 0, { hasPassed: true });
   };
-  
-  // Sample hand of cards
-  const hand = [
-    { suit: 'J' as const, rank: 15 },
-    { suit: 'J' as const, rank: 16 },
-    { suit: 'C' as const, rank: 13 },
-    { suit: 'S' as const, rank: 1 },
-    { suit: 'H' as const, rank: 2 },
-    { suit: 'H' as const, rank: 3 },
-    { suit: 'H' as const, rank: 4 },
-    { suit: 'H' as const, rank: 5 },
-    { suit: 'H' as const, rank: 6 },
-    { suit: 'H' as const, rank: 7 },
-    { suit: 'H' as const, rank: 8 },
-    { suit: 'H' as const, rank: 9 },
-    { suit: 'H' as const, rank: 10 },
-    { suit: 'H' as const, rank: 11 },
-    { suit: 'H' as const, rank: 12 },
-    { suit: 'H' as const, rank: 13 },
-  ];
-  
-  // Position configurations
-  const startPositions = {
-    bottom: { top: '100%', left: '50%' },
-    top: { top: '0%', left: '50%' },
-    left: { left: '0%', top: '50%' },
-    right: { right: '0%', top: '50%' }
+  const sweep = (winner: string) => {
+    setTrick([]);
+    setLead(winner);
+    setTurn(winner);
+    setPlayers((m) => new Map([...m].map(([k, p]) => [k, { ...p, hasPassed: false }])));
+    setNote(winner === ME ? 'Your lead' : `${players.get(winner)?.name} leads`);
+    setTimeout(() => setNote(null), 1800);
   };
-  
-  // Special position for cards played from hand - matches PlayerHand position
-  const handPosition = { bottom: '1em', left: '50%' };
-  
-  // Different hand compositions for variety
-  const handTypes = [
-    { cards: hand.slice(0, 3), name: "3 cards" },   // 3 cards
-    { cards: hand.slice(3, 8), name: "5 cards" },   // 5 cards  
-    { cards: hand.slice(1, 13), name: "12 cards" },   // 12 cards  
-    { cards: hand.slice(8, 10), name: "2 cards" },  // 2 cards
-  ];
-  
-  // Auto-play animation loop - DISABLED FOR DEBUGGING
-  useEffect(() => {
-    let timeoutIds: NodeJS.Timeout[] = [];
-    let cycleCount = 0;
-  
-    const playCycle = () => {
-      // Clear previous hands
-      setAllHands([]);
-      setHandCount(0);
-   
-      // Play each hand in sequence
-      handTypes.forEach((handType, index) => {
-        const timeoutId = setTimeout(() => {
-          const rotation = index * 20 - 20; // -20, 0, 20 degrees
-       
-          setAllHands(prev => [...prev, { 
-            cards: handType.cards, 
-            rotation,
-            key: `${cycleCount}-${index}` // Add unique key per cycle
-          }]);
-       
-          setHandCount(index + 1);
-        }, index * 1500); // Stagger each hand by 1.5 seconds
-     
-        timeoutIds.push(timeoutId);
+
+  const steps: Array<[string, () => void]> = useMemo(() => [
+    ['Deal', () => {
+      setHand(startingHand()); setPlayers(basePlayers(14)); setTrick([]); setSelected(new Set());
+      setPhase(GamePhase.PLAYING); setTurn(ME); setLead(ME);
+      bus.emit({ type: 'gameStarted', round: 1 });
+    }],
+    ['Ann: pair', () => oppPlay('ann', [card(9, 'H'), card(9, 'D')], MeldType.PAIR)],
+    ['Bo: triple', () => oppPlay('bo', [card(10, 'H'), card(10, 'C'), card(10, 'S')], MeldType.THREE_OF_KIND)],
+    ['Cy: straight', () => oppPlay('cy', [card(5, 'S'), card(6, 'C'), card(7, 'S'), card(8, 'D'), card(9, 'C')], MeldType.RUN)],
+    ['Ann: BOMB', () => oppPlay('ann', S.map((s) => card(11, s)), MeldType.BOMB)],
+    ['Bo: str. flush', () => oppPlay('bo', [7, 8, 9, 10, 11].map((r) => card(r, 'D')), MeldType.STRAIGHT_FLUSH)],
+    ['Cy: Heart 5', () => oppPlay('cy', [card(5, 'H')], MeldType.SINGLE)],
+    ['Bo passes', () => pass('bo')],
+    ['All pass → sweep', () => { pass('bo'); setTimeout(() => pass('cy'), 250); setTimeout(() => sweep(trick[trick.length - 1]?.playerId ?? ME), 700); }],
+    ['Ann goes out', () => setCount('ann', -99, { isOut: true, position: 1 })],
+    ['Game over', () => {
+      setPlayers((m) => {
+        const n = new Map(m);
+        n.set('ann', { ...n.get('ann')!, isOut: true, position: 1, handCount: 0, wins: 4 });
+        n.set('bo', { ...n.get('bo')!, isOut: true, position: 2, handCount: 0 });
+        n.set(ME, { ...n.get(ME)!, isOut: true, position: 3, handCount: 0 });
+        n.set('cy', { ...n.get('cy')!, handCount: 3, losses: 4 });
+        return n;
       });
-   
-      // Schedule next cycle
-      const cycleTimeout = setTimeout(() => {
-        cycleCount++;
-        playCycle();
-      }, 6000); // 3 hands * 1.5s + 1.5s pause
-   
-      timeoutIds.push(cycleTimeout);
-    };
-  
-    // Start first cycle
-    playCycle();
-  
-    return () => {
-      timeoutIds.forEach(id => clearTimeout(id));
-    };
-  }, [selectedPosition]); // Only restart when position changes
-  
+      setPhase(GamePhase.GAME_END);
+    }],
+    ['Error', () => { setError("That doesn't beat the table."); bus.emit({ type: 'error', message: 'x' }); setTimeout(() => setError(null), 2500); }],
+    ['My turn ↔', () => setTurn((t) => (t === ME ? 'ann' : ME))],
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [trick, players]);
+
+  // Scripted access for recordings: window.__lab['Ann: BOMB']()
+  useEffect(() => { (window as unknown as { __lab: unknown }).__lab = Object.fromEntries(steps); }, [steps]);
+
   return (
     <>
-      {/* Main content layer */}
-      <div className="fixed inset-0 felt-texture overflow-hidden">
-        {/* Header */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-20">
-          <h1 className="text-2xl font-bold text-gold">Animation Test Lab - Reusable Component</h1>
-          <Link to="/" className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm">
-            Back to Home
-          </Link>
-        </div>
-        
-        {/* Center Play Area */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-32 h-48 border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center">
-            <p className="text-gray-500 text-sm">Play Area</p>
-          </div>
-        </div>
-        
-        {/* Status indicator */}
-        <div className="hidden absolute bottom-32 left-1/2 transform -translate-x-1/2 z-30">
-          <div className="bg-gray-800/90 px-8 py-3 rounded-lg space-y-1">
-            <p className="text-gold font-bold">
-              Animation Paused - Debugging Player Hand
-            </p>
-            <p className="text-sm text-gray-300">
-              {hand.length} cards in hand
-            </p>
-          </div>
-        </div>
-        
-        {/* Action Buttons - Above Cards */}
-          <div className="absolute bottom-[1em] right-[2em] flex space-x-3">
-          <button
-              className={`flex-shrink z-20
-              ${
-              selectedCards.size > 0 ? 'bg-gold hover:bg-gold-dark text-gray-900' : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            } px-6 py-2 text-sm font-bold rounded-lg transition-all shadow-lg`}
-          >
-              Pass
-          </button>
-          <button
-            onClick={() => {
-              if (selectedCards.size > 0) {
-                const selectedCardObjs = Array.from(selectedCards).map(key => {
-                  const [suit, rank] = key.split('-');
-                  return { suit: suit as 'H' | 'D' | 'C' | 'S', rank: parseInt(rank) };
-                });
-                
-                // Mark all existing hands as old
-                setAllHands(prev => prev.map(hand => ({ ...hand, isOld: true })));
-                
-                // Add manually played cards with a unique rotation
-                const rotation = -30 + Math.random() * 60;
-                setAllHands(prev => [...prev, {
-                  cards: selectedCardObjs,
-                  rotation,
-                  key: `manual-${Date.now()}`,
-                  isFromHand: true, // Mark that this came from player's hand
-                  isOld: false // This is the new hand
-                }]);
-                
-                setSelectedCards(new Set());
-              }
-            }}
-            disabled={selectedCards.size === 0}
-              className={`flex-grow z-20
-              ${
-              selectedCards.size > 0 ? 'bg-gold hover:bg-gold-dark text-gray-900' : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-            } px-6 py-2 text-sm font-bold rounded-lg transition-all shadow-lg`}
-          >
-            Play Selected ({selectedCards.size})
-          </button>
-        </div>
-        
-        {/* Player Hand - using the actual game component */}
-        <PlayerHand 
-          hand={hand}
-          selectedCards={selectedCards}
-          onCardSelect={(cardKey) => {
-            setSelectedCards(prev => {
-              const newSet = new Set(prev);
-              if (newSet.has(cardKey)) {
-                newSet.delete(cardKey);
-              } else {
-                newSet.add(cardKey);
-              }
-              return newSet;
-            });
-          }}
-          rotationOffset={handRotationOffset}
-          setRotationOffset={setHandRotationOffset}
-          isDragging={isDraggingHand}
-          setIsDragging={setIsDraggingHand}
-          animateToRotation={animateToRotation}
-          applyElasticResistance={applyElasticResistance}
-        />
-        
-        {/* Animation Info */}
-        <div className="absolute top-20 left-4 bg-gray-800/90 p-4 rounded-lg">
-          <h3 className="text-gold font-bold mb-2">Animation Demo</h3>
-          <div className="space-y-2 text-sm">
-            <p>• Auto plays 3 hands in sequence</p>
-            <p>• Each hand has different rotation</p>
-            <p>• Click cards to select manually</p>
-            <p>• Uses actual game PlayerHand component</p>
-          </div>
-        </div>
-        
-        {/* Position selector */}
-        <div className="absolute top-20 right-4 bg-gray-800/90 p-4 rounded-lg">
-          <h3 className="text-gold font-bold mb-2">Starting Position</h3>
-          <div className="space-y-2">
-            {(['bottom', 'top', 'left', 'right'] as const).map(pos => (
-              <button
-                key={pos}
-                onClick={() => setSelectedPosition(pos)}
-                className={`block w-full px-3 py-1 rounded text-sm ${
-                  selectedPosition === pos 
-                    ? 'bg-gold text-gray-900 font-bold' 
-                    : 'bg-gray-700 hover:bg-gray-600 text-white'
-                }`}
-              >
-                From {pos.charAt(0).toUpperCase() + pos.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        {/* Example configurations */}
-        <div className="-z-10 relative top-1/3 left-[1em] p-4 rounded-lg max-w-xs">
-          <h3 className="text-gold font-bold mb-2">Example Usage</h3>
-          <pre className="text-xs text-gray-300/40 overflow-x-auto">
-{`animateCards(cards, {
-  startPosition: { 
-    bottom: '0%', 
-    left: '50%' 
-  },
-  endPosition: { 
-    left: '50%', 
-    top: '50%' 
-  },
-  duration: 0.5,
-  stagger: 0.1,
-  arrangeAsArc: true
-})`}
-          </pre>
-        </div>
+      <GameTable
+        players={players}
+        myPlayerId={ME}
+        myHand={hand}
+        selectedCards={selected}
+        currentMeld={trick[trick.length - 1] ?? null}
+        currentTurnPlayerId={turn}
+        leadPlayerId={lead}
+        deckCount={0}
+        consecutivePasses={0}
+        trickMelds={trick}
+        lastTrickMelds={[]}
+        lastError={error}
+        lastNotification={note}
+        phase={phase}
+        turnOrder={[ME, ...OPP]}
+        onCardSelect={(k) => setSelected((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; })}
+        onPlayCards={() => {
+          const cards = hand.filter((c) => selected.has(c.code!));
+          const type = cards.length === 1 ? MeldType.SINGLE : cards.length === 2 ? MeldType.PAIR : cards.length === 3 ? MeldType.THREE_OF_KIND : cards.length === 4 ? MeldType.BOMB : MeldType.RUN;
+          registry.captureHand(cards.map((c) => c.code!));
+          setHand((h) => h.filter((c) => !selected.has(c.code!)));
+          setSelected(new Set());
+          setTrick((t) => [...t, { cards, type, playerId: ME }]);
+          setCount(ME, -cards.length);
+          setTurn('ann');
+        }}
+        onPass={() => { pass(ME); setTurn('ann'); }}
+        onLeaveGame={() => window.location.assign('/h5/')}
+        onPlayAgain={() => steps[0][1]()}
+        isHost
+      />
+      <div className="fixed left-2 top-14 z-[90] w-[148px] panel p-2 flex flex-col gap-1 max-h-[80vh] overflow-auto" style={{ display: panel ? undefined : 'none' }}>
+        <p className="section-head mb-1">fx_lab</p>
+        {steps.map(([label, fn]) => (
+          <button key={label} onClick={fn} className="text-left text-[11px] font-mono px-2 py-1 bg-gray-800 hover:bg-gray-700 border border-white/10">{label}</button>
+        ))}
+        <button onClick={() => setPanel(false)} className="text-[10px] font-mono text-mist mt-1">hide panel</button>
       </div>
-      
-      {/* All animated hands */}
-      {allHands.map((hand) => (
-        <AnimatedCards
-          key={hand.key}
-          cards={hand.cards}
-          startPosition={hand.isFromHand ? handPosition : startPositions[selectedPosition]}
-          endPosition={{ left: '50%', top: '50%' }}
-          duration={0.5}
-          stagger={0.05}
-          arrangeAsArc={true}
-          groupRotation={hand.rotation}
-          dimmed={hand.isOld}
-        />
-      ))}
     </>
   );
 };

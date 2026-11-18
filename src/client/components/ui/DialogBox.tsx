@@ -7,8 +7,8 @@ interface DialogBoxProps {
 
 export const DialogBox: React.FC<DialogBoxProps> = ({ children, className = '' }) => {
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
-      <div className={`bg-gray-800 rounded-lg shadow-2xl p-6 pointer-events-auto ${className}`}>
+    <div className="fixed inset-0 flex items-center justify-center z-[81] pointer-events-none p-4">
+      <div className={`panel p-6 pointer-events-auto animate-fade-in ${className}`}>
         {children}
       </div>
     </div>
