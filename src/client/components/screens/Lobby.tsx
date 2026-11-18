@@ -120,7 +120,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   const shareUrl = `${window.location.origin + BASE}/play?room=${roomId}`;
 
   return (
-    <div className="min-h-screen felt-texture p-3 sm:p-5 flex flex-col relative overflow-y-auto">
+    <div className="h-dvh felt-texture p-3 sm:p-5 flex flex-col relative overflow-y-auto">
       <AnimatePresence>
         {copiedText && (
           <motion.div
@@ -156,9 +156,9 @@ export const Lobby: React.FC<LobbyProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 flex items-center gap-5 portrait:flex-col max-w-6xl w-full mx-auto">
+      <div className="flex-1 min-h-0 flex items-center gap-5 portrait:gap-3 portrait:flex-col max-w-6xl w-full mx-auto">
         {/* The table, seen from above */}
-        <div className="relative w-full flex-1 aspect-[4/3] portrait:aspect-square max-h-[70vh] min-h-[300px]">
+        <div className="relative w-full flex-1 aspect-[4/3] max-h-[70vh] min-h-[300px] portrait:aspect-auto portrait:max-h-none portrait:min-h-[240px]">
           <div
             className="absolute inset-[13%] rounded-[50%]"
             style={{
@@ -190,11 +190,11 @@ export const Lobby: React.FC<LobbyProps> = ({
 
         {/* Controls */}
         <div className="flex-shrink-0 w-full max-w-sm portrait:max-w-md">
-          <div className="panel p-5">
+          <div className="panel p-5 portrait:p-4">
             {isHost ? (
               <>
                 {players.length < 6 && (
-                  <div className="mb-5">
+                  <div className="mb-5 portrait:mb-3">
                     <label className="section-head block mb-2">Add a bot</label>
                     <div className="flex gap-2">
                       <select
