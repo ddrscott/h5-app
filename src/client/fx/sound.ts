@@ -10,9 +10,11 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
 let shaperCurve: Float32Array<ArrayBuffer> | null = null;
+/** Browsers only let audio start after a gesture; until then every sound is skipped. */
+let gestured = false;
 
 function audio(): AudioContext | null {
-  if (prefs.muted()) return null;
+  if (prefs.muted() || !gestured) return null;
   if (!ctx) {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AC) return null;
@@ -30,6 +32,7 @@ function audio(): AudioContext | null {
 
 /** Call from a user gesture so later, non-gesture sounds (an opponent's play) can be heard. */
 export function unlockAudio() {
+  gestured = true;
   audio();
 }
 if (typeof window !== 'undefined') {

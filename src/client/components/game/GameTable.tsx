@@ -279,6 +279,13 @@ export const GameTable: React.FC<GameTableProps> = ({
     : activeName ? { big: `${activeName}`, small: 'is thinking', hot: false } : null;
 
   const isEnd = phase === GamePhase.GAME_END || phase === GamePhase.ROUND_END;
+  // Give the last play a moment to land (and the OUT callout to pop) before the results cover it.
+  const [showEnd, setShowEnd] = useState(isEnd);
+  useEffect(() => {
+    if (!isEnd) { setShowEnd(false); return; }
+    const t = window.setTimeout(() => setShowEnd(true), reducedMotion() ? 0 : 1500);
+    return () => clearTimeout(t);
+  }, [isEnd]);
   const computedWinner = winner ?? (() => {
     if (!isEnd) return null;
     let best: Player | undefined;
@@ -345,7 +352,7 @@ export const GameTable: React.FC<GameTableProps> = ({
         {/* your nameplate and the turn status */}
         <div
           className="absolute left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 pointer-events-none"
-          style={{ bottom: vp.handBase + vp.H * (myHand.length > 14 && vp.portrait ? 1.75 : 1.25) + 6 }}
+          style={{ bottom: vp.handBase + vp.H * (myHand.length > 14 && vp.portrait ? 1.9 : 1.4) + 6 }}
         >
           <AnimatePresence mode="wait">
             {status && (
@@ -498,7 +505,7 @@ export const GameTable: React.FC<GameTableProps> = ({
         </>
       )}
 
-      {isEnd && computedWinner && computedStandings && (
+      {isEnd && showEnd && computedWinner && computedStandings && (
         <GameOver
           winner={computedWinner}
           finalStandings={computedStandings}

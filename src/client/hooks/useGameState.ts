@@ -149,7 +149,7 @@ export const useGameState = () => {
           currentTurnPlayerId: state.currentTurnPlayerId,
           leadPlayerId: state.leadPlayerId,
           hostId: state.hostId ?? null,
-          turnOrder: Array.isArray((state as any).turnOrder) ? (state as any).turnOrder : prev.turnOrder,
+          turnOrder: Array.isArray(state.turnOrder) ? state.turnOrder : prev.turnOrder,
           players: new Map(state.players),
           currentMeld: state.currentMeld,
           consecutivePasses: state.consecutivePasses,
@@ -332,13 +332,7 @@ export const useGameState = () => {
     });
 
     // Listen for your turn notifications
-    room.onMessage('your_turn', (data: { 
-      isLeader: boolean; 
-      canPlayAnything: boolean;
-      currentMeld: any;
-      consecutivePasses: number;
-      message: string 
-    }) => {
+    room.onMessage('your_turn', () => {
       bus.emit({ type: 'yourTurn' });
       
       // Could show a notification or update UI based on this

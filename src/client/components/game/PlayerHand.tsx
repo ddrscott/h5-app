@@ -85,7 +85,7 @@ const HandCard: React.FC<HandCardProps> = React.memo(({ card, slot, index, vp, s
       className="absolute cursor-pointer outline-none focus-visible:[&_.ring-focus]:opacity-100"
       style={{
         left: '50%', bottom: vp.handBase, width: vp.W, height: vp.H, marginLeft: -vp.W / 2,
-        zIndex: hover ? 200 : slot.z, transformOrigin: '50% 100%', touchAction: 'none',
+        zIndex: slot.z, transformOrigin: '50% 100%', touchAction: 'none',
       }}
       initial={dealing && !reduce ? { x: 0, y: travelY, rotate: (index % 2 ? 1 : -1) * (20 + index * 7), scale: 0.5, opacity: 0 } : false}
       animate={{ x: slot.x, y: slot.y - lift, rotate: hover ? slot.rot * 0.4 : slot.rot, scale, opacity: 1 }}

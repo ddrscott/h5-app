@@ -89,6 +89,8 @@ export interface GameState {
   consecutivePasses: number;
   /** Who may start the game (and "Play Again"). */
   hostId?: string | null;
+  /** Seat order; the table places opponents clockwise in this order. */
+  turnOrder?: string[];
   trickMelds?: any[];
   lastTrickMelds?: any[];
   deck?: Card[];
