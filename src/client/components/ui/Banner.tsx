@@ -60,7 +60,7 @@ export const Banner: React.FC<BannerProps> = ({ className = '' }) => {
           Heart <span className="text-cinnabar">of</span> Five
         </h1>
         <div className="mt-2 flex items-center justify-center gap-3">
-          <span className="font-seal font-black text-[13px] px-1.5 py-0.5 bg-cinnabar text-paper -rotate-2">红心五</span>
+          <span className="font-seal font-black text-[13px] px-1.5 py-0.5 bg-cinnabar text-paper -rotate-2 whitespace-nowrap shrink-0">红心五</span>
           <span className="font-mono text-[11px] tracking-[0.2em] text-mist">A FAMILY CARD GAME · 2–6 PLAYERS</span>
         </div>
       </motion.div>

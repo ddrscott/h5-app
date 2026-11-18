@@ -56,8 +56,8 @@ export default {
         '2xl': '2px',
       },
       fontFamily: {
-        display: ['"Fraunces Variable"', 'Georgia', 'serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        display: ['"Fraunces Variable"', 'Georgia', '"H5 Seal"', 'serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', '"H5 Seal"', 'monospace'],
         casino: ['"Fraunces Variable"', 'Georgia', 'serif'],
       },
       boxShadow: {
