@@ -7,11 +7,11 @@ import { GamePhase } from '../../types/game';
 import { PlayerHand } from './PlayerHand';
 import { Seat, seatSpots } from './Seat';
 import { TablePile } from './TablePile';
-import { Callouts, showCallout, calloutFontPx, calloutHalfHeight } from './Callouts';
+import { Callouts, showCallout, calloutFontPx, calloutSize, calloutTilt, splitCallout, CALLOUT_FLOOR } from './Callouts';
 import { GameOver } from './GameOver';
 import { DialogBox } from '../ui/DialogBox';
 import { CardBack } from '../ui/CardFace';
-import { useViewport, registry, fan, tableLanes, calloutLane, seatHalf } from '../../fx/layout';
+import { useViewport, registry, fan, tableLanes, placeCallout, meldHalf, seatHalf } from '../../fx/layout';
 import type { Viewport } from '../../fx/layout';
 import { bus } from '../../fx/bus';
 import { sfx } from '../../fx/sound';
@@ -172,21 +172,24 @@ export const GameTable: React.FC<GameTableProps> = ({
   const handTop = fan(Math.max(1, myHand.length), rawVp).top;
   const lanes = useMemo(() => tableLanes(rawVp, boxes, handTop), [rawVp, boxes, handTop]);
   const vp = useMemo(() => ({ ...rawVp, pileY: lanes.pileY, pileHalf: lanes.pileHalf }), [rawVp, lanes.pileY, lanes.pileHalf]);
-  /** A clear spot for a callout: one line, sized to the lane, never over a seat. */
-  const lane = useCallback((text: string, level: number) => {
-    const want = Math.min(vp.w - 24, 760);
-    const full = calloutFontPx(level, vp.w, text, want);
-    // Shrink a step at a time until a clear band is found; past that, take the widest spot.
-    let best: { y: number; maxW: number; fontPx: number } | null = null;
-    for (const k of [1, 0.85, 0.72]) {
-      const font = full * k;
-      const l = calloutLane(vp, boxes, vp.pileY, calloutHalfHeight(font), want);
-      const fontPx = Math.min(font, calloutFontPx(level, vp.w, text, l.maxW));
-      if (l.maxW >= want) return { y: l.y, maxW: l.maxW, fontPx };
-      if (!best || fontPx > best.fontPx) best = { y: l.y, maxW: l.maxW, fontPx };
-    }
-    return best!;
-  }, [vp, boxes]);
+  /** A clear spot for a callout: its own space, sized by the play, never over a seat or the newest meld. */
+  const lane = useCallback((text: string, level: number, sub: string | undefined, meldN: number) => {
+    let full = calloutFontPx(level, vp.w, text, Infinity);
+    while (full > 16 && calloutSize(full, text, level).w > vp.w - 24) full *= 0.96;
+    const p = placeCallout({
+      vp, seats: boxes, pileY: vp.pileY, statusTop: lanes.statusTop,
+      meldHalfW: meldN > 0 ? meldHalf(meldN, vp, vp.pileHalf) : 0,
+      full, floor: CALLOUT_FLOOR[level] ?? 24,
+      size: (f, lines) => {
+        if (lines === 2 && !splitCallout(text)) return null;
+        const c = calloutSize(f, text, level, sub, lines);
+        return { ...c, tilt: calloutTilt(level, c.w) };
+      },
+    });
+    return { x: p.x, y: p.y, fontPx: p.fontPx, maxW: p.maxW, maxScale: p.maxScale, lines: p.lines, tilt: p.tilt };
+  }, [vp, boxes, lanes.statusTop]);
+  const trickRef = useRef(0);
+  trickRef.current = trickMelds[trickMelds.length - 1]?.cards.length ?? 0;
   const badges = useMemo(() => seatBadges(Array.from(players.values())), [players]);
   const placeOf = (p?: Player) => (p?.isOut && p.position ? p.position : undefined);
 
@@ -221,7 +224,7 @@ export const GameTable: React.FC<GameTableProps> = ({
       if (n > 1) particles.burst({ x: cx, y: cy + vp.PH * 0.4, kind: 'spark', palette: 'brass', count: 8 + n * 2, speed: 260, angle: -Math.PI / 2, spread: Math.PI * 0.9 });
     }
     if (fx.label) {
-      showCallout({ text: fx.label, level: fx.level as 1 | 2 | 3 | 4, sub: who, x: cx, ...lane(fx.label, fx.level) });
+      showCallout({ text: fx.label, level: fx.level as 1 | 2 | 3 | 4, sub: who, ...lane(fx.label, fx.level, who, n) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myPlayerId, players, vp, shake, lane]);
@@ -272,7 +275,8 @@ export const GameTable: React.FC<GameTableProps> = ({
         const text = mine ? (place === 1 ? 'YOU WENT OUT FIRST!' : `OUT · ${ORD[place]?.toUpperCase()}`) : `OUT · ${ORD[place]?.toUpperCase()}`;
         const level = place === 1 ? 2 : 1;
         // Waits for a play's callout to finish instead of printing over it.
-        showCallout({ text, level, sub: mine ? 'You' : p.name, x: vp.w / 2, ...lane(text, level), queue: true });
+        const sub = mine ? 'You' : p.name;
+        showCallout({ text, level, sub, ...lane(text, level, sub, trickRef.current), queue: true });
       }, 650);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

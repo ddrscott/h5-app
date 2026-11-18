@@ -16,6 +16,12 @@ export interface CalloutSpec {
   maxW?: number;
   /** font size in px; defaults to the level's size */
   fontPx?: number;
+  /** stack the word on two lines (split at the middle space) */
+  lines?: 1 | 2;
+  /** tilt in degrees once settled */
+  tilt?: number;
+  /** how far it may scale past 1 before running off the screen (caps the pop-in overshoot) */
+  maxScale?: number;
   /** wait for the current callout to finish instead of replacing it */
   queue?: boolean;
 }
@@ -41,8 +47,40 @@ export function calloutFontPx(level: number, vw: number, text: string, maxW: num
   const byLevel = Math.max(lo, Math.min(hi, (vw * v) / 100));
   return Math.max(18, Math.min(byLevel, (maxW - 16) / (text.length * 0.66)));
 }
-/** Half the height a callout takes (word + name tag), for finding it a clear lane. */
-export const calloutHalfHeight = (fontPx: number) => (fontPx * 0.95 + 28) / 2 + 4;
+/** Smallest a callout may shrink to find a clear spot, per level: big plays stay big. */
+export const CALLOUT_FLOOR: Record<number, number> = { 1: 24, 2: 32, 3: 48, 4: 44 };
+let ruler: CanvasRenderingContext2D | null = null;
+/** Split a callout at the space nearest its middle, for a two-line stack. */
+export function splitCallout(text: string): [string, string] | null {
+  let best = -1;
+  for (let i = 0; i < text.length; i++) if (text[i] === ' ' && (best < 0 || Math.abs(i - text.length / 2) < Math.abs(best - text.length / 2))) best = i;
+  return best < 0 ? null : [text.slice(0, best), text.slice(best + 1)];
+}
+/** How much a callout tilts: about 4 degrees, less on a long word so its ends don't swing far. */
+export const calloutTilt = (level: number, w: number) => (level === 4 ? 0 : Math.min(4, (Math.asin(Math.min(1, 24 / w)) * 180) / Math.PI));
+/**
+ * Box of a callout at a font size, on one line or stacked on two: the widest line (measured with
+ * the real face, plus its stroke) or the name tag, whichever is wider, and the half height of the
+ * word(s) + tag. The tilt is left to the caller.
+ */
+export function calloutSize(font: number, text: string, level: number, sub?: string, lines: 1 | 2 = 1) {
+  ruler ??= document.createElement('canvas').getContext('2d');
+  const parts = lines === 2 ? splitCallout(text) ?? [text] : [text];
+  let ink = 0;
+  for (const t of parts) {
+    let m = t.length * 0.74 * font;
+    if (ruler) {
+      ruler.font = `${level >= 3 ? 'italic ' : ''}900 ${font}px "Fraunces Variable", Georgia, serif`;
+      m = ruler.measureText(t).width;
+    }
+    ink = Math.max(ink, m + t.length * 0.01 * font);
+  }
+  const word = ink + 8 + font * 0.07 + 8;
+  const tag = sub ? sub.length * 8.8 + 18 : 0;
+  return { w: Math.max(word, tag), hh: calloutHalfHeight(font, parts.length) };
+}
+/** Half the height a callout takes (word lines + name tag), for finding it a clear lane. */
+export const calloutHalfHeight = (fontPx: number, lines = 1) => (fontPx * (0.92 * lines + 0.03) + 28) / 2 + 4;
 
 const STYLE: Record<number, { size: string; color: string; stroke: string; hold: number; glow: string }> = {
   1: { size: 'clamp(26px, 7vw, 40px)', color: '#F6F0E2', stroke: '#0A1012', hold: 650, glow: 'rgba(0,0,0,0)' },
@@ -50,6 +88,19 @@ const STYLE: Record<number, { size: string; color: string; stroke: string; hold:
   3: { size: 'clamp(44px, 13vw, 104px)', color: '#FF7A1A', stroke: '#0A1012', hold: 1250, glow: 'rgba(232,93,0,.7)' },
   4: { size: 'clamp(34px, 10vw, 84px)', color: '#F6F0E2', stroke: '#8E1F1A', hold: 1500, glow: 'rgba(199,53,44,.8)' },
 };
+
+/**
+ * Where the pop-in starts. The spring undershoots below 1 and rebounds about 16% of the way back
+ * above it (40% overshoot twice for the big-play spring), so start low enough that the rebound
+ * stays inside the screen, and no higher than the screen allows for the first visible frames.
+ */
+function popFrom(item: Item) {
+  const want = item.level >= 3 ? 2.6 : 1.8;
+  const room = item.maxScale ?? Infinity;
+  if (!Number.isFinite(room)) return want;
+  const k = item.level >= 3 ? 0.16 : 0.05;
+  return Math.max(1, Math.min(want, 1 + (room - 1) / k, room * 1.6));
+}
 
 export const Callouts: React.FC = () => {
   const [item, setItem] = useState<Item | null>(null);
@@ -85,9 +136,9 @@ export const Callouts: React.FC = () => {
             key={item.id}
             className="absolute flex flex-col items-center"
             style={{ left: item.x, top: item.y }}
-            initial={{ x: '-50%', y: '-50%', scale: item.level >= 3 ? 2.6 : 1.8, rotate: item.level >= 3 ? -12 : -6, opacity: 0 }}
-            animate={{ x: '-50%', y: '-50%', scale: 1, rotate: item.level === 4 ? 0 : -4, opacity: 1 }}
-            exit={{ y: '-90%', opacity: 0, scale: 0.92, transition: { duration: 0.28, ease: 'easeIn' } }}
+            initial={{ x: '-50%', y: '-50%', scale: popFrom(item), rotate: item.level >= 3 ? -12 : -6, opacity: 0 }}
+            animate={{ x: '-50%', y: '-50%', scale: 1, rotate: -(item.tilt ?? (item.level === 4 ? 0 : 4)), opacity: 1 }}
+            exit={{ y: '-62%', opacity: 0, scale: 0.92, transition: { duration: 0.28, ease: 'easeIn' } }}
             transition={{ type: 'spring', stiffness: item.level >= 3 ? 620 : 520, damping: item.level >= 3 ? 14 : 20 }}
           >
             {item.level === 4 && (
@@ -104,7 +155,7 @@ export const Callouts: React.FC = () => {
               className="font-display leading-[0.92] text-center"
               style={{
                 fontSize: item.fontPx ?? st.size,
-                maxWidth: item.maxW ? Math.max(140, item.maxW) : '92vw',
+                maxWidth: item.fontPx ? 'none' : '92vw',
                 textWrap: item.fontPx ? 'nowrap' : 'balance',
                 fontWeight: 900,
                 fontStyle: item.level >= 3 ? 'italic' : 'normal',
@@ -116,7 +167,7 @@ export const Callouts: React.FC = () => {
                 textShadow: `0 4px 0 ${st.stroke}, 0 0 28px ${st.glow}`,
               }}
             >
-              {item.text}
+              {item.lines === 2 && splitCallout(item.text) ? splitCallout(item.text)!.map((t, i) => <React.Fragment key={i}>{i > 0 && <br />}{t}</React.Fragment>) : item.text}
             </span>
             {item.sub && (
               <span className="mt-1 font-mono text-[11px] font-bold tracking-[0.2em] uppercase text-bone/90 bg-ink/70 px-2 py-0.5 border border-white/15">

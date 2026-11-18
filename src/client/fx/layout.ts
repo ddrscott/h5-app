@@ -174,37 +174,98 @@ export function tableLanes(vp: Viewport, seats: SeatBox[], handTop: number) {
 /** How far above pileY the newest meld's top edge reaches (half a card plus the landing squash). */
 export const MELD_UP = 0.53;
 
+export interface CalloutPlace { x: number; y: number; fontPx: number; maxW: number; maxScale: number; lines: 1 | 2; tilt: number }
+export interface CalloutBox { w: number; hh: number; tilt: number }
+
 /**
- * Where a callout can go: a y above the pile where a line of the given half height doesn't run
- * into any seat, and how wide it may be there. The word never prints over the cards it names:
- * it first looks above the whole pile (older melds included), then just above the newest meld,
- * and only then takes the widest spot it found above the newest meld.
+ * Where a callout goes and how big it is. The word gets a spot of its own: never over a seat, never
+ * over the newest meld (it may ride over the dimmed older ones), never under the header or into
+ * your status stack. It tries, in order: above the whole pile, just above the newest meld, the band
+ * between the pile and your status chip, then the open felt beside the meld. A long phrase may stack
+ * on two lines to fit. Only when none of that fits at full size does the font step down, and it
+ * stops at the level's floor unless the screen is too small to hold even that.
+ *
+ * `size(font, lines)` gives the box at that font (null when the text can't stack on two lines).
  */
-export function calloutLane(vp: Viewport, seats: SeatBox[], pileY: number, hh: number, want: number) {
-  const freeAt = (y: number) => {
-    let half = vp.w / 2 - 12;
+export function placeCallout(o: {
+  vp: Viewport; seats: SeatBox[]; pileY: number; statusTop: number;
+  /** half width of the newest meld, 0 when the table is empty */
+  meldHalfW: number;
+  full: number; floor: number;
+  size: (font: number, lines: 1 | 2) => CalloutBox | null;
+}): CalloutPlace {
+  const { vp, seats, pileY, statusTop, meldHalfW } = o;
+  const gap = 14, edge = 8;
+  const meldTop = pileY - vp.PH * MELD_UP, meldBottom = pileY + vp.PH * 0.58;
+  const pileTop = pileY - vp.PH * (pileFlat(vp) ? MELD_UP : PILE_UP);
+  const cx = vp.pileX;
+  // the word tilts, so its ends reach a little higher and lower than its centre
+  const reach = (c: CalloutBox) => c.hh + (c.w / 2) * Math.sin((c.tilt * Math.PI) / 180) + 2;
+  const hits = (x: number, y: number, c: CalloutBox) => {
+    const w = c.w, hhT = reach(c);
+    if (x - w / 2 < edge || x + w / 2 > vp.w - edge) return true;
+    if (y - hhT < HEADER || y + hhT > statusTop) return true;
     for (const b of seats) {
-      if (Math.abs(b.y - y) >= b.hh + hh) continue;
-      half = Math.min(half, Math.abs(b.x - vp.w / 2) - b.hw - 8);
+      if (Math.abs(b.x - x) < b.hw + w / 2 + 6 && Math.abs(b.y - y) < b.hh + hhT + 4) return true;
     }
-    return Math.max(0, half * 2);
+    if (meldHalfW > 0 && Math.abs(x - cx) < meldHalfW + w / 2 + gap && y + hhT > meldTop - gap && y - hhT < meldBottom + gap) return true;
+    return false;
   };
-  // the callout tilts a few degrees, so its ends sit a little lower than its centre
-  const gap = 10;
-  const stop = HEADER + hh;
-  const abovePile = pileY - vp.PH * (pileFlat(vp) ? MELD_UP : PILE_UP) - hh - gap;
-  const aboveMeld = pileY - vp.PH * MELD_UP - hh - gap;
-  for (let y = abovePile; y >= stop; y -= 3) {
-    const f = freeAt(y);
-    if (f >= want) return { y, maxW: f };
+  const spotFor = (c: CalloutBox) => {
+    const hhT = reach(c);
+    const above = (from: number) => { for (let y = from; y >= HEADER + hhT; y -= 3) if (!hits(cx, y, c)) return y; return null; };
+    let y = above(pileTop - hhT - gap);
+    if (y === null) y = above(meldTop - hhT - gap);
+    if (y !== null) return { x: cx, y };
+    for (let yy = meldBottom + hhT + gap; yy <= statusTop - hhT; yy += 3) if (!hits(cx, yy, c)) return { x: cx, y: yy };
+    // beside the meld: nearest the pile's centre line first, either side
+    const off = meldHalfW + gap + c.w / 2;
+    for (let d = 0; d <= vp.h; d += 3) {
+      for (const yy of d ? [pileY - d, pileY + d] : [pileY]) {
+        for (const x of [cx - off, cx + off]) if (!hits(x, yy, c)) return { x, y: yy };
+      }
+      if (pileY - d < HEADER && pileY + d > statusTop) break;
+    }
+    return null;
+  };
+  const done = (at: { x: number; y: number }, c: CalloutBox, font: number, lines: 1 | 2): CalloutPlace => {
+    const room = 2 * Math.min(at.x, vp.w - at.x) - edge * 2;
+    return { ...at, fontPx: font, maxW: c.w, maxScale: Math.max(1, room / c.w), lines, tilt: c.tilt };
+  };
+  const floor = Math.min(o.full, o.floor);
+  // past the floor only when the screen is too small to hold it anywhere
+  const last = Math.min(floor, Math.max(18, floor * 0.7));
+  for (let font = o.full; ; font = Math.max(last, font * 0.93)) {
+    for (const lines of [1, 2] as const) {
+      const c = o.size(font, lines);
+      if (!c) continue;
+      const at = spotFor(c);
+      if (at) return done(at, c, font, lines);
+    }
+    if (font <= last) break;
   }
-  let best = { y: Math.max(stop, aboveMeld), maxW: freeAt(Math.max(stop, aboveMeld)) };
-  for (let y = aboveMeld; y >= stop; y -= 3) {
-    const f = freeAt(y);
-    if (f >= want) return { y, maxW: f };
-    if (f > best.maxW) best = { y, maxW: f };
+  // Nothing clear even then (a very small screen): take the spot that covers the least, where a
+  // seat costs most, then your status stack, then the newest meld's edge.
+  const ov = (x: number, y: number, c: CalloutBox, bx: number, by: number, hw: number, hh: number) =>
+    Math.max(0, Math.min(x + c.w / 2, bx + hw) - Math.max(x - c.w / 2, bx - hw)) *
+    Math.max(0, Math.min(y + reach(c), by + hh) - Math.max(y - reach(c), by - hh));
+  let best: { cost: number; place: CalloutPlace } | null = null;
+  for (const lines of [1, 2] as const) {
+    const c = o.size(last, lines);
+    if (!c) continue;
+    const hhT = reach(c);
+    for (let y = HEADER + hhT; y <= vp.h - hhT; y += 4) {
+      for (let x = Math.max(edge + c.w / 2, cx - vp.w); x <= Math.min(vp.w - edge - c.w / 2, cx + vp.w); x += 6) {
+        let cost = 0;
+        for (const b of seats) cost += 4 * ov(x, y, c, b.x, b.y, b.hw + 6, b.hh + 4);
+        cost += 2 * ov(x, y, c, vp.w / 2, (statusTop + vp.h) / 2, vp.w, (vp.h - statusTop) / 2);
+        if (meldHalfW > 0) cost += ov(x, y, c, cx, (meldTop + meldBottom) / 2, meldHalfW, (meldBottom - meldTop) / 2);
+        cost += Math.abs(x - cx) * 0.01;
+        if (!best || cost < best.cost) best = { cost, place: done({ x, y }, c, last, lines) };
+      }
+    }
   }
-  return best;
+  return best!.place;
 }
 
 export function useViewport(): Viewport {

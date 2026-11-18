@@ -66,7 +66,7 @@ out wherever a seat would sit on its letters. A second, softer lamp glides to wh
 
 ### Lanes
 
-Text never prints on top of other text. `tableLanes()` and `calloutLane()` in
+Text never prints on top of other text. `tableLanes()` and `placeCallout()` in
 `src/client/fx/layout.ts` split the felt from the bottom up:
 
 1. **Buttons:** Pass and Play sit in a fixed bar at the bottom, so a thumb learns where they are.
@@ -83,11 +83,18 @@ Text never prints on top of other text. `tableLanes()` and `calloutLane()` in
    melds are nudged aside only as far as the room allows. On wide felt (`pileFlat()`, true when a
    five-card meld fits beside another at 0.8 scale), older melds slide out level with the newest
    one, alternating sides, instead of stacking above it. The ring is sized to fit around it.
-5. **Callouts:** a callout always takes one line and never prints over the meld it names, the
-   way a scoring slot sits apart from the cards it scores. It looks for a band clear of seats above
-   the whole pile first, then just above the newest meld, and shrinks a step at a time to fit. A
-   play's callout replaces the current one, while a player going out waits for the current one to
-   finish.
+5. **Callouts:** a callout gets a spot of its own, the way a scoring slot sits apart from the
+   cards it scores. It never prints over a seat, the newest meld, the header or your status
+   stack, although it may ride over the dimmed older melds. `placeCallout()` tries, in order, the
+   band above the whole pile, the band just above the newest meld, the band between the pile and
+   your status chip, and the open felt beside the meld, nearest the pile's centre line first. A
+   two-word callout may stack on two lines when that keeps it bigger. Only when none of these fits
+   at full size does the font step down, and it stops at a floor per level (bombs and straight
+   flushes 48px, Heart 5 44px, flourishes 32px, plain melds 24px). On a screen too small even for
+   that, it goes a little smaller and takes the spot that covers the least. Long words tilt less
+   than 4 degrees so their ends don't swing into a neighbour, and the pop-in spring starts small
+   enough that its rebound never pushes the word off screen. A play's callout replaces the current
+   one, while a player going out waits for the current one to finish.
 
 Opponents' PASS stamps land low on their face-down fan, short of the card count, so neither the
 name nor the count is covered. The active seat's `$` sits on the stats line and the leader's crown
