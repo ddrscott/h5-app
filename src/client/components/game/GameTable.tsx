@@ -163,7 +163,7 @@ export const GameTable: React.FC<GameTableProps> = ({
   const compact = rawVp.w < 640;
   const half = seatHalf(compact);
   const spots = useMemo(() => seatSpots(opponents.length, rawVp.w, rawVp.h, rawVp.portrait)
-    .map((p) => ({ x: Math.min(rawVp.w - half.hw - 4, Math.max(half.hw + 4, p.x)), y: Math.max(56 + half.hh, p.y) })),
+    .map((p) => ({ x: Math.min(rawVp.w - half.hw * 1.06 - 6, Math.max(half.hw * 1.06 + 6, p.x)), y: Math.max(56 + half.hh, p.y) })),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [opponents.length, rawVp, compact]);
   const boxes = useMemo(() => spots.map((p) => ({ ...p, ...half })),
@@ -171,7 +171,7 @@ export const GameTable: React.FC<GameTableProps> = ({
   [spots]);
   const handTop = fan(Math.max(1, myHand.length), rawVp).top;
   const lanes = useMemo(() => tableLanes(rawVp, boxes, handTop), [rawVp, boxes, handTop]);
-  const vp = useMemo(() => ({ ...rawVp, pileY: lanes.pileY }), [rawVp, lanes.pileY]);
+  const vp = useMemo(() => ({ ...rawVp, pileY: lanes.pileY, pileHalf: lanes.pileHalf }), [rawVp, lanes.pileY, lanes.pileHalf]);
   /** A clear spot for a callout: one line, sized to the lane, never over a seat. */
   const lane = useCallback((text: string, level: number) => {
     const want = Math.min(vp.w - 24, 760);
@@ -435,7 +435,7 @@ export const GameTable: React.FC<GameTableProps> = ({
             <motion.button
               onClick={play}
               disabled={!canPlay}
-              className="btn-primary flex-1 max-w-[300px] h-12 text-[15px]"
+              className="btn-primary flex-1 min-w-0 max-w-[300px] h-12 !px-3 sm:!px-5 text-[14px] sm:text-[15px] whitespace-nowrap"
               aria-describedby={blocked ? 'play-why' : undefined}
               animate={canPlay ? { scale: [1, 1.04, 1] } : { scale: 1 }}
               transition={{ duration: 0.25 }}
@@ -443,7 +443,7 @@ export const GameTable: React.FC<GameTableProps> = ({
               title="Play (Enter)"
             >
               {isMyTurn && blocked ? (
-                <span id="play-why" className="normal-case font-semibold">{selected.length === 1 ? 'Single' : playLabel ?? `${selected.length} cards`} · {blocked}</span>
+                <span id="play-why" className="normal-case font-semibold text-[12px] sm:text-[14px] tracking-normal truncate">{selected.length === 1 ? 'Single' : playLabel ?? `${selected.length} cards`} · {blocked}</span>
               ) : isMyTurn ? (
                 <>
                   Play{playLabel ? <span className="opacity-80 normal-case font-semibold">· {playLabel}</span> : selected.length ? <span className="opacity-70">· {selected.length}</span> : null}

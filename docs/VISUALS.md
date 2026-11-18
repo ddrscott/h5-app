@@ -76,14 +76,20 @@ Text never prints on top of other text. `tableLanes()` and `calloutLane()` in
 3. **Status stack:** one chip slot above the hand, with your nameplate under it. The chip shows
    the most urgent of a rejected play (cinnabar), a new leader (brass, crown), `$ YOUR TURN`
    (orange) or who is thinking. Your PASS stamp lands beside the plate rather than on it.
-4. **Pile and ring:** these go midway between the top seats and the status stack, and the ring
-   is sized to fit that gap.
+4. **Pile and ring:** the pile goes midway between the top seats and the status stack when a
+   five-card spread fits there. When side seats crowd that band (phones with 4 to 6 players), it
+   slides to the y with the most room sideways, so a settled meld never covers a nameplate. Wide
+   melds tighten their spacing to fit that room and shrink only if they still don't, and older
+   melds are nudged aside only as far as the room allows. The ring is sized to fit around it.
 5. **Callouts:** a callout always takes one line, placed nearest the pile where no seat overlaps
    it and sized to fit. A play's callout replaces the current one, while a player going out waits
    for the current one to finish.
 
-Opponents' PASS stamps land on their face-down fan, never on the name. Names wrap to two lines on
-a phone instead of being cut, and if two players' initials match, the avatars get a number (B2).
+Opponents' PASS stamps land low on their face-down fan, short of the card count, so neither the
+name nor the count is covered. The active seat's `$` sits on the stats line and the leader's crown
+on the avatar's inner corner, so the name keeps both of its lines and nothing pokes off screen.
+Names wrap to two lines on a phone instead of being cut, at the table and in the lobby, and if two
+players' initials match, the avatars get a number (A2) in both places.
 
 ## Motion rules
 

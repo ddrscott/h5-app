@@ -121,15 +121,35 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
             key={player.handCount}
             initial={{ scale: 1.5 }}
             animate={{ scale: 1 }}
-            className="absolute -right-3 -top-2 min-w-[22px] h-[20px] px-1 grid place-items-center font-mono text-[11px] font-bold bg-ink text-bone border border-white/20"
+            data-count
+            className="absolute z-20 -right-3 -top-2 min-w-[22px] h-[20px] px-1 grid place-items-center font-mono text-[11px] font-bold bg-ink text-bone border border-white/20"
           >
             {player.handCount}
           </motion.span>
         )}
+        {/* PASS: a stamp that thunks onto their cards */}
+        <AnimatePresence>
+          {stamp > 0 && (
+            <motion.div
+              key={stamp}
+              data-stamp
+              className="absolute z-10 pointer-events-none font-mono font-extrabold text-[13px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/85"
+              // low on the fan with its right edge short of the card count (top right), so the count stays readable
+              style={{ top: (backW * 1.4 + 4) * 0.72, right: 14 }}
+              initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
+              animate={{ y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.25 } }}
+              transition={{ type: 'spring', stiffness: 700, damping: 20 }}
+            >
+              PASS
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* nameplate */}
       <div
+        data-plate
         className={`relative flex items-center gap-2 pl-1 pr-2.5 py-1 border bg-ink/80 backdrop-blur-sm transition-colors duration-200 ${
           active ? 'border-ember shadow-[0_0_0_1px_#E85D00,0_0_22px_rgba(232,93,0,.45)]' : 'border-white/15'
         }`}
@@ -140,17 +160,19 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
           {badge ?? initials(player.name)}
           {active && absent && turnStart > 0 && <TimerRing startedAt={turnStart} size={av} />}
           {leader && (
-            <Crown size={14} strokeWidth={2.5} className="absolute -top-2.5 -left-2 text-brass drop-shadow" aria-label="Leads this trick" />
+            // top-right, so on the left seat it stays on screen
+            <Crown size={14} strokeWidth={2.5} className="absolute -top-2.5 -right-2 text-brass drop-shadow" aria-label="Leads this trick" />
           )}
         </div>
         <div className="min-w-0 leading-tight">
           {/* full names, always: wrap to two lines on a phone rather than cut "Aggressive…" */}
           <p className={`font-semibold break-words ${compact ? 'text-[11px] leading-[1.15] line-clamp-2' : 'text-[12px] truncate'} ${active ? 'text-bone' : 'text-bone/85'}`}>
-            {active && <span className="font-mono text-ember">$ </span>}
             {player.name}
           </p>
           <p className="font-mono text-[10px] text-mist flex items-center gap-1">
             {absent && <WifiOff size={11} className="text-brass" aria-label="Disconnected" />}
+            {/* the live prompt sits on the stats line, so the name keeps both of its lines */}
+            {active && <span className="text-ember font-extrabold">$</span>}
             <span>{player.wins}W·{player.losses}L</span>
             {out && place ? <span className="text-brass font-bold">{ORDINAL[place] ?? `${place}TH`}</span> : null}
           </p>
@@ -158,22 +180,6 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
         {onKick && absent && <KickButton name={player.name} onConfirm={onKick} />}
       </div>
 
-      {/* PASS: a stamp that thunks onto the plate */}
-      <AnimatePresence>
-        {stamp > 0 && (
-          <motion.div
-            key={stamp}
-            className="absolute left-1/2 pointer-events-none font-mono font-extrabold text-[13px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/85"
-            style={{ top: (backW * 1.4 + 4) / 2 }}
-            initial={{ x: '-50%', y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
-            animate={{ x: '-50%', y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.25 } }}
-            transition={{ type: 'spring', stiffness: 700, damping: 20 }}
-          >
-            PASS
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 };

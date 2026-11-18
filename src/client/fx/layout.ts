@@ -9,6 +9,8 @@ export interface Viewport {
   PW: number; PH: number;
   /** where the pile sits, in px from the top-left */
   pileX: number; pileY: number;
+  /** how far the pile may spread either side of pileX before it reaches a seat */
+  pileHalf: number;
   /** distance from the bottom of the screen to the hand's baseline */
   handBase: number;
 }
@@ -26,7 +28,7 @@ function measure(): Viewport {
   const PH = Math.round(PW * 1.4);
   // The hand's lowest corner clears the button bar by this much; fan() lifts the arc to suit.
   const handBase = BAR_TOP + 10;
-  return { w, h, portrait, W, H, PW, PH, pileX: w / 2, pileY: h * 0.43, handBase };
+  return { w, h, portrait, W, H, PW, PH, pileX: w / 2, pileY: h * 0.43, pileHalf: w / 2 - 12, handBase };
 }
 
 export interface Slot { x: number; y: number; rot: number; z: number }
@@ -77,6 +79,22 @@ export function fan(n: number, vp: Viewport): Fan {
   return { slots, rows, top };
 }
 
+/** How far above pileY the oldest visible meld reaches (its offset plus half its scaled height). */
+export const PILE_UP = 0.9;
+
+/** Card spacing in a meld of n on the table, tightened to fit within maxHalf of the centre. */
+export function meldSpacing(n: number, vp: Pick<Viewport, 'w' | 'PW'>, maxHalf: number) {
+  if (n <= 1) return 0;
+  const loose = Math.min(vp.PW * 0.46, (Math.min(vp.w, 900) * 0.8 - vp.PW) / (n - 1));
+  // cards are tilted a couple of degrees, so leave a few px for their corners
+  const fit = (2 * (maxHalf - 4) - vp.PW) / (n - 1);
+  return Math.max(vp.PW * 0.2, Math.min(loose, fit));
+}
+/** Half the width of a meld of n laid out with meldSpacing. */
+export function meldHalf(n: number, vp: Pick<Viewport, 'w' | 'PW'>, maxHalf: number) {
+  return ((n - 1) / 2) * meldSpacing(n, vp, maxHalf) + vp.PW / 2 + 4;
+}
+
 export interface SeatBox { x: number; y: number; hw: number; hh: number }
 
 /** Half sizes of an opponent's seat (card fan + nameplate), for keeping text off them. */
@@ -100,7 +118,29 @@ export function tableLanes(vp: Viewport, seats: SeatBox[], handTop: number) {
     if (Math.abs(b.x - vp.w / 2) - b.hw > col) continue;
     band = Math.max(band, b.y + b.hh);
   }
-  const pileY = Math.round((band + statusTop) / 2 + vp.PH * 0.12);
+  const want = Math.round((band + statusTop) / 2 + vp.PH * 0.12);
+  // The pile reaches up to the third meld back (PILE_UP) and down half a card. Find the resting y
+  // where it has the most room sideways, so a settled meld never covers a side seat's plate:
+  // keep the middle when it has room for a full five-card spread, else slide to the clearest band.
+  const up = vp.PH * PILE_UP, down = vp.PH * 0.58;
+  const freeAt = (y: number) => {
+    let half = vp.w / 2 - 10;
+    for (const b of seats) {
+      if (b.y + b.hh < y - up || b.y - b.hh > y + down) continue;
+      half = Math.min(half, Math.abs(b.x - vp.w / 2) - b.hw - 6);
+    }
+    return Math.max(vp.PW * 0.5, half);
+  };
+  const enough = meldHalf(5, vp, Infinity) + vp.PW * 0.42;
+  let pileY = want;
+  let pileHalf = freeAt(want);
+  if (pileHalf < enough) {
+    const lo = band + up + 4, hi = statusTop - down - 4;
+    for (let y = Math.round(lo); y <= hi; y += 2) {
+      const f = freeAt(y);
+      if (f > pileHalf + 1 || (Math.abs(f - pileHalf) <= 1 && Math.abs(y - want) < Math.abs(pileY - want))) { pileY = y; pileHalf = f; }
+    }
+  }
   // the motto's letters reach out to about 1.12r on top and 1.26r at the bottom
   const ringR = Math.max(60, Math.min(vp.w * 0.36, vp.h * 0.2, 230, (pileY - band - 6) / 1.12, (statusTop - pileY - 10) / 1.26));
   // The motto runs along the top and bottom arcs (about ±50° around each pole); show an arc only
@@ -117,7 +157,7 @@ export function tableLanes(vp: Viewport, seats: SeatBox[], handTop: number) {
   const mottoTop = arcClear(ringR * 1.08, -52, 52);
   const mottoBottom = arcClear(ringR * 1.16, 128, 232);
   const outerRing = arcClear(ringR * 1.22, 0, 355);
-  return { statusBottom, statusTop, pileY, ringR, band, mottoTop, mottoBottom, outerRing };
+  return { statusBottom, statusTop, pileY, pileHalf, ringR, band, mottoTop, mottoBottom, outerRing };
 }
 
 /**

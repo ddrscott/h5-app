@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import type { Card as CardType, Meld } from '../../types/game';
 import { CardFace, CardBack } from '../ui/CardFace';
 import type { Viewport } from '../../fx/layout';
-import { registry } from '../../fx/layout';
+import { registry, meldSpacing, meldHalf } from '../../fx/layout';
 import { playFx } from '../../fx/meld';
 import type { PlayFx } from '../../fx/meld';
 
@@ -37,27 +37,42 @@ const STAGGER = 0.04;
 const cache = new Map<string, ReturnType<typeof cardSlots>>();
 /** Same array for the same size, so memoized cards don't re-render. */
 function slotCache(n: number, vp: Viewport) {
-  const k = `${n}:${vp.w}:${vp.PW}`;
+  const k = `${n}:${vp.w}:${vp.PW}:${Math.round(vp.pileHalf)}`;
   let v = cache.get(k);
   if (!v) { v = cardSlots(n, vp); cache.set(k, v); }
   return v;
 }
 
 function cardSlots(n: number, vp: Viewport) {
-  const sp = n > 1 ? Math.min(vp.PW * 0.46, (Math.min(vp.w, 900) * 0.8 - vp.PW) / (n - 1)) : 0;
+  const sp = meldSpacing(n, vp, vp.pileHalf);
   return Array.from({ length: n }, (_, i) => {
     const c = i - (n - 1) / 2;
     return { x: c * sp, y: Math.abs(c) * 1.2, rot: c * 2.2 };
   });
 }
 
-/** Older melds slide back and shrink; anything past the third is gone. */
-function ageOffset(age: number, index: number, vp: Viewport) {
+/**
+ * A meld too wide for the clear band even at its tightest spacing shrinks to fit, so it never
+ * reaches a seat's plate.
+ */
+function fitScale(n: number, vp: Viewport) {
+  const half = meldHalf(n, vp, vp.pileHalf);
+  return half > vp.pileHalf ? vp.pileHalf / half : 1;
+}
+
+/**
+ * Older melds slide back and shrink; anything past the third is gone. The sideways nudge is cut
+ * down when it would push a wide meld past the clear band.
+ */
+function ageOffset(age: number, index: number, vp: Viewport, n: number) {
   const dir = index % 2 ? 1 : -1;
-  if (age === 0) return { x: 0, y: 0, scale: 1, dim: 0, opacity: 1 };
-  if (age === 1) return { x: dir * vp.PW * 0.42, y: -vp.PH * 0.34, scale: 0.8, dim: 0.42, opacity: 1 };
-  if (age === 2) return { x: -dir * vp.PW * 0.3, y: -vp.PH * 0.56, scale: 0.66, dim: 0.62, opacity: 1 };
-  return { x: 0, y: -vp.PH * 0.7, scale: 0.55, dim: 0.8, opacity: 0 };
+  const fs = fitScale(n, vp);
+  const half = meldHalf(n, vp, vp.pileHalf) * fs;
+  const nudge = (want: number, scale: number) => Math.max(0, Math.min(want, vp.pileHalf - half * scale));
+  if (age === 0) return { x: 0, y: 0, scale: fs, dim: 0, opacity: 1 };
+  if (age === 1) return { x: dir * nudge(vp.PW * 0.42, 0.8), y: -vp.PH * 0.34, scale: 0.8 * fs, dim: 0.42, opacity: 1 };
+  if (age === 2) return { x: -dir * nudge(vp.PW * 0.3, 0.66), y: -vp.PH * 0.56, scale: 0.66 * fs, dim: 0.62, opacity: 1 };
+  return { x: 0, y: -vp.PH * 0.7, scale: 0.55 * fs, dim: 0.8, opacity: 0 };
 }
 
 function hash(s: string) {
@@ -110,22 +125,27 @@ export const TablePile: React.FC<Props> = ({ trickMelds, vp, myPlayerId, onLand,
       if (!first.current && !prevKeys.has(key)) {
         const mine = meld.playerId === myPlayerId;
         const seat = registry.seatRect(meld.playerId);
+        // the meld's box is scaled by fitScale, so its children's offsets are too
+        const fs = fitScale(meld.cards.length, vp);
         flights = meld.cards.map((c) => {
-          const o = mine ? registry.takeOrigin(c.code ?? '') : null;
-          if (o) {
-            return {
-              ox: o.rect.left + o.rect.width / 2 - vp.pileX,
-              oy: o.rect.top + o.rect.height / 2 - vp.pileY,
-              orot: o.rotate, os: o.rect.width / vp.PW, faceDown: false,
-            };
-          }
-          if (seat) {
-            return {
-              ox: seat.left + seat.width / 2 - vp.pileX, oy: seat.top + seat.height / 2 - vp.pileY,
-              orot: 0, os: Math.max(0.25, seat.height / 1.4 / vp.PW), faceDown: !mine,
-            };
-          }
-          return { ox: 0, oy: vp.h - vp.pileY, orot: 0, os: 1, faceDown: false };
+          const f = ((): Flight => {
+            const o = mine ? registry.takeOrigin(c.code ?? '') : null;
+            if (o) {
+              return {
+                ox: o.rect.left + o.rect.width / 2 - vp.pileX,
+                oy: o.rect.top + o.rect.height / 2 - vp.pileY,
+                orot: o.rotate, os: o.rect.width / vp.PW, faceDown: false,
+              };
+            }
+            if (seat) {
+              return {
+                ox: seat.left + seat.width / 2 - vp.pileX, oy: seat.top + seat.height / 2 - vp.pileY,
+                orot: 0, os: Math.max(0.25, seat.height / 1.4 / vp.PW), faceDown: !mine,
+              };
+            }
+            return { ox: 0, oy: vp.h - vp.pileY, orot: 0, os: 1, faceDown: false };
+          })();
+          return { ...f, ox: f.ox / fs, oy: f.oy / fs, os: f.os / fs };
         });
         const landAt = (CONTACT + (meld.cards.length - 1) * STAGGER) * 1000;
         timers.push(window.setTimeout(() => onLandRef.current(meld, playFx(meld.type, meld.cards)), reduce ? 0 : landAt));
@@ -148,7 +168,7 @@ export const TablePile: React.FC<Props> = ({ trickMelds, vp, myPlayerId, onLand,
     <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 35 }}>
       {shown.map((s, i) => {
         const age = n - 1 - i;
-        const off = ageOffset(age, s.index, vp);
+        const off = ageOffset(age, s.index, vp, s.meld.cards.length);
         const slots = slotCache(s.meld.cards.length, vp);
         return (
           <motion.div
@@ -178,7 +198,7 @@ export const TablePile: React.FC<Props> = ({ trickMelds, vp, myPlayerId, onLand,
 
       {sweep && sweep.items.map((s, i) => {
         const age = sweep.items.length - 1 - i;
-        const off = ageOffset(age, s.index, vp);
+        const off = ageOffset(age, s.index, vp, s.meld.cards.length);
         const slots = cardSlots(s.meld.cards.length, vp);
         return (
           <motion.div
@@ -237,7 +257,7 @@ const PileCard: React.FC<{
 
   const flipDown = !!flight && flight.faceDown && !reduce;
   return (
-    <motion.div className="absolute" style={{ ...base, borderRadius: '6% / 4.3%', boxShadow: '0 8px 14px -4px rgba(0,0,0,.5)' }} initial={initial} animate={animate} transition={transition}>
+    <motion.div data-pile className="absolute" style={{ ...base, borderRadius: '6% / 4.3%', boxShadow: '0 8px 14px -4px rgba(0,0,0,.5)' }} initial={initial} animate={animate} transition={transition}>
       <CardFace suit={card.suit} rank={card.rank} />
       {flipDown && (
         <motion.div className="absolute inset-0" initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: 0.06, delay: delay + DURATION * 0.3 }}>

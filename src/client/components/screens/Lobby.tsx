@@ -204,7 +204,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                         aria-label="Bot"
                       >
                         {Object.entries(BOT_CONFIGS).map(([key, config]) => (
-                          <option key={key} value={key}>{config.name}</option>
+                          <option key={key} value={key}>{config.name}{players.some((p) => p.name === config.name) ? ' · seated' : ''}</option>
                         ))}
                       </select>
                       <button
