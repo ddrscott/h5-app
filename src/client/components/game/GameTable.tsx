@@ -1,15 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useAnimate } from 'motion/react';
+import { Crown, LogOut, Volume2, VolumeX, X } from 'lucide-react';
 import type { Card as CardType, Player, Meld } from '../../types/game';
 import { GamePhase } from '../../types/game';
-import { Card } from '../ui/Card';
 import { PlayerHand } from './PlayerHand';
-import { OtherHand } from './OtherHand';
-import { AnimatedCards } from '../animations/AnimatedCards';
-import { CircleText } from '../ui/CircleText';
+import { Seat, seatSpots } from './Seat';
+import { TablePile } from './TablePile';
+import { Callouts, showCallout } from './Callouts';
 import { GameOver } from './GameOver';
 import { DialogBox } from '../ui/DialogBox';
-import { KickButton } from '../ui/KickButton';
-import { WifiOff } from 'lucide-react';
+import { CardBack } from '../ui/CardFace';
+import { useViewport, registry } from '../../fx/layout';
+import type { Viewport } from '../../fx/layout';
+import { bus } from '../../fx/bus';
+import { sfx } from '../../fx/sound';
+import { haptics } from '../../fx/haptics';
+import { particles, FxCanvas } from '../../fx/particles';
+import { useMuted, reducedMotion } from '../../fx/prefs';
+import { selectionLabel } from '../../fx/meld';
+import type { PlayFx } from '../../fx/meld';
 
 interface GameTableProps {
   players: Map<string, Player>;
@@ -27,17 +36,10 @@ interface GameTableProps {
   lastError?: string | null;
   lastNotification?: string | null;
   phase: GamePhase;
-  winner?: {
-    id: string;
-    name: string;
-    wins: number;
-  };
-  finalStandings?: {
-    playerId: string;
-    name: string;
-    wins: number;
-    losses: number;
-  }[];
+  winner?: { id: string; name: string; wins: number };
+  finalStandings?: { playerId: string; name: string; wins: number; losses: number }[];
+  /** Seat order from the server; opponents sit clockwise from your left in this order. */
+  turnOrder?: string[];
   onCardSelect: (cardKey: string) => void;
   onPlayCards: () => void;
   onPass: () => void;
@@ -49,801 +51,494 @@ interface GameTableProps {
   onKick?: (playerId: string) => void;
 }
 
-export const GameTable: React.FC<GameTableProps> = ({
-  players,
-  myPlayerId,
-  myHand,
-  selectedCards,
-  currentMeld,
-  currentTurnPlayerId,
-  leadPlayerId,
-  deckCount,
-  discardTop,
-  consecutivePasses,
-  trickMelds,
-  lastTrickMelds,
-  lastError,
-  lastNotification,
-  phase,
-  winner,
-  finalStandings,
-  onCardSelect,
-  onPlayCards,
-  onPass,
-  onLeaveGame,
-  onPlayAgain,
-  isHost = true,
-  hostName = 'the host',
-  onKick,
-}) => {
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [isSweeping, setIsSweeping] = useState(false);
-  const [animatedMelds, setAnimatedMelds] = useState<Map<string, { cards: CardType[], playerId: string, rotation: number, isNew: boolean }>>(new Map());
-  const [sweepingMelds, setSweepingMelds] = useState<Array<{ cards: CardType[], rotation: number, key: string }>>([]);
-  const [handRotationOffset, setHandRotationOffset] = useState(0);
-  const [isDraggingHand, setIsDraggingHand] = useState(false);
-  const animationRef = React.useRef<number | null>(null);
-  const isMyTurn = currentTurnPlayerId === myPlayerId;
-  const isLeader = leadPlayerId === myPlayerId;
-  const canPass = isLeader ? !!currentMeld : true; // Leader can only pass if there's a meld to beat
-  
-  // Debug logging for leader indicator
-  React.useEffect(() => {
-    if (isMyTurn) {
-      console.log('[GameTable] Leader indicator state:', {
-        isMyTurn,
-        isLeader,
-        currentMeld: !!currentMeld,
-        leadPlayerId,
-        myPlayerId,
-        currentTurnPlayerId,
-        shouldShowLeaderMsg: !currentMeld && isMyTurn && isLeader
-      });
-    }
-  }, [isMyTurn, isLeader, currentMeld, leadPlayerId, myPlayerId, currentTurnPlayerId]);
+const MELD_NAME: Record<string, string> = {
+  SINGLE: 'single', PAIR: 'pair', THREE_OF_KIND: 'triple', BOMB: 'bomb', SISTERS: 'sisters',
+  FULL_HOUSE: 'full house', RUN: 'straight', STRAIGHT_FLUSH: 'straight flush',
+};
+const ORD = ['', '1st', '2nd', '3rd', '4th', '5th', '6th'];
 
-  // Handle playing cards with animation
-  const handlePlayCards = () => {
-    if (selectedCards.size === 0) return;
-    
-    // Play cards immediately so game state updates
-    onPlayCards();
-  };
+export const MuteButton: React.FC<{ className?: string }> = ({ className = '' }) => {
+  const [muted, setMuted] = useMuted();
+  return (
+    <button
+      onClick={() => { setMuted(!muted); if (muted) setTimeout(() => sfx.select(3), 30); }}
+      className={`grid place-items-center w-10 h-10 bg-ink/80 border border-white/15 text-bone hover:border-ember transition-colors ${className}`}
+      title={muted ? 'Sound and vibration off' : 'Sound and vibration on'}
+      aria-label={muted ? 'Turn sound on' : 'Turn sound off'}
+      aria-pressed={!muted}
+    >
+      {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+    </button>
+  );
+};
 
-  // Hand rotation limits and helpers
-  const maxRotationLeft = -20;
-  const maxRotationRight = 20;
-  const elasticOverflow = 8;
+/** The inlay on the table where melds land, with the house motto running around it. */
+const TableInlay: React.FC<{ vp: Viewport }> = ({ vp }) => {
+  const r = Math.min(vp.w * 0.36, vp.h * 0.2, 230);
+  return (
+    <div aria-hidden className="absolute pointer-events-none" style={{ left: vp.pileX - r * 1.5, top: vp.pileY - r * 1.5, width: r * 3, height: r * 3 }}>
+      <svg viewBox="-150 -150 300 300" className="w-full h-full">
+        <defs>
+          <path id="inlayText" d="M 0,0 m -100,0 a 100,100 0 1,1 200,0 a 100,100 0 1,1 -200,0" />
+          <radialGradient id="inlayLight">
+            <stop offset="0%" stopColor="#2E7366" stopOpacity="0.55" />
+            <stop offset="70%" stopColor="#2E7366" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle r="140" fill="url(#inlayLight)" />
+        <circle r="112" fill="none" stroke="#D6A54A" strokeOpacity="0.28" strokeWidth="1" />
+        <circle r="88" fill="none" stroke="#D6A54A" strokeOpacity="0.18" strokeWidth="0.6" strokeDasharray="2 4" />
+        <g className="spin-slow" style={{ transformOrigin: '0 0' }}>
+          <text fill="#D6A54A" fillOpacity="0.32" fontSize="10.5" fontFamily='"JetBrains Mono", "H5 Seal", monospace' fontWeight="700" letterSpacing="3.2">
+            <textPath href="#inlayText">HEART OF FIVE ✦ 红心五 ✦ IT'S DA BOMB ✦ HEART OF FIVE ✦ 红心五 ✦ IT'S DA BOMB ✦</textPath>
+          </text>
+        </g>
+      </svg>
+    </div>
+  );
+};
 
-  const applyElasticResistance = (targetRotation: number) => {
-    if (targetRotation < maxRotationLeft) {
-      const overflow = maxRotationLeft - targetRotation;
-      const resistance = Math.min(overflow * 0.3, elasticOverflow);
-      return maxRotationLeft - resistance;
-    } else if (targetRotation > maxRotationRight) {
-      const overflow = targetRotation - maxRotationRight;
-      const resistance = Math.min(overflow * 0.3, elasticOverflow);
-      return maxRotationRight + resistance;
-    }
-    return targetRotation;
-  };
-
-  const animateToRotation = (targetRotation: number, duration: number = 300) => {
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
-
-    const startRotation = handRotationOffset;
-    const startTime = performance.now();
-
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      const easeOut = 1 - Math.pow(1 - progress, 3);
-      const currentRotation = startRotation + (targetRotation - startRotation) * easeOut;
-      
-      setHandRotationOffset(currentRotation);
-
-      if (progress < 1) {
-        animationRef.current = requestAnimationFrame(animate);
-      } else {
-        animationRef.current = null;
-      }
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-  };
-
-  // Global wheel handler for player hand rotation
-  const handleWheel = React.useCallback((e: WheelEvent) => {
-    e.preventDefault();
-    const sensitivity = 0.3;
-    const deltaRotation = e.deltaX * sensitivity;
-    const targetRotation = handRotationOffset + deltaRotation;
-    const newRotation = applyElasticResistance(targetRotation);
-    
-    setHandRotationOffset(newRotation);
-    
-    // Smooth bounce back from elastic zone after a brief delay
-    setTimeout(() => {
-      const currentRotation = handRotationOffset + deltaRotation;
-      if (currentRotation < maxRotationLeft || currentRotation > maxRotationRight) {
-        const bounceTarget = Math.max(maxRotationLeft, Math.min(maxRotationRight, currentRotation));
-        animateToRotation(bounceTarget, 200);
-      }
-    }, 100);
-  }, [handRotationOffset, animateToRotation, applyElasticResistance, maxRotationLeft, maxRotationRight]);
-
-  // Detect when cards should sweep (when trickMelds becomes empty after having cards)
-  const prevTrickMeldsLength = React.useRef(0);
-  
-  
-  // Sync trickMelds with our animated display
+/** Card backs dealt out to each opponent's seat at the start of a game. */
+const DealSprites: React.FC<{ id: number; seats: string[]; vp: Viewport }> = ({ id, seats, vp }) => {
+  const [targets, setTargets] = useState<Array<{ key: string; x: number; y: number; delay: number }>>([]);
   useEffect(() => {
-    setAnimatedMelds(prevAnimatedMelds => {
-      const newAnimatedMelds = new Map<string, { cards: CardType[], playerId: string, rotation: number, isNew: boolean }>();
-      
-      trickMelds.forEach((meld, index) => {
-        const meldKey = `${meld.playerId}-${index}`;
-        const existingMeld = prevAnimatedMelds.get(meldKey);
-        
-        if (existingMeld) {
-          // Keep existing meld but mark as not new
-          newAnimatedMelds.set(meldKey, { ...existingMeld, isNew: false });
-        } else {
-          // New meld - needs animation
-          const rotation = Math.sin(index * 2.3) * 20 + Math.cos(index * 1.7) * 15;
-          newAnimatedMelds.set(meldKey, {
-            cards: meld.cards,
-            playerId: meld.playerId,
-            rotation,
-            isNew: true // Will trigger animation
-          });
+    if (!id || reducedMotion()) return;
+    const t = window.setTimeout(() => {
+      const list: Array<{ key: string; x: number; y: number; delay: number }> = [];
+      seats.forEach((sid, si) => {
+        const r = registry.seatRect(sid);
+        if (!r) return;
+        for (let k = 0; k < 6; k++) {
+          list.push({ key: `${id}-${sid}-${k}`, x: r.left + r.width / 2 - vp.pileX, y: r.top + r.height / 2 - vp.pileY, delay: k * 0.09 + si * 0.03 });
         }
       });
-      
-      return newAnimatedMelds;
-    });
-  }, [trickMelds]);
-  
-  React.useEffect(() => {
-    if (prevTrickMeldsLength.current > 0 && trickMelds.length === 0) {
-      // Cards were cleared, trigger sweep animation
-      // Move current animated melds to sweeping state
-      const meldsToSweep = Array.from(animatedMelds.values()).map((meld, index) => ({
-        cards: meld.cards,
-        rotation: meld.rotation,
-        key: `sweep-${Date.now()}-${index}`
-      }));
-      
-      setSweepingMelds(meldsToSweep);
-      setAnimatedMelds(new Map());
-      
-      // Clear sweeping melds after animation completes
-      setTimeout(() => {
-        setSweepingMelds([]);
-      }, 800); // Longer than animation duration
-    }
-    prevTrickMeldsLength.current = trickMelds.length;
-  }, [trickMelds]);
+      setTargets(list);
+    }, 30);
+    const clear = window.setTimeout(() => setTargets([]), 1600);
+    return () => { clearTimeout(t); clearTimeout(clear); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+  const w = vp.PW * 0.42;
+  return (
+    <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 34 }}>
+      {targets.map((t, i) => (
+        <motion.div
+          key={t.key}
+          className="absolute"
+          style={{ left: vp.pileX - w / 2, top: vp.pileY - w * 0.7, width: w, height: w * 1.4 }}
+          initial={{ x: 0, y: 0, rotate: 0, opacity: 0, scale: 1.4 }}
+          animate={{ x: t.x, y: t.y, rotate: (i % 2 ? 1 : -1) * 200, opacity: [0, 1, 1, 0], scale: 0.7 }}
+          transition={{ duration: 0.42, delay: t.delay, ease: [0.2, 0.6, 0.35, 1], opacity: { duration: 0.42, delay: t.delay, times: [0, 0.1, 0.8, 1] } }}
+        >
+          <CardBack />
+        </motion.div>
+      ))}
+    </div>
+  );
+};
 
-  // Get other players for positioning
-  const otherPlayers = Array.from(players.entries())
-    .filter(([id]) => id !== myPlayerId)
-    .map(([id, player]) => ({ id, player }));
+export const GameTable: React.FC<GameTableProps> = ({
+  players, myPlayerId, myHand, selectedCards, currentMeld, currentTurnPlayerId, leadPlayerId,
+  trickMelds, lastTrickMelds, lastError, lastNotification, phase, winner, finalStandings, turnOrder = [],
+  onCardSelect, onPlayCards, onPass, onLeaveGame, onPlayAgain, isHost = true, hostName = 'the host', onKick,
+}) => {
+  const vp = useViewport();
+  const [scope, animate] = useAnimate<HTMLDivElement>();
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [flash, setFlash] = useState<{ id: number; color: string } | null>(null);
+  const [passBeats, setPassBeats] = useState<Record<string, number>>({});
+  const isPlaying = phase === GamePhase.PLAYING;
+  const isMyTurn = isPlaying && currentTurnPlayerId === myPlayerId;
+  const isLeader = leadPlayerId === myPlayerId;
+  const canPass = isLeader ? !!currentMeld : true;
+  const me = players.get(myPlayerId);
 
-  // Position players around the table in landscape
-  const getPlayerPosition = (index: number, total: number) => {
-    if (total === 1) {
-      // Single opponent at top
-      return { 
-        top: '-4.5em', 
-        left: '50%', 
-        transform: 'translateX(-50%)'
-      };
-    } else if (total === 2) {
-      // Two opponents: one top, one right (for 3-player game)
-      return index === 0 
-        ? { 
-            top: '50%', 
-            left: '-1em', 
-            transform: 'translateY(-50%) rotate(90deg)'
-          }
-        : { 
-            top: '50%', 
-            right: '-3em',
-            transform: 'translateY(-50%) rotate(90deg)'
-          };
-    } else if (total === 3) {
-      // Three opponents: left, top, right
-      if (index === 0) {
-        return { 
-          top: '50%', 
-          left: '-3em', 
-          transform: 'translateY(-50%) rotate(-90deg)'
-        };
-      } else if (index === 1) {
-        return { 
-          top: '-4em', 
-          left: '50%', 
-          transform: 'translateX(-50%)'
-        };
-      } else {
-        return { 
-          top: '50%', 
-          right: '-3em', 
-          transform: 'translateY(-50%) rotate(90deg)'
-        };
-      }
+  // ---------- seats, clockwise from your left ----------
+  const order = useMemo(() => {
+    const ids = turnOrder.filter((id) => players.has(id));
+    players.forEach((_, id) => { if (!ids.includes(id)) ids.push(id); });
+    return ids;
+  }, [turnOrder, players]);
+  const opponents = useMemo(() => {
+    const at = order.indexOf(myPlayerId);
+    const rot = at < 0 ? order : [...order.slice(at + 1), ...order.slice(0, at)];
+    return rot.filter((id) => id !== myPlayerId);
+  }, [order, myPlayerId]);
+  const spots = seatSpots(opponents.length, vp.w, vp.h, vp.portrait);
+  const placeOf = (p?: Player) => (p?.isOut && p.position ? p.position : undefined);
+
+  // ---------- screen shake ----------
+  const shake = useCallback((px: number) => {
+    if (!scope.current || reducedMotion() || px <= 0) return;
+    const a = px, b = px * 0.6;
+    void animate(scope.current, { x: [0, -a, a * 0.9, -b, b * 0.7, -b * 0.4, 0], y: [0, a * 0.5, -a * 0.6, b * 0.5, -b * 0.3, 0, 0] }, { duration: 0.42 + px * 0.012, ease: 'easeOut' });
+  }, [animate, scope]);
+
+  const flashOnce = (color: string) => { if (!reducedMotion()) setFlash({ id: Date.now(), color }); };
+
+  // ---------- a meld lands ----------
+  const onLand = useCallback((meld: Meld, fx: PlayFx) => {
+    const who = meld.playerId === myPlayerId ? 'You' : players.get(meld.playerId)?.name ?? '';
+    const n = meld.cards.length;
+    sfx.land(fx.level >= 3 ? 3 : n >= 5 ? 2 : 1);
+    const cx = vp.pileX, cy = vp.pileY;
+    if (fx.heart5) {
+      sfx.heart5(); haptics.heart5(); shake(10); flashOnce('rgba(199,53,44,.35)');
+      particles.burst({ x: cx, y: cy, kind: 'heart', palette: 'brass', count: 34, speed: 520 });
+      particles.burst({ x: cx, y: cy, kind: 'ember', palette: 'brass', count: 40, speed: 260 });
+    } else if (fx.level === 3) {
+      sfx.bomb(); haptics.bomb(); shake(18); flashOnce('rgba(255,180,90,.42)');
+      particles.burst({ x: cx, y: cy, kind: 'spark', count: 150, speed: 900 });
+      particles.burst({ x: cx, y: cy, kind: 'ember', count: 70, speed: 340 });
+    } else if (fx.level === 2) {
+      sfx.flourish(1); shake(5);
+      particles.burst({ x: cx, y: cy, kind: 'spark', palette: 'brass', count: 34, speed: 520 });
     } else {
-      // 4+ players: distribute along top
-      const spacing = 100 / (total + 1);
-      const position = spacing * (index + 1);
-      return { 
-        top: '-4.5em',
-        left: `${position}%`, 
-        transform: 'translateX(-50%)'
-      };
+      shake(n > 1 ? 3 : 1.5);
+      if (n > 1) particles.burst({ x: cx, y: cy + vp.PH * 0.4, kind: 'spark', palette: 'brass', count: 8 + n * 2, speed: 260, angle: -Math.PI / 2, spread: Math.PI * 0.9 });
     }
-  };
+    if (fx.label) showCallout({ text: fx.label, level: fx.level as 1 | 2 | 3 | 4, sub: who, x: cx, y: cy - vp.PH * 0.98 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myPlayerId, players, vp, shake]);
 
-  // Position player names toward the middle of the table
-  const getPlayerNamePosition = (index: number, total: number) => {
-    if (total === 1) {
-      // Single opponent name below their cards
-      return { 
-        top: '2em',
-        left: 'calc(50% - 6em)', 
-        transform: 'translateY(50%)'
-      };
-    } else if (total === 2) {
-      // Two opponents
-      return index === 0 
-        ? { 
-            top: '50%', 
-            left: '-1em', 
-            transform: 'translateY(-50%) rotate(-90deg)'
-          }
-        : { 
-            top: '50%', 
-            right: '-1em',
-            transform: 'translateY(-50%) rotate(90deg)'
-          };
-    } else if (total === 3) {
-      // Three opponents
-      if (index === 0) {
-        return { 
-          top: '50%', 
-          left: '-1em', 
-          transform: 'translateY(-50%) rotate(-90deg)'
-        };
-      } else if (index === 1) {
-        return { 
-          top: '3em', 
-          left: '50%', 
-          transform: 'translateX(-50%)'
-        };
-      } else {
-        return { 
-          top: '50%', 
-          right: '-1em', 
-          transform: 'translateY(-50%) rotate(90deg)'
-        };
-      }
-    } else {
-      // 4+ players: distribute along top
-      const spacing = 100 / (total + 1);
-      const position = spacing * (index + 1);
-      return { 
-        top: '2em',
-        left: `${position}%`, 
-        transform: 'translateX(-50%)'
-      };
+  // ---------- passes, deals, errors ----------
+  const [dealId, setDealId] = useState(() =>
+    isPlaying && myHand.length > 0 && trickMelds.length === 0 && lastTrickMelds.length === 0 ? 1 : 0);
+  useEffect(() => bus.on((e) => {
+    if (e.type === 'pass') {
+      sfx.pass();
+      setPassBeats((b) => ({ ...b, [e.playerId]: (b[e.playerId] ?? 0) + 1 }));
+    } else if (e.type === 'gameStarted') {
+      setDealId((d) => d + 1);
+    } else if (e.type === 'error') {
+      sfx.error();
     }
-  };
+  }), []);
 
-  const myPlayer = players.get(myPlayerId);
-
-  // Compute winner and standings if needed
-  const computedWinner = (() => {
-    if (winner) return winner;
-    if (phase !== GamePhase.GAME_END && phase !== GamePhase.ROUND_END) return null;
-    
-    let maxWins = 0;
-    let topPlayer: Player | undefined;
-    players.forEach(player => {
-      if (player.wins > maxWins) {
-        maxWins = player.wins;
-        topPlayer = player;
-      }
-    });
-    
-    if (!topPlayer) return null;
-    
-    const tp = topPlayer; // Create a const binding
-    return {
-      id: tp.id,
-      name: tp.name,
-      wins: tp.wins
-    };
-  })();
-
-  const computedStandings = finalStandings || (() => {
-    if (phase !== GamePhase.GAME_END && phase !== GamePhase.ROUND_END) return null;
-    return Array.from(players.values()).map(p => ({
-      playerId: p.id,
-      name: p.name,
-      wins: p.wins,
-      losses: p.losses
-    })).sort((a, b) => b.wins - a.wins);
-  })();
-  
-  // Production debugging for GameOver rendering
+  // ---------- your turn ----------
+  const lastCue = useRef(0);
   useEffect(() => {
-    if (!import.meta.env.DEV && (phase === GamePhase.GAME_END || phase === GamePhase.ROUND_END)) {
-      console.warn('PRODUCTION DEBUG: GameTable END state', {
-        phase,
-        hasWinner: !!winner,
-        hasComputedWinner: !!computedWinner,
-        hasFinalStandings: !!finalStandings,
-        hasComputedStandings: !!computedStandings,
-        willShowGameOver: !!((phase === GamePhase.GAME_END || phase === GamePhase.ROUND_END) && computedWinner && computedStandings),
-        timestamp: new Date().toISOString()
-      });
-    }
-  }, [phase, winner, computedWinner, finalStandings, computedStandings]);
+    if (!isMyTurn) return;
+    const now = performance.now();
+    if (now - lastCue.current < 900) return;
+    lastCue.current = now;
+    // Let the play that handed you the turn land first.
+    const t = window.setTimeout(() => { sfx.yourTurn(); haptics.yourTurn(); }, 380);
+    return () => clearTimeout(t);
+  }, [isMyTurn, currentTurnPlayerId]);
 
-  // Get animation start position based on player
-  const getAnimationStartPosition = (playerId: string) => {
-    if (playerId === myPlayerId) {
-      // Player's own cards - from bottom
-      return { bottom: '1em', left: '50%' };
-    }
-    
-    // Find the player's position among other players
-    const otherPlayers = Array.from(players.entries())
-      .filter(([id]) => id !== myPlayerId)
-      .sort((a, b) => (a[1].position || 0) - (b[1].position || 0));
-    
-    const playerIndex = otherPlayers.findIndex(([id]) => id === playerId);
-    if (playerIndex === -1) return { left: '50%', top: '50%' }; // Fallback to center
-    
-    const position = getPlayerPosition(playerIndex, otherPlayers.length);
-    
-    // Convert the position to animation start position
-    if ('right' in position) {
-      return { right: '2em', top: '50%' };
-    } else if (position.top === '50%') {
-      return { left: '2em', top: '50%' };
-    } else {
-      return { top: '2em', left: position.left || '50%' };
-    }
+  // ---------- someone goes out ----------
+  const outSeen = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!isPlaying && phase !== GamePhase.ROUND_END && phase !== GamePhase.GAME_END) return;
+    players.forEach((p, id) => {
+      if (!p.isOut) { outSeen.current.delete(id); return; }
+      if (outSeen.current.has(id)) return;
+      outSeen.current.add(id);
+      const place = p.position || 1;
+      const mine = id === myPlayerId;
+      const r = mine ? registry.seatRect(myPlayerId) : registry.seatRect(id);
+      const x = r ? r.left + r.width / 2 : vp.w / 2;
+      const y = r ? r.top + r.height / 2 : vp.h / 2;
+      window.setTimeout(() => {
+        sfx.out();
+        particles.burst({ x, y, kind: 'confetti', count: place === 1 ? 70 : 36, speed: 520 });
+        if (mine && place === 1) particles.celebrate();
+        showCallout({ text: mine ? (place === 1 ? 'YOU WENT OUT FIRST!' : `OUT · ${ORD[place]?.toUpperCase()}`) : `OUT · ${ORD[place]?.toUpperCase()}`, level: place === 1 ? 2 : 1, sub: mine ? 'You' : p.name, x: vp.w / 2, y: vp.pileY + vp.PH * 0.95 });
+      }, 650);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players, phase]);
+
+  // ---------- actions ----------
+  const selected = myHand.filter((c) => selectedCards.has(c.code || `${c.rank}${c.suit}`));
+  const playLabel = selectionLabel(selected);
+  const canPlay = isMyTurn && selected.length > 0;
+  const play = () => {
+    if (!canPlay) return;
+    sfx.whoosh(selected.length > 3 ? 1.4 : 1);
+    onPlayCards();
   };
+  const pass = () => {
+    if (!isMyTurn || !canPass) return;
+    onPass();
+  };
+  const clearSel = () => { selectedCards.forEach((k) => onCardSelect(k)); sfx.deselect(); };
 
-  // Keyboard handler for resetting hand view
-  React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || (e.key === 'c' && e.ctrlKey)) {
-        animateToRotation(0, 400);
-      }
+  const keyRef = useRef({ play, pass, clearSel });
+  keyRef.current = { play, pass, clearSel };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+      if (e.key === 'Enter' && !(e.target as HTMLElement)?.closest('[data-card]')) keyRef.current.play();
+      else if (e.key === 'p' || e.key === 'P') keyRef.current.pass();
+      else if (e.key === 'Escape') keyRef.current.clearSel();
     };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Wheel event handler with passive: false
-  React.useEffect(() => {
-    const container = document.querySelector('.felt-texture');
-    if (!container) return;
+  // ---------- where the turn light shines ----------
+  const activeIdx = opponents.indexOf(currentTurnPlayerId ?? '');
+  const light = activeIdx >= 0 ? spots[activeIdx] : isMyTurn ? { x: vp.w / 2, y: vp.h - vp.handBase - vp.H * 0.5 } : null;
 
-    // Add wheel event with passive: false to allow preventDefault
-    container.addEventListener('wheel', handleWheel as EventListener, { passive: false });
-    
-    return () => {
-      container.removeEventListener('wheel', handleWheel as EventListener);
-    };
-  }, [handleWheel]);
+  const activeName = currentTurnPlayerId ? players.get(currentTurnPlayerId)?.name : undefined;
+  const myPlace = placeOf(me);
+  const status: { big: string; small?: string; hot: boolean } | null = !isPlaying ? null
+    : myPlace ? { big: `You're out · ${ORD[myPlace]}`, small: activeName ? `${activeName} to play` : undefined, hot: false }
+    : isMyTurn && !currentMeld ? { big: 'Your lead', small: 'play anything', hot: true }
+    : isMyTurn ? { big: 'Your turn', small: `beat the ${MELD_NAME[currentMeld?.type ?? ''] ?? 'table'} or pass`, hot: true }
+    : activeName ? { big: `${activeName}`, small: 'is thinking', hot: false } : null;
+
+  const isEnd = phase === GamePhase.GAME_END || phase === GamePhase.ROUND_END;
+  const computedWinner = winner ?? (() => {
+    if (!isEnd) return null;
+    let best: Player | undefined;
+    players.forEach((p) => { if (!best || p.wins > best.wins) best = p; });
+    return best ? { id: best.id, name: best.name, wins: best.wins } : null;
+  })();
+  const computedStandings = finalStandings ?? (isEnd
+    ? Array.from(players.values()).map((p) => ({ playerId: p.id, name: p.name, wins: p.wins, losses: p.losses })).sort((a, b) => b.wins - a.wins)
+    : null);
 
   return (
     <div className="fixed inset-0 felt-texture overflow-hidden">
-        <CircleText className="absolute inset-0 pointer-events-none" />
+      <motion.div ref={scope} className="absolute inset-0">
+        <TableInlay vp={vp} />
 
+        {/* the lamp over whoever's turn it is */}
+        <motion.div
+          aria-hidden
+          className="absolute pointer-events-none rounded-full"
+          style={{ width: 460, height: 460, left: -230, top: -230, background: 'radial-gradient(circle, rgba(255,190,120,.16), rgba(255,190,120,0) 62%)' }}
+          initial={false}
+          animate={light ? { x: light.x, y: light.y, opacity: 1 } : { opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+        />
 
-      {/* Header - Game Title and Leave Button */}
-      <div className="absolute top-2 left-2 right-2 flex justify-between items-center z-20">
-          <h3 className="text-lg font-bold text-gold px-3">H<sup>5</sup></h3>
-        <button
-          onClick={() => setShowLeaveConfirm(true)}
-          className="bg-gray-900/90 backdrop-blur-sm rounded-full p-2 shadow-xl hover:bg-gray-800 transition-colors"
-          title="Leave Game"
+        {opponents.map((id, i) => {
+          const p = players.get(id);
+          if (!p || !spots[i]) return null;
+          return (
+            <Seat
+              key={id}
+              player={p}
+              x={spots[i].x}
+              y={spots[i].y}
+              active={isPlaying && currentTurnPlayerId === id}
+              leader={leadPlayerId === id}
+              place={placeOf(p)}
+              passBeat={passBeats[id] ?? 0}
+              compact={vp.w < 640}
+              onKick={isHost && onKick ? () => onKick(id) : undefined}
+            />
+          );
+        })}
+
+        <TablePile trickMelds={trickMelds} vp={vp} myPlayerId={myPlayerId} onLand={onLand} onSweep={() => sfx.whoosh(0.5)} />
+        <DealSprites id={dealId} seats={opponents} vp={vp} />
+
+        {/* new leader: a quiet chip under the pile */}
+        <AnimatePresence>
+          {lastNotification && (
+            <motion.div
+              key={lastNotification}
+              className="absolute z-40 pointer-events-none flex items-center gap-1.5 px-3 py-1.5 bg-ink/85 border border-brass/50 font-mono text-[12px] font-bold uppercase tracking-[0.16em] text-brass-light"
+              style={{ left: vp.pileX, top: vp.pileY + vp.PH * 0.75 }}
+              initial={{ x: '-50%', y: 10, opacity: 0 }}
+              animate={{ x: '-50%', y: 0, opacity: 1 }}
+              exit={{ opacity: 0, y: -6 }}
+            >
+              <Crown size={14} /> {lastNotification}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* your nameplate and the turn status */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 pointer-events-none"
+          style={{ bottom: vp.handBase + vp.H * (myHand.length > 14 && vp.portrait ? 1.75 : 1.25) + 6 }}
         >
-          <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-        </button>
+          <AnimatePresence mode="wait">
+            {status && (
+              <motion.div
+                key={status.big}
+                className={`flex items-baseline gap-2 px-3 py-1 border whitespace-nowrap ${status.hot ? 'bg-ember text-ink border-ember-hot shadow-[0_6px_24px_-6px_rgba(232,93,0,.8)]' : 'bg-ink/80 text-bone border-white/15'}`}
+                initial={{ y: 14, opacity: 0, scale: status.hot ? 0.8 : 1 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: -8, opacity: 0, transition: { duration: 0.12 } }}
+                transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+              >
+                <span className={`text-[13px] font-extrabold ${status.hot ? 'font-mono uppercase tracking-[0.14em]' : 'font-semibold'}`}>
+                  {status.hot && <span className="text-ink/60">$ </span>}{status.big}
+                </span>
+                {status.small && <span className={`text-[12px] ${status.hot ? 'text-ink/75' : 'text-mist'}`}>{status.small}</span>}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {me && (
+            <div ref={(el) => registry.seat(myPlayerId, el)} className="relative flex items-center gap-2 px-2 py-0.5 bg-ink/60 border border-white/10 font-mono text-[11px] text-mist">
+              {isLeader && <Crown size={12} className="text-brass" aria-label="You lead this trick" />}
+              <span className="text-bone font-semibold font-sans text-[12px]">{me.name}</span>
+              <span>{me.wins}W·{me.losses}L</span>
+              <AnimatePresence>
+                {(passBeats[myPlayerId] ?? 0) > 0 && (
+                  <PassStamp key={passBeats[myPlayerId]} />
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+
+        <PlayerHand hand={myHand} selectedCards={selectedCards} onCardSelect={onCardSelect} vp={vp} dealId={dealId} myTurn={isMyTurn} />
+
+        {/* actions: always in the same place so your thumb learns them */}
+        {isPlaying && !myPlace && (
+          <div className="absolute inset-x-0 z-40 flex justify-center gap-2 px-3" style={{ bottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+            <motion.button
+              onClick={pass}
+              disabled={!isMyTurn || !canPass}
+              className="btn-secondary min-w-[88px] h-12"
+              whileTap={{ scale: 0.94 }}
+              title="Pass (P)"
+            >
+              Pass
+            </motion.button>
+            <motion.button
+              onClick={play}
+              disabled={!canPlay}
+              className="btn-primary flex-1 max-w-[300px] h-12 text-[15px]"
+              animate={canPlay ? { scale: [1, 1.04, 1] } : { scale: 1 }}
+              transition={{ duration: 0.25 }}
+              key={canPlay ? `p${selected.length}` : 'off'}
+              title="Play (Enter)"
+            >
+              {isMyTurn ? (
+                <>
+                  Play{playLabel ? <span className="opacity-80 normal-case font-semibold">· {playLabel}</span> : selected.length ? <span className="opacity-70">· {selected.length}</span> : null}
+                </>
+              ) : 'Wait'}
+            </motion.button>
+            <AnimatePresence>
+              {selected.length > 0 && (
+                <motion.button
+                  onClick={clearSel}
+                  className="btn-secondary w-12 h-12 !px-0"
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  title="Clear selection (Esc)"
+                  aria-label="Clear selection"
+                >
+                  <X size={18} />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+      </motion.div>
+
+      {/* header */}
+      <div className="absolute top-2 left-2 right-2 flex justify-between items-start z-50 pointer-events-none">
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <div className="font-seal grid place-items-center w-9 h-9 bg-cinnabar text-paper font-black text-[11px] leading-[1.05] text-center shadow-[inset_0_0_0_2px_rgba(246,240,226,.5)] -rotate-3" aria-hidden>
+            红心<br />五
+          </div>
+          <span className="hidden sm:block font-mono text-[11px] tracking-[0.2em] text-mist">HEART OF FIVE</span>
+        </div>
+        <div className="flex gap-2 pointer-events-auto">
+          <MuteButton />
+          <button
+            onClick={() => setShowLeaveConfirm(true)}
+            className="grid place-items-center w-10 h-10 bg-ink/80 border border-white/15 text-bone hover:border-ember transition-colors"
+            title="Leave game"
+            aria-label="Leave game"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
       </div>
 
-      {/* Leave Confirmation Modal */}
+      {/* error toast */}
+      <AnimatePresence>
+        {lastError && (
+          <motion.div
+            key={lastError}
+            role="alert"
+            className="absolute left-1/2 z-50 px-4 py-2.5 bg-cinnabar-deep/95 border border-cinnabar text-paper text-sm max-w-[90vw] text-center shadow-xl"
+            style={{ bottom: vp.handBase + vp.H * 1.25 + 52 }}
+            initial={{ x: '-50%', y: 10, opacity: 0 }}
+            animate={{ x: ['-50%', '-53%', '-47%', '-51%', '-50%'], y: 0, opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {lastError}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {flash && (
+          <motion.div
+            key={flash.id}
+            aria-hidden
+            className="fixed inset-0 pointer-events-none"
+            style={{ background: flash.color, zIndex: 65 }}
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            onAnimationComplete={() => setFlash(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <Callouts />
+      <FxCanvas />
+
       {showLeaveConfirm && (
         <>
-          {/* Dimmed background for modal */}
-          <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setShowLeaveConfirm(false)} />
-          <DialogBox className="max-w-sm">
-            <h3 className="text-lg font-bold mb-3">Leave Game?</h3>
-            <p className="text-gray-300 mb-4">Are you sure you want to leave the game?</p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => {
-                  setShowLeaveConfirm(false);
-                  onLeaveGame();
-                }}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition-colors"
-              >
-                Leave
-              </button>
-              <button
-                onClick={() => setShowLeaveConfirm(false)}
-                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
+          <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setShowLeaveConfirm(false)} />
+          <DialogBox className="max-w-sm z-[81]">
+            <p className="section-head mb-2">leave_table</p>
+            <h3 className="font-display text-2xl font-bold mb-2">Leave the game?</h3>
+            <p className="text-gray-300 mb-5 text-sm">Your seat stays at the table, and the room plays for you after 30 seconds each turn.</p>
+            <div className="flex gap-3">
+              <button onClick={() => { setShowLeaveConfirm(false); onLeaveGame(); }} className="btn-primary flex-1">Leave</button>
+              <button onClick={() => setShowLeaveConfirm(false)} className="btn-secondary flex-1">Stay</button>
             </div>
           </DialogBox>
         </>
       )}
 
-      {/* Game Table Area */}
-      <div className="absolute inset-0">
-        {/* Other Players Cards */}
-        {otherPlayers.map((opponent, index) => {
-          const position = getPlayerPosition(index, otherPlayers.length);
-          const isCurrentTurn = currentTurnPlayerId === opponent.id;
-          const isLeaderPlayer = leadPlayerId === opponent.id;
-
-          return (
-            <OtherHand
-              key={opponent.id}
-              opponent={opponent}
-              position={position}
-              isCurrentTurn={isCurrentTurn}
-              isLeader={isLeaderPlayer}
-            />
-          );
-        })}
-
-        {/* Other Players Names - positioned toward center */}
-        {otherPlayers.map((opponent, index) => {
-          const namePosition = getPlayerNamePosition(index, otherPlayers.length);
-          const isCurrentTurn = currentTurnPlayerId === opponent.id;
-          const isLeaderPlayer = leadPlayerId === opponent.id;
-
-          return (
-            <div
-              key={`name-${opponent.id}`}
-              className="absolute z-40"
-              style={namePosition}
-            >
-              <p className={`
-                text-center text-xs text-yellow-100/40
-                font-serif tracking-wider
-                border border-dotted border-yellow-200/20 rounded-lg px-4 py-2
-                ${isCurrentTurn ? 'text-yellow-100/60 border-yellow-200/40' : ''}
-              `}>
-                {opponent.player.isActive === false && (
-                  <WifiOff size={12} className="inline mr-1 text-yellow-500" aria-label="Disconnected" />
-                )}
-                {isLeaderPlayer && '👑 '}
-                {opponent.player.name}
-                <span className="font-bold ml-1">({opponent.player.wins}-{opponent.player.losses})</span>
-                {isCurrentTurn && ' 🎯'}
-                {isHost && onKick && opponent.player.isActive === false && (
-                  <KickButton name={opponent.player.name} onConfirm={() => onKick(opponent.id)} />
-                )}
-              </p>
-            </div>
-          );
-        })}
-
-        {/* Discard Pile Area */}
-        <div className="absolute bottom-[15vh] left-[5vw] landscape:left-[10vw] landscape:bottom-[35vh]">
-          {/* Sweeping cards animation */}
-          {sweepingMelds.map((meld, meldIndex) => {
-            // Add some randomness to where cards land in the pile
-            const landingVariation = {
-              x: Math.random() * 30 - 15, // -15 to +15 pixels
-              y: Math.random() * 20 - 10  // -10 to +10 pixels
-            };
-            
-            return (
-              <AnimatedCards
-                key={meld.key}
-                cards={meld.cards}
-                startPosition={{ left: '50%', top: '50%' }}
-                endPosition={{ 
-                  left: `calc(10vw + ${landingVariation.x}px)`, 
-                  bottom: `calc(35vh + ${landingVariation.y}px)` 
-                }}
-                duration={0.6}
-                stagger={0.02}
-                arrangeAsArc={false}
-                groupRotation={meld.rotation + Math.random() * 40 - 20}
-                dimmed={true}
-                zIndex={45}
-              />
-            );
-          })}
-          
-          {/* Static discarded cards - messy pile like real table */}
-          {lastTrickMelds.length > 0 && (
-            <div className="relative w-48 h-32">
-              {lastTrickMelds.flatMap((meld, meldIndex) => 
-                meld.cards.map((card, cardIndex) => {
-                  // Create a unique but deterministic position for each card
-                  const totalIndex = lastTrickMelds
-                    .slice(0, meldIndex)
-                    .reduce((sum, m) => sum + m.cards.length, 0) + cardIndex;
-                  
-                  // Use multiple sine waves for natural randomness
-                  const seed = totalIndex * 2.7;
-                  const x = Math.sin(seed * 1.3) * 60 + Math.cos(seed * 0.7) * 40;
-                  const y = Math.cos(seed * 0.9) * 40 + Math.sin(seed * 1.1) * 30;
-                  const rotation = Math.sin(seed * 0.5) * 45 + Math.cos(seed * 1.7) * 30;
-                  
-                  // Older cards get pushed down slightly
-                  const ageOffset = Math.min(totalIndex * 0.5, 20);
-                  
-                  return (
-                    <Card
-                      key={`swept-${meldIndex}-${card.suit}-${card.rank}-${cardIndex}`}
-                      {...card}
-                      className="absolute transform cursor-default transition-all duration-300"
-                      style={{ 
-                        transform: `translate(${x}px, ${y + ageOffset}px) rotate(${rotation}deg) scale(0.3)`,
-                        filter: 'brightness(0.5)',
-                        zIndex: totalIndex // Newer cards on top
-                      }}
-                    />
-                  );
-                })
-              )}
-            </div>
-          )}
-          
-          {/* Label below the piles */}
-          <p className="text-center text-xs mt-16 text-yellow-100/40
-              font-serif tracking-wider
-              border border-dotted border-yellow-200/20 rounded-lg px-3 py-2">Discards</p>
-        </div>
-
-        {/* Center Play Area - Messy Stack */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative">{/* Add relative container for proper centering */}
-          
-          {/* Curved Text SVG */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 1 }}>
-            <svg width="300" height="300" viewBox="0 0 300 300" className="opacity-40">
-              <defs>
-                <path id="circlePath" d="M 150, 150 m -80, 0 a 80,80 0 0,1 160,0 a 80,80 0 0,1 -160,0" />
-              </defs>
-              <g>
-                <use xlinkHref="#circlePath" fill="none" />
-                <text fill="#8b7355" fontSize="16" fontFamily="Georgia, serif" fontWeight="600">
-                  <textPath xlinkHref="#circlePath">Heart of 5 ★ Is Da Bomb ★ Heart of 5 ★ Is Da Bomb ★ </textPath>
-                </text>
-              </g>
-            </svg>
-          </div>
-          {/* All center melds using AnimatedCards */}
-          {Array.from(animatedMelds.entries()).map(([key, meld], index) => {
-            const isCurrentMeld = index === animatedMelds.size - 1;
-            
-            // Sort cards by rank for the current meld only
-            const cardsToDisplay = isCurrentMeld 
-              ? [...meld.cards].sort((a, b) => a.rank - b.rank)
-              : meld.cards;
-            
-            return (
-              <AnimatedCards
-                key={key}
-                cards={cardsToDisplay}
-                startPosition={meld.isNew ? getAnimationStartPosition(meld.playerId) : { left: '50%', top: '50%' }}
-                endPosition={{ left: '50%', top: '50%' }}
-                duration={meld.isNew ? 0.5 : 0}
-                stagger={meld.isNew ? 0.05 : 0}
-                arrangeAsArc={true}
-                groupRotation={meld.rotation}
-                dimmed={!isCurrentMeld}
-                zIndex={40 + index}
-              />
-            );
-          })}
-          
-          {/* Deck and Discard indicators */}
-          {!currentMeld && !isLeader && (
-            <div className="flex items-center space-x-12">
-              {/* Deck - neat stacked appearance */}
-              <div className="relative">
-                {/* Shadow cards for depth */}
-                <div className="absolute w-16 h-24 bg-gray-800/60 rounded-lg transform translate-x-2 translate-y-2" />
-                <div className="absolute w-16 h-24 bg-gray-700/80 rounded-lg transform translate-x-1 translate-y-1" />
-                
-                {/* Top card */}
-                <Card suit="" rank={0} isBack className="w-16 h-24 relative z-10 shadow-xl" />
-                
-                {/* Card count badge */}
-                <span className="absolute -top-2 -right-2 bg-gray-900 text-gold font-bold px-2 py-1 rounded-full text-xs z-20 border border-gold/50 shadow-lg">
-                  {deckCount}
-                </span>
-                
-                {/* Label */}
-                <p className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-yellow-100/40
-                    font-serif tracking-wider">
-                  Draw Pile
-                </p>
-              </div>
-              
-              {/* Center discard indicator - shows last played */}
-              {discardTop && (
-                <div className="relative">
-                  {/* Small pile effect */}
-                  <div className="absolute w-16 h-24 opacity-20 transform translate-x-1 translate-y-1">
-                    <Card {...discardTop} className="w-full h-full transform rotate-8" />
-                  </div>
-                  <div className="absolute w-16 h-24 opacity-30 transform translate-x-0.5 translate-y-0.5">
-                    <Card {...discardTop} className="w-full h-full transform -rotate-4" />
-                  </div>
-                  
-                  {/* Top card */}
-                  <Card {...discardTop} className="w-16 h-24 relative z-10 transform rotate-2 shadow-lg" />
-                  
-                  {/* Label */}
-                  <p className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-yellow-100/40
-                      font-serif tracking-wider">
-                    Last Played
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-          </div>{/* Close relative container */}
-        </div>
-
-        {/* Important Notification - Center of screen */}
-        {lastNotification && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 animate-notification-pop pointer-events-none">
-            <div className="bg-gold/20 backdrop-blur-sm rounded-lg px-8 py-6 shadow-2xl border-2 border-gold">
-              <p className="text-2xl text-gold font-bold text-center whitespace-nowrap">
-                {lastNotification}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Error Toast - Above Action Buttons */}
-        {lastError && (
-          <div className="absolute bottom-36 left-1/2 transform -translate-x-1/2 z-40 animate-fade-in">
-            <div className="bg-red-900/90 backdrop-blur-sm rounded-lg px-6 py-3 shadow-xl border border-red-700">
-              <p className="text-sm text-red-100 font-medium">{lastError}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons - Above Cards */}
-        {isMyTurn && phase === GamePhase.PLAYING && (
-          <div className="absolute bottom-[1em] left-1/2 transform -translate-x-1/2 flex space-x-3 z-30">
-            <button
-              onClick={onPass}
-              disabled={!canPass}
-              className={`flex-shrink ${
-                canPass ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              } px-6 py-2 text-sm font-bold rounded-lg transition-all shadow-lg`}
-            >
-              Pass
-            </button>
-            <button
-              onClick={handlePlayCards}
-              disabled={selectedCards.size === 0}
-              className={`flex-grow min-w-[12rem] ${
-                selectedCards.size > 0 ? 'bg-gold hover:bg-gold-dark text-gray-900' : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              } px-6 py-2 text-sm font-bold rounded-lg transition-all shadow-lg`}
-            >
-              Play Selected ({selectedCards.size})
-            </button>
-          </div>
-        )}
-
-        {/* Turn Indicator */}
-        {!isMyTurn && currentTurnPlayerId && phase === GamePhase.PLAYING && (
-          <div className="absolute bottom-[11em] left-1/2 transform -translate-x-1/2 z-30">
-            <div className="bg-gray-900/90 backdrop-blur-sm px-4 py-2 rounded-lg">
-              <p className="text-sm">
-                Waiting for <span className="text-gold font-bold">
-                  {players.get(currentTurnPlayerId)?.name || 'Unknown'}
-                </span>
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Leader message when center is empty */}
-        {!currentMeld && isMyTurn && isLeader && (
-          <div className="absolute bottom-[12em] left-1/2 transform -translate-x-1/2 z-30">
-          <div className="bg-gold/20 backdrop-blur-xs border-2 border-gold p-2 rounded-lg">
-            <p className="text-gold text-center">
-              You may lead with any hand
-            </p>
-          </div>
-          </div>
-        )}
-      </div>
-
-      {/* Current Player Nameplate - Bottom center above hand */}
-      {myPlayer && (
-        <div className="absolute bottom-[8em] left-1/2 transform -translate-x-1/2">
-          <p className={`
-            text-center text-xs text-yellow-100/40
-            font-serif tracking-wider
-            border border-dotted border-yellow-200/20 rounded-lg px-4 py-2
-            ${isMyTurn ? 'text-yellow-100/60 border-yellow-200/40' : ''}
-          `}>
-            {isLeader && '👑 '}
-            {myPlayer.name} (You)
-            <span className="font-bold ml-1">({myPlayer.wins}-{myPlayer.losses})</span>
-            {isMyTurn && ' 🎯'}
-          </p>
-        </div>
+      {isEnd && computedWinner && computedStandings && (
+        <GameOver
+          winner={computedWinner}
+          finalStandings={computedStandings}
+          players={players}
+          myPlayerId={myPlayerId}
+          onPlayAgain={onPlayAgain}
+          onLeaveGame={onLeaveGame}
+          isHost={isHost}
+          hostName={hostName}
+        />
       )}
-
-      {/* Player Hand - Bottom of screen */}
-      <PlayerHand 
-        hand={myHand}
-        selectedCards={selectedCards}
-        onCardSelect={onCardSelect}
-        rotationOffset={handRotationOffset}
-        setRotationOffset={setHandRotationOffset}
-        isDragging={isDraggingHand}
-        setIsDragging={setIsDraggingHand}
-        animateToRotation={animateToRotation}
-        applyElasticResistance={applyElasticResistance}
-      />
-
-      {/* Game Over Dialog */}
-      {(() => {
-        // Debug logging for production
-        if ((phase === GamePhase.GAME_END || phase === GamePhase.ROUND_END) && !import.meta.env.DEV) {
-          console.warn('PRODUCTION DEBUG: GameTable END state', {
-            phase,
-            hasComputedWinner: !!computedWinner,
-            computedWinner,
-            hasComputedStandings: !!computedStandings,
-            computedStandings,
-            winner: winner,
-            finalStandings: finalStandings
-          });
-        }
-        
-        // Show GameOver on ROUND_END (which is when a game actually ends)
-        if ((phase === GamePhase.GAME_END || phase === GamePhase.ROUND_END) && computedWinner && computedStandings) {
-          return (
-            <GameOver
-              winner={computedWinner}
-              finalStandings={computedStandings}
-              onPlayAgain={onPlayAgain}
-              onLeaveGame={onLeaveGame}
-              isHost={isHost}
-              hostName={hostName}
-            />
-          );
-        }
-        return null;
-      })()}
     </div>
+  );
+};
+
+const PassStamp: React.FC = () => {
+  const [on, setOn] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setOn(false), 1200); return () => clearTimeout(t); }, []);
+  if (!on) return null;
+  return (
+    <motion.span
+      className="absolute left-1/2 top-1/2 font-mono font-extrabold text-[12px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/80"
+      initial={{ x: '-50%', y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
+      animate={{ x: '-50%', y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ type: 'spring', stiffness: 700, damping: 20 }}
+    >
+      PASS
+    </motion.span>
   );
 };

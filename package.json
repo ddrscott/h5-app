@@ -16,7 +16,10 @@
     "test": "node --import tsx --test src/worker/game/*.test.ts"
   },
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "lucide-react": "^0.522.0",
+    "motion": "^14.14.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.2"

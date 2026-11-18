@@ -215,6 +215,7 @@ function GameApp() {
         discardTop={gameState.discardTop || undefined}
         consecutivePasses={gameState.consecutivePasses}
         trickMelds={gameState.trickMelds}
+        turnOrder={gameState.turnOrder}
         lastTrickMelds={gameState.lastTrickMelds}
         lastError={gameState.lastError}
         lastNotification={gameState.lastNotification}
