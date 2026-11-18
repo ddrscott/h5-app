@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import type { Card as CardType, Meld } from '../../types/game';
 import { CardFace, CardBack } from '../ui/CardFace';
 import type { Viewport } from '../../fx/layout';
-import { registry, meldSpacing, meldHalf } from '../../fx/layout';
+import { registry, meldSpacing, meldHalf, pileFlat, BESIDE_GAP } from '../../fx/layout';
 import { playFx } from '../../fx/meld';
 import type { PlayFx } from '../../fx/meld';
 
@@ -64,12 +64,21 @@ function fitScale(n: number, vp: Viewport) {
  * Older melds slide back and shrink; anything past the third is gone. The sideways nudge is cut
  * down when it would push a wide meld past the clear band.
  */
-function ageOffset(age: number, index: number, vp: Viewport, n: number) {
+function ageOffset(age: number, index: number, vp: Viewport, n: number, newestN: number) {
   const dir = index % 2 ? 1 : -1;
   const fs = fitScale(n, vp);
   const half = meldHalf(n, vp, vp.pileHalf) * fs;
   const nudge = (want: number, scale: number) => Math.max(0, Math.min(want, vp.pileHalf - half * scale));
   if (age === 0) return { x: 0, y: 0, scale: fs, dim: 0, opacity: 1 };
+  if (pileFlat(vp)) {
+    // Wide felt: slide older melds out to either side of the newest, level with it, so nothing
+    // stacks above the meld you have to beat and its callout gets the band overhead.
+    const newest = meldHalf(newestN, vp, vp.pileHalf) * fitScale(newestN, vp);
+    const beside = (scale: number) => Math.min(newest + BESIDE_GAP + half * scale, vp.pileHalf - half * scale);
+    if (age === 1) return { x: dir * beside(0.8), y: -vp.PH * 0.06, scale: 0.8 * fs, dim: 0.42, opacity: 1 };
+    if (age === 2) return { x: -dir * beside(0.66), y: -vp.PH * 0.1, scale: 0.66 * fs, dim: 0.62, opacity: 1 };
+    return { x: -dir * beside(0.55), y: -vp.PH * 0.12, scale: 0.55 * fs, dim: 0.8, opacity: 0 };
+  }
   if (age === 1) return { x: dir * nudge(vp.PW * 0.42, 0.8), y: -vp.PH * 0.34, scale: 0.8 * fs, dim: 0.42, opacity: 1 };
   if (age === 2) return { x: -dir * nudge(vp.PW * 0.3, 0.66), y: -vp.PH * 0.56, scale: 0.66 * fs, dim: 0.62, opacity: 1 };
   return { x: 0, y: -vp.PH * 0.7, scale: 0.55 * fs, dim: 0.8, opacity: 0 };
@@ -168,7 +177,7 @@ export const TablePile: React.FC<Props> = ({ trickMelds, vp, myPlayerId, onLand,
     <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 35 }}>
       {shown.map((s, i) => {
         const age = n - 1 - i;
-        const off = ageOffset(age, s.index, vp, s.meld.cards.length);
+        const off = ageOffset(age, s.index, vp, s.meld.cards.length, shown[n - 1].meld.cards.length);
         const slots = slotCache(s.meld.cards.length, vp);
         return (
           <motion.div
@@ -198,7 +207,7 @@ export const TablePile: React.FC<Props> = ({ trickMelds, vp, myPlayerId, onLand,
 
       {sweep && sweep.items.map((s, i) => {
         const age = sweep.items.length - 1 - i;
-        const off = ageOffset(age, s.index, vp, s.meld.cards.length);
+        const off = ageOffset(age, s.index, vp, s.meld.cards.length, sweep.items[sweep.items.length - 1].meld.cards.length);
         const slots = cardSlots(s.meld.cards.length, vp);
         return (
           <motion.div

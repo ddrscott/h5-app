@@ -94,6 +94,17 @@ export function meldSpacing(n: number, vp: Pick<Viewport, 'w' | 'PW'>, maxHalf: 
 export function meldHalf(n: number, vp: Pick<Viewport, 'w' | 'PW'>, maxHalf: number) {
   return ((n - 1) / 2) * meldSpacing(n, vp, maxHalf) + vp.PW / 2 + 4;
 }
+/** Gap between the newest meld and an older one set beside it. */
+export const BESIDE_GAP = 10;
+/**
+ * True when the felt is wide enough to set older melds beside the newest one (a five-card meld at
+ * 0.8 scale next to a five-card meld) instead of stacking them above it. Then the pile reaches no
+ * higher than the newest meld, which leaves the band above it for the callout.
+ */
+export function pileFlat(vp: Pick<Viewport, 'w' | 'PW' | 'pileHalf'>) {
+  const h5 = meldHalf(5, vp, vp.pileHalf);
+  return h5 * 1.8 + BESIDE_GAP <= vp.pileHalf;
+}
 
 export interface SeatBox { x: number; y: number; hw: number; hh: number }
 
@@ -160,9 +171,14 @@ export function tableLanes(vp: Viewport, seats: SeatBox[], handTop: number) {
   return { statusBottom, statusTop, pileY, pileHalf, ringR, band, mottoTop, mottoBottom, outerRing };
 }
 
+/** How far above pileY the newest meld's top edge reaches (half a card plus the landing squash). */
+export const MELD_UP = 0.53;
+
 /**
- * Where a callout can go: the y nearest the top of the pile where a line of the given half
- * height doesn't run into any seat, and how wide it may be there.
+ * Where a callout can go: a y above the pile where a line of the given half height doesn't run
+ * into any seat, and how wide it may be there. The word never prints over the cards it names:
+ * it first looks above the whole pile (older melds included), then just above the newest meld,
+ * and only then takes the widest spot it found above the newest meld.
  */
 export function calloutLane(vp: Viewport, seats: SeatBox[], pileY: number, hh: number, want: number) {
   const freeAt = (y: number) => {
@@ -173,10 +189,17 @@ export function calloutLane(vp: Viewport, seats: SeatBox[], pileY: number, hh: n
     }
     return Math.max(0, half * 2);
   };
-  let best = { y: pileY - vp.PH * 0.55, maxW: 0 };
-  const start = pileY - vp.PH * 0.45;
+  // the callout tilts a few degrees, so its ends sit a little lower than its centre
+  const gap = 10;
   const stop = HEADER + hh;
-  for (let y = start; y >= stop; y -= 3) {
+  const abovePile = pileY - vp.PH * (pileFlat(vp) ? MELD_UP : PILE_UP) - hh - gap;
+  const aboveMeld = pileY - vp.PH * MELD_UP - hh - gap;
+  for (let y = abovePile; y >= stop; y -= 3) {
+    const f = freeAt(y);
+    if (f >= want) return { y, maxW: f };
+  }
+  let best = { y: Math.max(stop, aboveMeld), maxW: freeAt(Math.max(stop, aboveMeld)) };
+  for (let y = aboveMeld; y >= stop; y -= 3) {
     const f = freeAt(y);
     if (f >= want) return { y, maxW: f };
     if (f > best.maxW) best = { y, maxW: f };

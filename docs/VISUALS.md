@@ -80,10 +80,14 @@ Text never prints on top of other text. `tableLanes()` and `calloutLane()` in
    five-card spread fits there. When side seats crowd that band (phones with 4 to 6 players), it
    slides to the y with the most room sideways, so a settled meld never covers a nameplate. Wide
    melds tighten their spacing to fit that room and shrink only if they still don't, and older
-   melds are nudged aside only as far as the room allows. The ring is sized to fit around it.
-5. **Callouts:** a callout always takes one line, placed nearest the pile where no seat overlaps
-   it and sized to fit. A play's callout replaces the current one, while a player going out waits
-   for the current one to finish.
+   melds are nudged aside only as far as the room allows. On wide felt (`pileFlat()`, true when a
+   five-card meld fits beside another at 0.8 scale), older melds slide out level with the newest
+   one, alternating sides, instead of stacking above it. The ring is sized to fit around it.
+5. **Callouts:** a callout always takes one line and never prints over the meld it names, the
+   way a scoring slot sits apart from the cards it scores. It looks for a band clear of seats above
+   the whole pile first, then just above the newest meld, and shrinks a step at a time to fit. A
+   play's callout replaces the current one, while a player going out waits for the current one to
+   finish.
 
 Opponents' PASS stamps land low on their face-down fan, short of the card count, so neither the
 name nor the count is covered. The active seat's `$` sits on the stats line and the leader's crown
