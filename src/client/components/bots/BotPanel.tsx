@@ -194,7 +194,9 @@ export const BotPanel: React.FC<{
       {consent && (
         <>
           <div className="fixed inset-0 bg-black/60 z-[90]" />
-          <DialogBox className="max-w-sm z-[91]">
+          {/* its own layer, so the warning sits above the panel and the backdrop */}
+          <div className="fixed inset-0 z-[91] pointer-events-none">
+          <DialogBox className="max-w-sm">
             <p className="section-head mb-2">Before it runs</p>
             <h3 className="font-display text-2xl font-bold mb-2">This runs code in your browser</h3>
             <p className="text-gray-300 mb-2 text-sm">
@@ -207,6 +209,7 @@ export const BotPanel: React.FC<{
               <button className="btn-secondary flex-1" onClick={() => setConsent(null)}>Cancel</button>
             </div>
           </DialogBox>
+          </div>
         </>
       )}
     </>

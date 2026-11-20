@@ -80,12 +80,60 @@ JSON text frames on `/h5/api/rooms/new/ws` (create) or `/h5/api/rooms/:code/ws` 
 | server → client | `{t:"state", s}` | after every change |
 | server → client | `{t:"msg", type, data}` | game messages: `your_hand`, `your_turn`, `game_started`, `meld_played`, ... |
 | server → client | `{t:"bye", code, reason}` | right before the room closes a seated socket on purpose |
-| client → server | `{t:"msg", type, data}` | `play`, `pass`, `chat`, `startGame` (host only), `ready`, `kick` (`{playerId}`, host only, absent players only) |
+| client → server | `{t:"msg", type, data}` | `play`, `pass`, `chat`, `startGame` (host only), `ready`, `kick` (`{playerId}`, host only, absent players only), `autopilot` (`{name}` or `{name: null}`, labels your seat while an uploaded bot plays it) |
 | client → server | `{t:"leave"}` | leaving on purpose |
 
 A room that turns a player away closes the socket with a 4xxx code and a reason the client shows: 4404 not found (also a seat that's gone), 4423 already started, 4429 full (6 players max). A seated socket can be closed with 4001 (the same seat was opened in another tab) or 4410 (the host removed the seat). The client never retries a 4xxx close, and it forgets the saved seat on 4404 and 4410. The public state's `hostId` says who may start the game; anyone else's `startGame` gets an `error` saying who can.
 
 Taking a seat back: open `/h5/api/rooms/:code/ws?session=<sessionId>&token=<token>`. The room answers with the same `joined` frame, the state, `game_state`, `your_hand`, and `your_turn` when it's your turn.
+
+## Bring your own bot
+
+A player can upload or paste a JavaScript bot and hand it **their own seat**, and take the seat back at any time. A host can also seat it as an extra player from the lobby. The bot runs in the player's browser. The server doesn't run or trust it: it sees ordinary `play` and `pass` frames and referees them like any other. The only server change is the `autopilot` label, which puts a small bot badge with the bot's name on that seat for everyone at the table. It's cleared when the player takes over or their socket drops.
+
+The bot button sits in the header, next to the mute switch, in the lobby and at the table. Its panel has a file picker and a paste box, the bots saved in this browser (localStorage, `h5-my-bots`; there's no server storage or gallery yet), a test run on a sample turn, a one-screen "How to write a bot" guide, and a downloadable starter bot. While a bot plays for you, a strip under the logo says so, with a Take over button.
+
+### The contract
+
+A bot is a plain script (no `import` or `export`, 200 KB at most) that defines `decide(view)` and returns a move. `decide` may be async, and variables at the top level last between turns. The types are in `src/client/bots/contract.ts`; both sides are plain JSON.
+
+```js
+// view
+{
+  me: "a1b2",                                   // your seat
+  hand: ["3C", "3D", "9H", "TS", "5H"],         // your cards, lowest first
+  legalMoves: [{ cards: ["9H"] }, { cards: ["TS"] }, { pass: true }],
+  table: { cards: ["8S"], type: "SINGLE", by: "c3d4" },  // null when you lead
+  players: [{ id, name, cards, out, passed }],  // seat order, you included
+  history: [{ by: "c3d4", cards: ["8S"] }, { by: "e5f6", pass: true }],  // this game, oldest first
+  timeBudgetMs: 2000
+}
+// move
+{ cards: ["9H"] }   or   { pass: true }
+```
+
+Cards are rank then suit: ranks `3 4 5 6 7 8 9 T J Q K A 2`, suits `C D H S`, jokers `jj` and `JJ`. `legalMoves` lists every legal move, a pass included when passing is allowed (never when you lead). For runs and sisters it gives one choice of suits per shape; any other suits from your hand that make the same legal play are accepted too. The starter bot is `src/client/bots/sandbox/examples/starter-bot.js`.
+
+The client works out legal moves with the rules port in `src/client/fx/rules.ts` (`src/client/bots/sandbox/moves.ts`), because the client can't import `GameState.ts` under its strict settings. `src/worker/game/bot-moves.test.ts` holds the two together: every listed move must pass `GameState.describeInvalidPlay`, and the reply check must agree with it on thousands of random plays.
+
+### Security model
+
+- **Where it runs.** Each bot runs in a dedicated Web Worker started from a blob: URL inside a hidden `<iframe sandbox="allow-scripts">` (no `allow-same-origin`). The iframe and the worker get an opaque origin (`null`), so the bot can't reach cookies, localStorage, sessionStorage (where the seat token lives), IndexedDB, or the app's DOM.
+- **No network.** The iframe's CSP is `default-src 'none'; script-src 'unsafe-inline' blob:; worker-src blob:`, and the worker inherits it. With no `connect-src`, fetch, XMLHttpRequest, WebSocket and EventSource fail; `script-src` stops `importScripts` of any remote URL and `eval`. CSP can't tell a bot's own blob: worker from ours, so the worker deletes `Worker` and `SharedWorker` before the bot's code runs.
+- **Only JSON in and out.** The app talks to the frame with `postMessage` and checks `event.source`. The view holds only what the human in that seat can see: their own hand, never anyone else's. The reply has to be a legal move (a pass when passing is allowed, or distinct cards from the hand that the rules accept). Anything else becomes a pass, or the lowest single when leading, the same move the server's turn timer plays.
+- **Time.** Each move gets 2 seconds by default and never more than 5, well under the server's 30-second timer. On overrun the frame calls `terminate()` on the worker, the frame is thrown away, the fallback move is played, and a fresh sandbox starts for the next turn. A script that doesn't finish loading in 5 seconds is stopped too. Timeouts and crashes are strikes; three in a game turn autoplay off and tell the player. A benched extra seat keeps playing the fallback move so the game goes on.
+- **Consent.** Scripts over 200 KB are refused. The first time a player saves or runs a bot, the game asks "This runs code in your browser" and remembers the answer in this browser (`h5-bot-consent`).
+
+### Checking it
+
+With `npm run dev` running, two Playwright scripts (Playwright installed globally or in the project) check the sandbox and a real game:
+
+```bash
+node scripts/smoke-bot-sandbox.mjs http://localhost:5173   # chromium, firefox and webkit
+node scripts/smoke-bot-game.mjs http://localhost:5173 /tmp/bot-shots
+```
+
+The sandbox script runs the test bots in `src/client/bots/sandbox/examples/`. The escape bot tries fetch and XHR against a local server that allows any origin (it must get zero requests), a WebSocket to the game's own room endpoint, `importScripts`, `new Worker`, `eval`, localStorage, IndexedDB and the DOM. The timeout bot spins forever in `decide` and must be stopped within its budget on two turns in a row while the page keeps running; a 60-second budget must be cut to 5. The slow-start bot spins while loading. It also checks that crashes, syntax errors and a missing `decide` are reported, and that every sandbox frame is cleaned up. The game script seats two humans whose starter bots play a whole game with a built-in bot and an extra uploaded-bot seat, checks each human sees the other's badge, then switches the host to a looping bot and checks it strikes out and hands the seat back. `/h5/botlab` runs any bot on two sample turns by hand.
 
 ## Look and feel
 
@@ -154,6 +202,8 @@ Check that the output lists the two `askscottpierce.com/h5` triggers and the `RO
 │   │   ├── base.ts          # the /h5 prefix
 │   │   ├── net/rooms.ts     # WebSocket room client
 │   │   ├── bots/            # in-browser bots that join as players
+│   │   │   ├── contract.ts  # BotView / BotMove, the bot contract
+│   │   │   └── sandbox/     # uploaded bots: sandbox, legal moves, seat pilot, example bots
 │   │   ├── components/ contexts/ hooks/ types/
 │   │   ├── fx/              # sound, haptics, particles, layout and the FX event bus
 │   └── worker/

@@ -76,17 +76,18 @@ export function useBotDock({ room, myPlayerId, roomId, isHost, inLobby }: BotDoc
   const overlay = (
     <>
       <AnimatePresence>
-        {status.enabled && picked && (
+        {status.enabled && picked && !inLobby && (
           <motion.div
-            className="fixed top-14 left-1/2 z-[60] flex items-center gap-3 pl-3 pr-1 py-1 panel text-sm text-bone"
-            initial={{ x: '-50%', y: -10, opacity: 0 }}
-            animate={{ x: '-50%', y: 0, opacity: 1 }}
+            // in the header row on a phone, under the logo on bigger screens: clear of the seats either way
+            className="fixed top-2 left-[52px] max-w-[calc(100vw-196px)] h-10 sm:h-auto sm:top-[58px] sm:left-2 sm:max-w-[calc(100vw-1rem)] z-[60] flex items-center gap-2 sm:gap-3 pl-2.5 pr-1 py-1 panel text-sm text-bone"
+            initial={{ y: -10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
             exit={{ opacity: 0 }}
             data-testid="autopilot-strip"
           >
             <Bot size={15} className={status.thinking ? 'text-ember animate-pulse' : 'text-ember'} />
-            <span><b>{picked.name}</b> is playing for you</span>
-            <button className="px-2.5 py-1 bg-gray-800 border border-white/15 text-xs font-bold uppercase tracking-wide hover:border-ember" onClick={() => pilot?.setEnabled(false)}>
+            <span className="min-w-0 truncate"><b>{picked.name}</b><span className="hidden sm:inline"> is playing for you</span></span>
+            <button className="shrink-0 px-2.5 py-1 bg-gray-800 border border-white/15 text-xs font-bold uppercase tracking-wide hover:border-ember" onClick={() => pilot?.setEnabled(false)}>
               Take over
             </button>
           </motion.div>
@@ -95,9 +96,9 @@ export function useBotDock({ room, myPlayerId, roomId, isHost, inLobby }: BotDoc
       <AnimatePresence>
         {toast && (
           <motion.div
-            className="fixed top-28 left-1/2 z-[61] max-w-[min(92vw,460px)] px-3 py-2 panel text-sm text-bone"
-            initial={{ x: '-50%', y: -10, opacity: 0 }}
-            animate={{ x: '-50%', y: 0, opacity: 1 }}
+            className="fixed top-[100px] left-2 z-[61] max-w-[min(calc(100vw-1rem),400px)] px-3 py-2 panel text-sm text-bone"
+            initial={{ y: -10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
             exit={{ opacity: 0 }}
             role="status"
             data-testid="bot-toast"
