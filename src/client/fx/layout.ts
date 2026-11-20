@@ -380,13 +380,44 @@ export function useViewport(): Viewport {
  */
 const seatEls = new Map<string, HTMLElement>();
 const origins = new Map<string, { rect: DOMRect; rotate: number; at: number }>();
+/**
+ * Seat rects, read while the browser is idle (layout is clean then, so the read is free) and on
+ * resize. A play's flight starts in the same frame React commits the new meld, when reading a rect
+ * would force a whole-page layout; it uses these instead. A seat moves only when the layout does,
+ * and a few px of a fan growing or shrinking since the last read doesn't show in a flight.
+ */
+const seatRects = new Map<string, DOMRect>();
+let refreshing = false;
+function refreshSeatRects() {
+  if (refreshing || typeof window === 'undefined') return;
+  refreshing = true;
+  const run = () => {
+    refreshing = false;
+    seatEls.forEach((el, id) => seatRects.set(id, el.getBoundingClientRect()));
+  };
+  if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(run, { timeout: 500 });
+  else setTimeout(run, 100);
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => { seatRects.clear(); refreshSeatRects(); });
+  // keep them fresh as seats change size (the fan follows the card count) and the table settles
+  setInterval(refreshSeatRects, 1000);
+}
 
 export const registry = {
   seat(id: string, el: HTMLElement | null) {
-    if (el) seatEls.set(id, el); else seatEls.delete(id);
+    // an inline ref is called with null and then the element on every render, so a null only
+    // drops the element; the last rect stays until the next refresh replaces it
+    if (el) { if (seatEls.get(id) !== el) { seatEls.set(id, el); refreshSeatRects(); } } else seatEls.delete(id);
   },
   seatRect(id: string): DOMRect | null {
-    return seatEls.get(id)?.getBoundingClientRect() ?? null;
+    const cached = seatRects.get(id);
+    if (cached) { refreshSeatRects(); return cached; }
+    const el = seatEls.get(id);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    seatRects.set(id, r);
+    return r;
   },
   /** Remember where these hand cards are before they leave the hand. */
   captureHand(codes: string[]) {
