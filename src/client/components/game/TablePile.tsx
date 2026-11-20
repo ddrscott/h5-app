@@ -3,7 +3,8 @@ import { motion, useReducedMotion } from 'motion/react';
 import type { Card as CardType, Meld } from '../../types/game';
 import { CardFace, CardBack } from '../ui/CardFace';
 import type { Viewport } from '../../fx/layout';
-import { registry, meldSpacing, meldHalf, pileFlat, BESIDE_GAP } from '../../fx/layout';
+import { registry, meldFit, pileFlat, BESIDE_GAP } from '../../fx/layout';
+import type { MeldFit } from '../../fx/layout';
 import { playFx } from '../../fx/meld';
 import type { PlayFx } from '../../fx/meld';
 
@@ -34,47 +35,45 @@ const CONTACT = 0.44; // seconds from launch to touching the table
 const DURATION = 0.62;
 const STAGGER = 0.04;
 
-const cache = new Map<string, ReturnType<typeof cardSlots>>();
-/** Same array for the same size, so memoized cards don't re-render. */
-function slotCache(n: number, vp: Viewport) {
-  const k = `${n}:${vp.w}:${vp.PW}:${Math.round(vp.pileHalf)}`;
+const cache = new Map<string, { fit: MeldFit; slots: Array<{ x: number; y: number; rot: number }> }>();
+/** Same objects for the same size, so memoized cards don't re-render. */
+function layoutOf(n: number, vp: Viewport) {
+  const k = `${n}:${vp.w}:${vp.PW}:${Math.round(vp.meldRoom)}`;
   let v = cache.get(k);
-  if (!v) { v = cardSlots(n, vp); cache.set(k, v); }
+  if (!v) {
+    const fit = meldFit(n, vp, vp.meldRoom);
+    const slots = Array.from({ length: n }, (_, i) => {
+      const c = i - (n - 1) / 2;
+      return { x: c * fit.spacing, y: Math.abs(c) * 1.2, rot: c * 2.2 };
+    });
+    v = { fit, slots };
+    cache.set(k, v);
+  }
   return v;
 }
 
-function cardSlots(n: number, vp: Viewport) {
-  const sp = meldSpacing(n, vp, vp.pileHalf);
-  return Array.from({ length: n }, (_, i) => {
-    const c = i - (n - 1) / 2;
-    return { x: c * sp, y: Math.abs(c) * 1.2, rot: c * 2.2 };
-  });
-}
-
 /**
- * A meld too wide for the clear band even at its tightest spacing shrinks to fit, so it never
- * reaches a seat's plate.
- */
-function fitScale(n: number, vp: Viewport) {
-  const half = meldHalf(n, vp, vp.pileHalf);
-  return half > vp.pileHalf ? vp.pileHalf / half : 1;
-}
-
-/**
- * Older melds slide back and shrink; anything past the third is gone. The sideways nudge is cut
- * down when it would push a wide meld past the clear band.
+ * The newest meld is laid out by meldFit(): it fans tighter before it shrinks, never draws below
+ * the readable floor (MIN_MELD_W), and may spill past the ring rather than get smaller. Older melds
+ * keep its spacing (so their corners still show), then slide back, shrink and dim; anything past
+ * the third is gone. They stay inside the pile's clear band, and the sideways nudge is cut down
+ * when it would push a wide meld past it.
  */
 function ageOffset(age: number, index: number, vp: Viewport, n: number, newestN: number) {
+  const { fit } = layoutOf(n, vp);
+  if (age === 0) return { x: 0, y: 0, scale: fit.scale, dim: 0, opacity: 1 };
   const dir = index % 2 ? 1 : -1;
-  const fs = fitScale(n, vp);
-  const half = meldHalf(n, vp, vp.pileHalf) * fs;
+  const raw = fit.half / fit.scale;
+  const flat = pileFlat(vp);
+  // level with the newest meld (flat) they get its room; stacked above it, only the pile's
+  const fs = Math.min(1, fit.scale, (flat ? vp.meldRoom : vp.pileHalf) / raw);
+  const half = raw * fs;
   const nudge = (want: number, scale: number) => Math.max(0, Math.min(want, vp.pileHalf - half * scale));
-  if (age === 0) return { x: 0, y: 0, scale: fs, dim: 0, opacity: 1 };
-  if (pileFlat(vp)) {
+  if (flat) {
     // Wide felt: slide older melds out to either side of the newest, level with it, so nothing
     // stacks above the meld you have to beat and its callout gets the band overhead.
-    const newest = meldHalf(newestN, vp, vp.pileHalf) * fitScale(newestN, vp);
-    const beside = (scale: number) => Math.min(newest + BESIDE_GAP + half * scale, vp.pileHalf - half * scale);
+    const newest = layoutOf(newestN, vp).fit.half;
+    const beside = (scale: number) => Math.min(newest + BESIDE_GAP + half * scale, vp.meldRoom - half * scale);
     if (age === 1) return { x: dir * beside(0.8), y: -vp.PH * 0.06, scale: 0.8 * fs, dim: 0.42, opacity: 1 };
     if (age === 2) return { x: -dir * beside(0.66), y: -vp.PH * 0.1, scale: 0.66 * fs, dim: 0.62, opacity: 1 };
     return { x: -dir * beside(0.55), y: -vp.PH * 0.12, scale: 0.55 * fs, dim: 0.8, opacity: 0 };
@@ -134,8 +133,8 @@ export const TablePile: React.FC<Props> = ({ trickMelds, vp, myPlayerId, onLand,
       if (!first.current && !prevKeys.has(key)) {
         const mine = meld.playerId === myPlayerId;
         const seat = registry.seatRect(meld.playerId);
-        // the meld's box is scaled by fitScale, so its children's offsets are too
-        const fs = fitScale(meld.cards.length, vp);
+        // the meld's box is scaled by meldFit, so its children's offsets are too
+        const fs = layoutOf(meld.cards.length, vp).fit.scale;
         flights = meld.cards.map((c) => {
           const f = ((): Flight => {
             const o = mine ? registry.takeOrigin(c.code ?? '') : null;
@@ -178,7 +177,7 @@ export const TablePile: React.FC<Props> = ({ trickMelds, vp, myPlayerId, onLand,
       {shown.map((s, i) => {
         const age = n - 1 - i;
         const off = ageOffset(age, s.index, vp, s.meld.cards.length, shown[n - 1].meld.cards.length);
-        const slots = slotCache(s.meld.cards.length, vp);
+        const { slots } = layoutOf(s.meld.cards.length, vp);
         return (
           <motion.div
             key={s.key}
@@ -208,7 +207,7 @@ export const TablePile: React.FC<Props> = ({ trickMelds, vp, myPlayerId, onLand,
       {sweep && sweep.items.map((s, i) => {
         const age = sweep.items.length - 1 - i;
         const off = ageOffset(age, s.index, vp, s.meld.cards.length, sweep.items[sweep.items.length - 1].meld.cards.length);
-        const slots = cardSlots(s.meld.cards.length, vp);
+        const { slots } = layoutOf(s.meld.cards.length, vp);
         return (
           <motion.div
             key={`sw-${sweep.id}-${s.key}`}

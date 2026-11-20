@@ -11,6 +11,11 @@ export interface Viewport {
   pileX: number; pileY: number;
   /** how far the pile may spread either side of pileX before it reaches a seat */
   pileHalf: number;
+  /**
+   * how far the newest meld alone may spread either side of pileX: only seats level with it
+   * count, so a seat straight above the pile doesn't squeeze it
+   */
+  meldRoom: number;
   /** distance from the bottom of the screen to the hand's baseline */
   handBase: number;
 }
@@ -28,7 +33,7 @@ function measure(): Viewport {
   const PH = Math.round(PW * 1.4);
   // The hand's lowest corner clears the button bar by this much; fan() lifts the arc to suit.
   const handBase = BAR_TOP + 10;
-  return { w, h, portrait, W, H, PW, PH, pileX: w / 2, pileY: h * 0.43, pileHalf: w / 2 - 12, handBase };
+  return { w, h, portrait, W, H, PW, PH, pileX: w / 2, pileY: h * 0.43, pileHalf: w / 2 - 12, meldRoom: w / 2 - 12, handBase };
 }
 
 export interface Slot { x: number; y: number; rot: number; z: number }
@@ -90,6 +95,48 @@ export function meldSpacing(n: number, vp: Pick<Viewport, 'w' | 'PW'>, maxHalf: 
   const fit = (2 * (maxHalf - 4) - vp.PW) / (n - 1);
   return Math.max(vp.PW * 0.2, Math.min(loose, fit));
 }
+/**
+ * Readability floor for the newest meld. CardFace prints the corner rank at 29 units on a 100-unit
+ * face, so the rank's font size is CORNER_RANK times the card's width. MIN_RANK_PX is the smallest
+ * rank we let the play you have to beat show: easy to read from arm's length, about the distance
+ * to a car's centre screen. That makes MIN_MELD_W the narrowest the newest meld's cards ever draw.
+ */
+export const CORNER_RANK = 0.29;
+export const MIN_RANK_PX = 20;
+export const MIN_MELD_W = Math.ceil(MIN_RANK_PX / CORNER_RANK);
+/** The least of each covered card's width a tight fan leaves showing: the corner rank and suit. */
+export const MIN_STRIP = 0.36;
+
+export interface MeldFit {
+  /** scale of the whole meld; above 1 when table cards are smaller than MIN_MELD_W */
+  scale: number;
+  /** card spacing before scaling */
+  spacing: number;
+  /** half the meld's on-screen width, scale included */
+  half: number;
+}
+
+/**
+ * Size and spacing for a meld of n as the newest play, within `room` either side of the centre.
+ * In order: lay it out loosely; tighten the fan until only MIN_STRIP of each card shows; then
+ * shrink, but never below MIN_MELD_W. If it still doesn't fit, it spills past `room` rather than
+ * getting any smaller.
+ */
+export function meldFit(n: number, vp: Pick<Viewport, 'w' | 'PW'>, room: number): MeldFit {
+  const floor = MIN_MELD_W / vp.PW;
+  const base = Math.max(1, floor);
+  const half = (scale: number, spacing: number) => scale * (((n - 1) / 2) * spacing + vp.PW / 2) + 4;
+  if (n <= 1) return { scale: base, spacing: 0, half: half(base, 0) };
+  const tight = vp.PW * MIN_STRIP;
+  const loose = Math.max(tight, Math.min(vp.PW * 0.46, (Math.min(vp.w, 900) * 0.8 - vp.PW) / (n - 1)));
+  // the spacing that just fits at this scale; cards tilt a little, which the 4px covers
+  const fitAt = (scale: number) => (2 * ((room - 4) / scale) - vp.PW) / (n - 1);
+  const sp = Math.min(loose, fitAt(base));
+  if (sp >= tight) return { scale: base, spacing: sp, half: half(base, sp) };
+  const scale = Math.min(base, Math.max(floor, (room - 4) / (((n - 1) / 2) * tight + vp.PW / 2)));
+  return { scale, spacing: tight, half: half(scale, tight) };
+}
+
 /** Half the width of a meld of n laid out with meldSpacing. */
 export function meldHalf(n: number, vp: Pick<Viewport, 'w' | 'PW'>, maxHalf: number) {
   return ((n - 1) / 2) * meldSpacing(n, vp, maxHalf) + vp.PW / 2 + 4;
@@ -97,13 +144,13 @@ export function meldHalf(n: number, vp: Pick<Viewport, 'w' | 'PW'>, maxHalf: num
 /** Gap between the newest meld and an older one set beside it. */
 export const BESIDE_GAP = 10;
 /**
- * True when the felt is wide enough to set older melds beside the newest one (a five-card meld at
- * 0.8 scale next to a five-card meld) instead of stacking them above it. Then the pile reaches no
+ * True when the felt level with the newest meld (meldRoom) is wide enough to set older melds beside
+ * it (a five-card meld at 0.8 scale next to a five-card meld) instead of stacking them above it. Then the pile reaches no
  * higher than the newest meld, which leaves the band above it for the callout.
  */
-export function pileFlat(vp: Pick<Viewport, 'w' | 'PW' | 'pileHalf'>) {
-  const h5 = meldHalf(5, vp, vp.pileHalf);
-  return h5 * 1.8 + BESIDE_GAP <= vp.pileHalf;
+export function pileFlat(vp: Pick<Viewport, 'w' | 'PW' | 'meldRoom'>) {
+  const h5 = meldHalf(5, vp, vp.meldRoom);
+  return h5 * 1.8 + BESIDE_GAP <= vp.meldRoom;
 }
 
 export interface SeatBox { x: number; y: number; hw: number; hh: number }
@@ -160,6 +207,21 @@ export function tableLanes(vp: Viewport, seats: SeatBox[], handTop: number) {
       if (f > pileHalf + 1 || (Math.abs(f - pileHalf) <= 1 && Math.abs(y - want) < Math.abs(pileY - want))) { pileY = y; pileHalf = f; }
     }
   }
+  // Keep the newest meld itself (at the readable floor, tilted as it lands) between the top seat's
+  // plate and your status chip. When the felt is too short for both, split the difference.
+  const mh = Math.max(vp.PH, MIN_MELD_W * 1.4);
+  const meldLo = band + mh * 0.6 + 4, meldHi = statusTop - mh * 0.62 - 6;
+  const settled = meldLo <= meldHi ? Math.min(meldHi, Math.max(meldLo, pileY)) : (meldLo + meldHi) / 2;
+  if (Math.abs(settled - pileY) > 0.5) { pileY = Math.round(settled); pileHalf = freeAt(pileY); }
+  // The newest meld only has to clear seats level with it, so a seat straight above doesn't
+  // squeeze it the way it squeezes the stacked older melds.
+  let meldRoom = vp.w / 2 - 10;
+  for (const b of seats) {
+    if (b.y + b.hh < pileY - mh * MELD_UP || b.y - b.hh > pileY + mh * 0.58) continue;
+    const dx = Math.abs(b.x - vp.w / 2) - b.hw - 6;
+    if (dx > vp.PW * 0.5) meldRoom = Math.min(meldRoom, dx);
+  }
+  meldRoom = Math.max(pileHalf, meldRoom);
   // the motto's letters reach out to about 1.12r on top and 1.26r at the bottom
   const ringR = Math.max(60, Math.min(vp.w * 0.36, vp.h * 0.2, 230, (pileY - band - 6) / 1.12, (statusTop - pileY - 10) / 1.26));
   // The motto runs along the top and bottom arcs (about ±50° around each pole); show an arc only
@@ -176,7 +238,7 @@ export function tableLanes(vp: Viewport, seats: SeatBox[], handTop: number) {
   const mottoTop = arcClear(ringR * 1.08, -52, 52);
   const mottoBottom = arcClear(ringR * 1.16, 128, 232);
   const outerRing = arcClear(ringR * 1.22, 0, 355);
-  return { statusBottom, statusTop, pileY, pileHalf, ringR, band, mottoTop, mottoBottom, outerRing };
+  return { statusBottom, statusTop, pileY, pileHalf, meldRoom, ringR, band, mottoTop, mottoBottom, outerRing };
 }
 
 /** How far above pileY the newest meld's top edge reaches (half a card plus the landing squash). */
@@ -199,13 +261,16 @@ export function placeCallout(o: {
   vp: Viewport; seats: SeatBox[]; pileY: number; statusTop: number;
   /** half width of the newest meld, 0 when the table is empty */
   meldHalfW: number;
+  /** the newest meld's scale (above 1 when it's drawn up to the readable floor) */
+  meldScale?: number;
   full: number; floor: number;
   size: (font: number, lines: 1 | 2) => CalloutBox | null;
 }): CalloutPlace {
   const { vp, seats, pileY, statusTop, meldHalfW } = o;
   const gap = 14, edge = 8;
-  const meldTop = pileY - vp.PH * MELD_UP, meldBottom = pileY + vp.PH * 0.58;
-  const pileTop = pileY - vp.PH * (pileFlat(vp) ? MELD_UP : PILE_UP);
+  const mph = vp.PH * (o.meldScale ?? 1);
+  const meldTop = pileY - mph * MELD_UP, meldBottom = pileY + mph * 0.58;
+  const pileTop = Math.min(meldTop, pileFlat(vp) ? meldTop : pileY - vp.PH * PILE_UP);
   const cx = vp.pileX;
   // the word tilts, so its ends reach a little higher and lower than its centre
   const reach = (c: CalloutBox) => c.hh + (c.w / 2) * Math.sin((c.tilt * Math.PI) / 180) + 2;

@@ -234,6 +234,12 @@ Two pages help when working on it:
 - `/h5/animation` is the **FX lab**: the real `GameTable` on a scripted offline game, with buttons (and `window.__lab` for scripts) for the deal, every meld type, a bomb, the Heart 5, passes, the sweep, going out, an error and game over.
 - `/h5/cards` shows every card face and the back.
 
+`scripts/shots-pile.mjs` drives the FX lab in headless Chromium. It puts a pair and a triple on the table, then a full house, a five-card run, sisters, a single and an eight-card run, at square (car screen), desktop, tablet and phone sizes. It saves a screenshot of each and prints the newest meld's card width, how much of each covered card's corner shows, and whether a corner runs under the hand, a plate or the buttons. Pass sizes and melds to narrow it down:
+
+```bash
+node scripts/shots-pile.mjs http://localhost:5173 /tmp/pile 640x640,1000x1000 fullhouse,run8
+```
+
 ## Served at askscottpierce.com/h5
 
 The Worker owns only `/h5` and `/h5/*` on askscottpierce.com, through two zone routes, with no workers.dev URL. Pages, assets, the service worker, the API, and the room sockets all live under `/h5`. Four places hard-code the prefix, and they have to change together:
