@@ -225,9 +225,15 @@ The sandbox script runs the test bots in `src/client/bots/sandbox/examples/`. Th
 
 ## Look and feel
 
-The art direction, card design, palette, type and motion rules are in [docs/VISUALS.md](docs/VISUALS.md). In short, the game has a lacquered jade table, warm card stock, cinnabar and brass, and Signal Orange for whatever is live. Cards are springy physical objects. Plays fly in from the seat that made them, and combo callouts, shake and particles scale with the play's strength. All sound is synthesized with the Web Audio API (`src/client/fx/sound.ts`), and one mute switch covers sound and vibration. The motion library is `motion` (`motion/react`), and the app runs inside `MotionConfig reducedMotion="user"`, so `prefers-reduced-motion` turns movement into fades.
+The art direction, card design, palette, type and motion rules are in [docs/VISUALS.md](docs/VISUALS.md). In short, the game looks like a page out of an action manga, in a style that's our own: ink black, paper white and screentone grays, Signal Orange for whatever is live, and blood red for danger and the Heart 5. Titles, callouts and buttons are hand-lettered in Bangers; body text is Barlow. Panels are manga panel borders (thick paper outlines, hard offsets, square corners), buttons are slanted, and seats are comic-panel portraits. Big plays get burst frames with focus lines and made-up katakana sound effects, and a bomb or the Heart 5 gets a half-second full-screen impact frame with a short shake. The genre is borrowed, nothing else: no characters, symbols or art from any real series. Cards are springy physical objects, and plays fly in from the seat that made them. All sound is synthesized with the Web Audio API (`src/client/fx/sound.ts`), and one mute switch covers sound and vibration. The motion library is `motion` (`motion/react`), and the app runs inside `MotionConfig reducedMotion="user"`, so `prefers-reduced-motion` turns movement into fades and drops the shake and impact frame.
 
-**No terminal aesthetic in this project.** It's a family card game, so there's no monospace font, no `// SECTION_HEADS`, no snake_case labels, and no `$` prompt markers. That overrides the owner's default visual signature. Keep the orange accent and the hard-edged panels.
+**No terminal aesthetic in this project.** It's a family card game, so there's no monospace font (except the code samples in the bot panel), no `// SECTION_HEADS`, no snake_case labels, and no `$` prompt markers. That overrides the owner's default visual signature. Keep the orange accent and the hard-edged panels.
+
+`scripts/shots-art.mjs` screenshots every screen headless (landing, welcome, sign-in, stats, lobby, bot panel, a real table against bots, the FX lab's deal, every meld callout, bomb, Heart 5 and game over, and the cards) at 1920×1080, 1100×1000, 1024×768 and 390×844. It signs in with dev codes, so run it against `npm run dev` with `.dev.vars` in place:
+
+```bash
+node scripts/shots-art.mjs http://localhost:5173 /tmp/art [screen]
+```
 
 Two pages help when working on it:
 
