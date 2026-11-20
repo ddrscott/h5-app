@@ -52,7 +52,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
   const named = !!playerName.trim();
 
   return (
-    <div className="min-h-screen felt-texture flex items-center justify-center p-4 overflow-y-auto">
+    <div className="min-h-screen felt-texture flex items-center justify-center p-4 overflow-y-auto overflow-x-hidden">
       <div className="absolute top-3 right-3 z-10"><MuteButton /></div>
       <div className="flex items-center gap-6 lg:gap-14 portrait:flex-col max-w-6xl mx-auto w-full py-6">
         <Banner className="flex-1 w-full" />

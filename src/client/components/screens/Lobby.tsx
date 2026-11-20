@@ -100,7 +100,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   const shareUrl = `${window.location.origin + BASE}/play?room=${roomId}`;
 
   return (
-    <div className="h-dvh felt-texture p-3 sm:p-5 flex flex-col relative overflow-y-auto">
+    <div className="h-dvh felt-texture p-3 sm:p-5 flex flex-col relative overflow-y-auto overflow-x-hidden">
       <AnimatePresence>
         {copiedText && (
           <motion.div

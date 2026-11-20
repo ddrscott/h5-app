@@ -34,7 +34,7 @@ export const Landing: React.FC = () => {
   return (
     <div className="min-h-screen felt-texture">
       {/* Main content - add right padding on md screens to make room for iframe */}
-      <div className="overflow-y-auto md:pr-[400px]">
+      <div className="overflow-y-auto overflow-x-hidden md:pr-[400px]">
         {/* Hero: the same fanned hand as the table's welcome screen */}
         <div className="relative overflow-hidden">
           <div className="container mx-auto px-4 pt-10 pb-12 lg:pt-16 lg:pb-20">
