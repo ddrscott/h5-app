@@ -30,7 +30,7 @@ export const ConnectionOverlay: React.FC<ConnectionOverlayProps> = ({ status, lo
   const seatGone = !!lost?.seatGone;
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" role="alertdialog" aria-labelledby="lost-title">
-      <div className="panel p-6 max-w-sm w-full">
+      <div className="panel-cut panel-tilt p-7 max-w-sm w-full">
         <div className="flex items-center gap-2 mb-3">
           <WifiOff size={20} className="text-red-500" />
           <h2 id="lost-title" className="text-lg font-bold text-red-500">Lost connection</h2>

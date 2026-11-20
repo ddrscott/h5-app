@@ -133,7 +133,7 @@ function GameApp() {
     
     return (
       <div className="min-h-screen felt-texture flex items-center justify-center">
-        <div className="panel p-8 max-w-md">
+        <div className="panel-cut panel-tilt p-8 max-w-md">
           <p className="section-head mb-3">Connection error</p>
           <h2 className="font-display text-[34px] leading-none tracking-[0.03em] text-paper mb-3">Couldn't reach the table</h2>
           <p className="text-gray-300 mb-4">{error}</p>

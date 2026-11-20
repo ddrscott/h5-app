@@ -166,7 +166,7 @@ export const seatHalf = (compact: boolean, scale = 1) =>
 export const seatScale = (vp: { w: number; h: number }, compact: boolean) =>
   compact ? 1 : Math.min(1.6, Math.max(1, Math.min(vp.w / 1100, vp.h / 780)));
 /** Height of the status chip + your nameplate stack. */
-const STATUS_H = 62;
+const STATUS_H = 70;
 const HEADER = 58;
 
 /**

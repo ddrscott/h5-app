@@ -176,7 +176,7 @@ export const Lobby: React.FC<LobbyProps> = ({
 
         {/* Controls */}
         <div className="flex-shrink-0 w-full max-w-sm portrait:max-w-md">
-          <div className="panel p-5 portrait:p-4">
+          <div className="panel-cut p-6 portrait:p-5">
             {isHost ? (
               <>
                 {players.length < 6 && (

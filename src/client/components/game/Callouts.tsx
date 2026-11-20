@@ -222,7 +222,8 @@ export const Callouts: React.FC = () => {
                   textWrap: item.fontPx ? 'nowrap' : 'balance',
                   fontWeight: 400,
                   color: st.color,
-                  WebkitTextStroke: `${item.level >= 3 ? 8 : 6}px ${st.stroke}`,
+                  // the stroke follows the size, so small lettering doesn't drown the burst in ink
+                  WebkitTextStroke: `${Math.round(Math.max(3, Math.min(item.level >= 3 ? 8 : 6, (item.fontPx ?? 60) * 0.075)))}px ${st.stroke}`,
                   paintOrder: 'stroke fill',
                   letterSpacing: `${LETTER_SPACING}em`,
                   textShadow: item.level === 2 ? 'none' : `0.05em 0.06em 0 ${st.stroke}`,

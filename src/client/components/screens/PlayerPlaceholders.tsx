@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import type { Player } from '../../types/game';
 import { Crown, UserPlus, WifiOff } from 'lucide-react';
 import { PersonaBadge } from '../ui/PersonaBadge';
+import { PersonaEmblem } from '../ui/PersonaEmblem';
 import { KickButton } from '../ui/KickButton';
 import { seatBadges } from '../game/Seat';
 
@@ -41,17 +42,25 @@ export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
               {player ? (
                 <motion.div
                   key={player.id}
-                  className={`relative flex items-center gap-2 pl-1 pr-2.5 py-1 bg-ink border-[3px] ${player.id === myPlayerId ? 'border-ember shadow-[4px_4px_0_0_#E85D00]' : 'border-paper shadow-hard'}`}
+                  className="relative flex items-center"
+                  style={{ filter: `drop-shadow(4px 4px 0 ${player.id === myPlayerId ? '#E85D00' : '#000'})` }}
                   initial={{ scale: 0.3, opacity: 0, y: -24 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.5, opacity: 0 }}
                   transition={{ type: 'spring', stiffness: 520, damping: 20 }}
                 >
-                  <div className={`grid place-items-center w-8 h-8 border-2 border-ink font-display text-[16px] leading-none pt-0.5 ${player.isActive === false ? 'bg-gray-600 text-gray-300' : player.id === myPlayerId ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
-                    style={{ clipPath: 'polygon(0 0, 100% 0, 100% 78%, 80% 100%, 0 100%)' }}>
-                    {player.isActive === false ? <WifiOff size={14} aria-label="Disconnected" /> : badges.get(player.id)}
+                  {/* the plate leans; the portrait frame overlaps it, tilted, like the table seats */}
+                  <span aria-hidden className="absolute inset-0 left-5" style={{ background: player.id === myPlayerId ? '#E85D00' : '#FAFAF7', clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)' }} />
+                  <span aria-hidden className="absolute inset-[3px] left-[23px]" style={{ background: '#0B0B0D', clipPath: 'polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%)' }} />
+                  <div className="relative z-10 -rotate-[4deg] shrink-0 w-11 h-[52px] mr-1">
+                    <span aria-hidden className="absolute inset-0 bg-paper" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 80%, 76% 100%, 0 100%)' }} />
+                    <span aria-hidden className="absolute inset-[2.5px] bg-ink" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 80%, 76% 100%, 0 100%)' }} />
+                    <span className={`absolute inset-[4.5px] grid place-items-center font-display text-[18px] leading-none pt-0.5 ${player.isActive === false ? 'bg-gray-600 text-gray-300' : player.id === myPlayerId ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
+                      style={{ clipPath: 'polygon(0 0, 100% 0, 100% 80%, 76% 100%, 0 100%)' }}>
+                      {player.isActive === false ? <WifiOff size={14} aria-label="Disconnected" /> : player.isBot ? <PersonaEmblem persona={player.persona} size={26} /> : badges.get(player.id)}
+                    </span>
                   </div>
-                  <div className="leading-tight min-w-0">
+                  <div className="relative leading-tight min-w-0 pl-1 pr-3 py-1.5">
                     {/* full names on a phone too: wrap to two lines instead of "Aggressive…" */}
                     <p className={`text-[12px] sm:text-[13px] leading-[1.15] font-semibold break-words line-clamp-2 w-max max-w-[92px] sm:max-w-[140px] ${player.isActive === false ? 'text-gray-400' : 'text-bone'}`}>{player.name}</p>
                     <p className="font-display text-[12px] leading-none tracking-[0.06em] text-mist flex items-center gap-1 mt-0.5">

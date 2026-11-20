@@ -50,22 +50,36 @@ card, never a colored fill.
 
 ## Shapes
 
-- **Panels** are manga panel borders: solid ink, a 3px paper outline, and a hard black offset
-  (`.panel`, `shadow-hard`). Corners are square; the Tailwind radius scale is clamped to 2px.
-  Cards are the only rounded thing on screen, because they are physical objects.
+- **Panels** are cut manga panels, never level boxes. Every dialog and big surface (sign-in,
+  stats, the leave and connection dialogs, the welcome form, the lobby's add-a-bot panel, the
+  tutor, the landing page's panels) uses `.panel-cut`: leaning left and right edges, the top-right
+  and bottom-left corners cut off, a 3px paper outline and a hard black offset in the panel's own
+  shape. The bot panel is a side sheet whose open edge leans (`.panel-sheet`). Dialogs also tilt
+  about 1.2 degrees, like a panel pasted on at an angle; the text stays easy to read. The plain
+  `.panel` (a level box) is left for small strips such as banners and the bot strip. Corners are
+  sharp; the Tailwind radius scale is clamped to 2px. Cards are the only rounded thing on screen,
+  because they are physical objects.
 - **Caption boxes** (`.section-head`) are ink lettering on a paper box with one slanted edge, like
   a narration box. They replace the old tiny spaced-caps labels.
 - **Buttons** are slanted parallelograms (`clip-path`), flat, with a dark inset along the bottom
-  edge so they read as pressable. Primary is Signal Orange, secondary is paper. Square header
-  buttons (`.icon-btn`) are ink with a thick paper outline.
+  edge so they read as pressable. Primary is Signal Orange, secondary is paper. A disabled button
+  stays part of the page: ink with dashed paper rules and paper lettering, never gray on gray.
+  The Pass and Play buttons letter at 22–24px. Square header buttons (`.icon-btn`) are ink with a
+  thick paper outline.
 - **Fields** are speech balloons: paper fill, ink text, a thick outline that turns orange on focus.
 - **Status** is shown with content: a crown, a `PASS` stamp, a place like `1ST` in a paper tag,
   an orange outline and orange hard offset around the whole active plate, or an inverted (paper)
   row for the winner. Never a colored stripe down one side of a card.
-- **Seats** are comic-panel portraits: a paper frame with one clipped corner, screentone shading
-  across its lower half, hand-lettered initials, inside an ink nameplate with a paper outline.
-  A personality is a small tilted paper tag holding the personality's mark, plus its name in
-  lettering; the tag turns orange and pulses while that bot thinks.
+- **Seats** are character panels: a tilted portrait frame (64x82px on a laptop, 46x60px on a
+  phone, one corner cut, screentone across its lower half) overlapping a leaning ink plate. A
+  bot's portrait holds its personality emblem large, with its initials on a small ink tag; a
+  person's holds their initials in big lettering. The plate holds the name in a tilted paper
+  caption box, the face-down hand with its count, and the record. The whole seat stamps a hard
+  offset in its own shape, orange on its turn. Lobby seats use the same portrait-and-plate shape.
+- **Personality emblems** (`PersonaEmblem.tsx`) are original bold ink silhouettes: a fin cutting
+  a wave (Shark), a level beam (Regular), a flame (Hothead), a hex shell (Turtle), a sprout
+  (Rookie) and a plain bot head for anything else. The small tag next to the record uses the
+  same emblem and turns orange while that bot thinks.
 
 ## Cards
 
@@ -89,12 +103,14 @@ Readability comes first: rank and suit have to read at a glance, at arm's length
 
 ## Table
 
-A night page: charcoal ink under a screentone dot field that is densest under the pile and fades
-toward the edges, a dry-brush grain, and a heavy vignette (`.felt-texture` in `index.css`, all
-CSS and a tiny inline SVG noise, no images). It is calm on purpose so white cards pop. One loaded
-dry-brush ring in faint paper marks where melds land, lifting off before it closes. The house
-motto is lettered on its top arc (HEART OF FIVE) and bottom arc (红心五 · IT'S DA BOMB!), and an
-arc is left out wherever a seat would sit on its letters. A patch of orange screentone glides to
+A screentone page with one panel cut out of it. The page is charcoal with broad diagonal bands
+of halftone dots, a dry-brush grain and a vignette (`.felt-texture` in `index.css`, all CSS and a
+tiny inline SVG noise, no images). Across it, at the pile's height, lies the stage (`TableStage`
+in `GameTable.tsx`): one full-bleed angled panel of flat ink between heavy 5px paper gutter rules,
+with a thin second rule outside each. The cards land on clean ink, so they pop, and the table
+reads as a deliberate page layout instead of an empty field. The house motto sits on the rules as
+two paper caption boxes (HEART OF FIVE on the top rule, 红心五 · IT'S DA BOMB! on the bottom one),
+each left out where a seat covers it and on phones. A patch of orange screentone glides to
 whoever's turn it is.
 
 The lobby table is the same idea seen from above: an eight-sided arena drawn in ink with a paper
@@ -140,7 +156,11 @@ Text never prints on top of other text. `tableLanes()` and `placeCallout()` in
    that, it goes a little smaller and takes the spot that covers the least. Long words tilt less
    than 4 degrees so their ends don't swing into a neighbour, and the pop-in spring starts small
    enough that its rebound never pushes the word off screen. A play's callout replaces the current
-   one, while a player going out waits for the current one to finish.
+   one, while a player going out waits for the current one to finish. One exception: on a phone
+   (under 640px wide) a bomb, straight flush or Heart 5 callout ignores the seats and takes the
+   full width above or below the pile. It's gone in about a second and a half, and at
+   seat-dodging size it was a 48px stamp. The lettering's ink stroke scales with its size, so a
+   smaller burst still shows its fill.
 
 Opponents' PASS stamps land low on their face-down fan, short of the card count, so neither the
 name nor the count is covered. The leader's crown
@@ -175,10 +195,16 @@ players' initials match, the avatars get a number (A2) in both places.
    `calloutSize()`, so `placeCallout()` keeps the whole burst clear of seats, the newest meld and
    your status stack, just as it did for the bare word.
 
-   **The impact frame** (`ImpactFrame` in `GameTable.tsx`) is the full-screen moment for a bomb
-   or the Heart 5: the page flashes paper white (red for the Heart 5) for under 0.2s, then white
-   focus lines rush at the pile and fade, about half a second in all. The middle is masked clear
-   so the cards that caused it stay in view. It never takes input and never delays the next play.
+   **The impact frame** (`ImpactFrame` in `GameTable.tsx`) is the finisher for a bomb, a straight
+   flush or the Heart 5. For 0.56s the play owns the screen. The page flashes (paper, or red for
+   the Heart 5) and ink focus lines rush at the pile. Then a full-bleed slashed panel cuts in
+   across the bigger band on either side of the newest meld: Signal Orange for a bomb, blood red
+   for the Heart 5, with a paper edge and a black offset. It carries the word in giant tilted
+   lettering, about 55% of the screen's width (90% on a phone, where HEART OF FIVE stacks on two
+   lines). An ink counter-slash with the sound effect (ドドン or ゴゴゴ) cuts in from the other
+   side across the opposite band. Both cut out the way they came. The newest meld's own band is
+   never covered, so you always see the cards that did it. The regular callout pops in as the
+   frame leaves rather than under it. It never takes input and never delays the next play.
 6. **Reduced motion** (`prefers-reduced-motion`): `MotionConfig reducedMotion="user"` turns every
    transform animation into a jump, so flights become fades in place. Shake, the impact frame,
    particles, the idle sway and the glint are all off.
@@ -207,8 +233,12 @@ players' initials match, the avatars get a number (A2) in both places.
   vibration play once. An absent player's turn shows a 30-second orange ring, the time after
   which the room plays for them.
 - **Going out and winning:** going out pops confetti from the player's seat with a callout of
-  their place. Game over raises a results panel whose rows slide in by finishing order while win
-  and loss counts tick up; the winner's row is inverted to paper. If you won, confetti fires from
+  their place. Game over is a results page rather than a dialog. A full-bleed slab slashes in at
+  -5 degrees with the winner in giant lettering (YOU WIN! on orange, or NAME WINS! on paper) and a
+  ドン! sound effect. Under it the standings come in as cut strips that step down like panels,
+  sliding in by finishing order while the win and loss counts tick up. The winner's strip is
+  paper with an orange offset. The stats line and the Leave and Play again buttons sit in a cut
+  panel at the bottom. If you won, confetti fires from
   both sides twice and a pentatonic run blooms into a chord.
 
 ## Sound and haptics
@@ -224,8 +254,8 @@ One button mutes both sound and vibration, and it's remembered under `storageKey
 
 Textures are CSS (dot fields, conic focus lines, clip paths) or tiny inline SVG noise; there are
 no texture images or video. The fonts are Latin-only subsets: Bangers, five Barlow weights, and
-two CJK subsets of a couple of KB each. The impact frame is two layers animating opacity and
-transform for half a second.
+two CJK subsets of a couple of KB each. The impact frame is a handful of clip-path layers
+animating opacity and transform for just over half a second.
 
 ## Where to look
 

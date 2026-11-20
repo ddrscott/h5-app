@@ -250,7 +250,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="panel max-w-2xl w-full max-h-[90vh] overflow-hidden">
+      <div className="panel-cut max-w-2xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="px-6 pt-5 pb-3 flex justify-between items-center border-b-[3px] border-paper">
           <h2 className="font-display text-[34px] leading-none tracking-[0.03em] text-paper">How to play</h2>

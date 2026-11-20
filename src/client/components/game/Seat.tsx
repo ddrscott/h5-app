@@ -5,6 +5,7 @@ import type { Player } from '../../types/game';
 import { CardBack } from '../ui/CardFace';
 import { KickButton } from '../ui/KickButton';
 import { PersonaBadge } from '../ui/PersonaBadge';
+import { PersonaEmblem } from '../ui/PersonaEmblem';
 import { registry } from '../../fx/layout';
 
 /** The server plays for an absent player after this long (room.ts TURN_TIMEOUT_MS). */
@@ -90,8 +91,11 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
   }, [passBeat]);
 
   const fanCount = Math.min(player.handCount, compact ? 5 : 8);
-  const backW = compact ? 20 : 26;
-  const av = compact ? 34 : 40;
+  const backW = compact ? 18 : 24;
+  const pw = compact ? 46 : 64, ph = compact ? 60 : 82;
+  const colW = compact ? 82 : 140;
+  const portraitFill = out ? '#8E8E8F' : active ? '#E85D00' : '#FAFAF7';
+  const P = 'polygon(0 0, 100% 0, 100% 80%, 78% 100%, 0 100%)';
 
   return (
     <motion.div
@@ -101,89 +105,101 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
       animate={{ opacity: player.hasPassed && !active ? 0.62 : 1, scale: (active ? 1.06 : 1) * scale }}
       transition={{ type: 'spring', stiffness: 400, damping: 24 }}
     >
-      {/* their hand, face down: a small fan whose size follows the card count */}
-      <div ref={(el) => registry.seat(player.id, el)} className="relative mb-1" style={{ height: backW * 1.4 + 4, width: backW + Math.max(0, fanCount - 1) * backW * 0.32 }}>
-        {Array.from({ length: fanCount }).map((_, i) => {
-          const c = i - (fanCount - 1) / 2;
-          return (
-            <motion.div
-              key={i}
-              className="absolute top-0"
-              style={{ width: backW, height: backW * 1.4, left: i * backW * 0.32, borderRadius: 2, boxShadow: '0 2px 3px rgba(0,0,0,.4)' }}
-              initial={{ opacity: 0, y: -12, rotate: 0 }}
-              animate={{ opacity: 1, y: Math.abs(c) * 1.5, rotate: c * 7 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 22, delay: i * 0.02 }}
-            >
-              <CardBack />
-            </motion.div>
-          );
-        })}
-        {player.handCount > 0 && (
-          <motion.span
-            key={player.handCount}
-            initial={{ scale: 1.5 }}
-            animate={{ scale: 1 }}
-            data-count
-            className="absolute z-20 -right-3 -top-2 min-w-[24px] h-[22px] px-1 grid place-items-center font-display text-[15px] leading-none pt-px bg-paper text-ink border-2 border-ink shadow-hard-sm"
-          >
-            {player.handCount}
-          </motion.span>
-        )}
-        {/* PASS: a stamp that thunks onto their cards */}
-        <AnimatePresence>
-          {stamp > 0 && (
-            <motion.div
-              key={stamp}
-              data-stamp
-              className="absolute z-10 pointer-events-none font-display text-[19px] leading-none tracking-[0.08em] px-2 pt-1 pb-0.5 border-[3px] border-ink text-ink bg-paper shadow-hard-sm"
-              // low on the fan with its right edge short of the card count (top right), so the count stays readable
-              style={{ top: (backW * 1.4 + 4) * 0.72, right: 14 }}
-              initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
-              animate={{ y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
-              exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.25 } }}
-              transition={{ type: 'spring', stiffness: 700, damping: 20 }}
-            >
-              PASS
-            </motion.div>
+      {/*
+        The seat is a comic panel: a tilted portrait frame (the bot's emblem, or a person's
+        initials, on paper with screentone) overlapping a leaning ink plate that holds the name in
+        a caption box, their face-down hand and their record.
+      */}
+      <div data-plate className="relative flex items-center" style={{ filter: `drop-shadow(5px 5px 0 ${active ? '#E85D00' : '#000'})` }}>
+        {/* portrait frame */}
+        <div className="relative z-10 shrink-0 -rotate-[4deg]" style={{ width: pw, height: ph, marginRight: -10 }}>
+          <span aria-hidden className="absolute inset-0" style={{ background: active ? '#0B0B0D' : '#FAFAF7', clipPath: P }} />
+          <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: P }} />
+          <span aria-hidden className="absolute inset-[5px] overflow-hidden" style={{ background: portraitFill, clipPath: P }}>
+            <span className="tone absolute inset-0 text-ink/25" style={{ clipPath: 'polygon(0 62%, 100% 30%, 100% 100%, 0 100%)' }} />
+          </span>
+          <div className="absolute inset-[5px] grid place-items-center">
+            {player.isBot ? (
+              <PersonaEmblem persona={player.persona} size={compact ? 30 : 42} className={active && !out && !absent ? 'animate-pulse' : ''} />
+            ) : (
+              <span className={`font-display leading-none tracking-[0.02em] text-ink pt-1 ${compact ? 'text-[22px]' : 'text-[32px]'}`}>{badge ?? initials(player.name)}</span>
+            )}
+          </div>
+          {player.isBot && (
+            <span className="absolute -bottom-1.5 left-0.5 font-display text-[12px] leading-none tracking-[0.04em] px-1 pt-[3px] pb-[1px] bg-ink text-paper border-[1.5px] border-paper">
+              {badge ?? initials(player.name)}
+            </span>
           )}
-        </AnimatePresence>
-      </div>
-
-      {/* nameplate */}
-      <div
-        data-plate
-        className={`relative flex items-center gap-2 pl-1 pr-2.5 py-1 border-[3px] bg-ink transition-colors duration-200 ${
-          active ? 'border-ember shadow-[5px_5px_0_0_#E85D00]' : 'border-paper shadow-hard'
-        }`}
-        style={{ maxWidth: compact ? 136 : 210 }}
-      >
-        {/* the portrait: a small comic panel, screentone shading behind hand-lettered initials */}
-        <div className="relative shrink-0 grid place-items-center font-display text-[17px] leading-none tracking-[0.04em] text-ink"
-          style={{ width: av, height: av }}>
-          <span aria-hidden className="absolute inset-0 border-2 border-ink"
-            style={{ background: out ? '#8E8E8F' : active ? '#E85D00' : '#FAFAF7', clipPath: 'polygon(0 0, 100% 0, 100% 78%, 82% 100%, 0 100%)' }} />
-          <span aria-hidden className="tone absolute inset-0 text-ink/25" style={{ clipPath: 'polygon(0 55%, 100% 25%, 100% 78%, 82% 100%, 0 100%)' }} />
-          <span className="relative pt-0.5">{badge ?? initials(player.name)}</span>
-          {active && absent && turnStart > 0 && <TimerRing startedAt={turnStart} size={av} />}
+          {active && absent && turnStart > 0 && <TimerRing startedAt={turnStart} size={pw} />}
           {leader && (
-            // top-right, so on the left seat it stays on screen
-            <Crown size={16} strokeWidth={2.75} className="absolute -top-3 -right-2.5 text-ember fill-paper drop-shadow-[2px_2px_0_#000]" aria-label="Leads this trick" />
+            <Crown size={18} strokeWidth={2.75} className="absolute -top-3 -left-2 text-ember fill-paper drop-shadow-[2px_2px_0_#000]" aria-label="Leads this trick" />
           )}
         </div>
-        <div className="min-w-0 leading-tight">
-          {/* full names, always: wrap to two lines on a phone rather than cut "Aggressive…" */}
-          <p className={`font-bold break-words ${compact ? 'text-[12px] leading-[1.1] line-clamp-2' : 'text-[13px] truncate'} ${active ? 'text-ember-hot' : 'text-bone'}`}>
-            {player.name}
-          </p>
-          <p className="font-sans tabular-nums text-[11px] font-semibold text-mist flex items-center gap-1">
-            {absent && <WifiOff size={11} className="text-paper" aria-label="Disconnected" />}
-            {/* the live prompt sits on the stats line, so the name keeps both of its lines */}
-            <span>{player.wins}W·{player.losses}L</span>
-            {/* a bot's personality; on its turn the badge says it's thinking */}
-            {player.isBot && <PersonaBadge persona={player.persona} thinking={active && !out && !absent} compact={compact} />}
-            {out && place ? <span className="font-display text-[13px] leading-none px-1 pt-px bg-paper text-ink">{ORDINAL[place] ?? `${place}TH`}</span> : null}
-          </p>
+
+        {/* the plate */}
+        <div className="relative" style={{ width: colW + 14 }}>
+          <span aria-hidden className="absolute inset-0" style={{ background: active ? '#E85D00' : '#FAFAF7', clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)' }} />
+          <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: 'polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)' }} />
+          <div className="relative flex flex-col items-start gap-1 pl-4 pr-3 py-1.5">
+            {/* name in a caption box; full names, two lines on a phone rather than "Aggressive…" */}
+            <p className={`max-w-full -rotate-2 -ml-1 px-1.5 pt-[2px] pb-[1px] font-extrabold break-words ${compact ? 'text-[11.5px] leading-[1.1] line-clamp-2' : 'text-[13px] leading-tight truncate'} ${active ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
+              style={{ clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)' }}>
+              {player.name}
+            </p>
+            {/* their hand, face down: a small fan whose size follows the card count */}
+            <div ref={(el) => registry.seat(player.id, el)} className="relative" style={{ height: backW * 1.4 + 2, width: backW + Math.max(0, fanCount - 1) * backW * 0.34 }}>
+              {Array.from({ length: fanCount }).map((_, i) => {
+                const c = i - (fanCount - 1) / 2;
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute top-0"
+                    style={{ width: backW, height: backW * 1.4, left: i * backW * 0.34, borderRadius: 2 }}
+                    initial={{ opacity: 0, y: -12, rotate: 0 }}
+                    animate={{ opacity: 1, y: Math.abs(c) * 1.2, rotate: c * 6 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 22, delay: i * 0.02 }}
+                  >
+                    <CardBack />
+                  </motion.div>
+                );
+              })}
+              {player.handCount > 0 && (
+                <motion.span
+                  key={player.handCount}
+                  initial={{ scale: 1.5 }}
+                  animate={{ scale: 1 }}
+                  data-count
+                  className="absolute z-20 -right-7 top-1/2 -translate-y-1/2 min-w-[24px] h-[22px] px-1 grid place-items-center font-display text-[16px] leading-none pt-px bg-paper text-ink border-2 border-ink rotate-3"
+                >
+                  {player.handCount}
+                </motion.span>
+              )}
+              {/* PASS: a stamp that thunks onto their cards */}
+              <AnimatePresence>
+                {stamp > 0 && (
+                  <motion.div
+                    key={stamp}
+                    data-stamp
+                    className="absolute z-30 pointer-events-none font-display text-[19px] leading-none tracking-[0.08em] px-2 pt-1 pb-0.5 border-[3px] border-ink text-ink bg-paper shadow-hard-sm left-0 top-1/2"
+                    initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
+                    animate={{ y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
+                    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.25 } }}
+                    transition={{ type: 'spring', stiffness: 700, damping: 20 }}
+                  >
+                    PASS
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            <p className="font-sans tabular-nums text-[11px] font-semibold text-mist flex items-center gap-1 leading-none">
+              {absent && <WifiOff size={11} className="text-paper" aria-label="Disconnected" />}
+              <span>{player.wins}W·{player.losses}L</span>
+              {/* a bot's personality; on its turn the badge says it's thinking */}
+              {player.isBot && <PersonaBadge persona={player.persona} thinking={active && !out && !absent} compact={compact} />}
+              {out && place ? <span className="font-display text-[13px] leading-none px-1 pt-px bg-paper text-ink">{ORDINAL[place] ?? `${place}TH`}</span> : null}
+            </p>
+          </div>
         </div>
         {onKick && absent && <KickButton name={player.name} onConfirm={onKick} />}
       </div>

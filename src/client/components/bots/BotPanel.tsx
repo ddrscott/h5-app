@@ -85,14 +85,14 @@ export const BotPanel: React.FC<{
     <>
       <div className="fixed inset-0 bg-black/50 z-[85]" onClick={onClose} />
       <motion.aside
-        className="fixed top-0 right-0 bottom-0 z-[86] w-[min(440px,100vw)] panel flex flex-col"
+        className="fixed top-0 right-0 bottom-0 z-[86] w-[min(440px,100vw)] panel-cut panel-sheet flex flex-col"
         initial={{ x: 40, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         role="dialog"
         aria-label="Your bot"
         data-testid="bot-panel"
       >
-        <div className="flex items-start justify-between p-4 pb-2">
+        <div className="flex items-start justify-between p-4 pl-10 pb-2">
           <div>
             <p className="section-head mb-2">Bring your own bot</p>
             <h2 className="font-display text-[32px] tracking-[0.03em] text-paper leading-none">Let a bot play your seat</h2>
@@ -113,7 +113,7 @@ export const BotPanel: React.FC<{
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 pl-10 space-y-5">
           {tab === 'guide' ? (
             <>
               <BotGuide />

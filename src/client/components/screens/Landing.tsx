@@ -106,7 +106,7 @@ export const Landing: React.FC = () => {
           </h2>
           
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <div className="panel text-center space-y-3 p-6 -rotate-1">
+            <div className="panel-cut text-center space-y-3 p-7 -rotate-1">
               <Zap size={38} strokeWidth={2.5} className="mx-auto mb-2 text-ember" />
               <h3 className="font-display text-4xl leading-none text-paper">Fast</h3>
               <p className="text-mist">
@@ -114,7 +114,7 @@ export const Landing: React.FC = () => {
               </p>
             </div>
             
-            <div className="panel text-center space-y-3 p-6 rotate-1">
+            <div className="panel-cut text-center space-y-3 p-7 rotate-1">
               <Brain size={38} strokeWidth={2.5} className="mx-auto mb-2 text-ember" />
               <h3 className="font-display text-4xl leading-none text-paper">Sneaky</h3>
               <p className="text-mist">
@@ -122,7 +122,7 @@ export const Landing: React.FC = () => {
               </p>
             </div>
             
-            <div className="panel text-center space-y-3 p-6 -rotate-1">
+            <div className="panel-cut text-center space-y-3 p-7 -rotate-1">
               <Users size={38} strokeWidth={2.5} className="mx-auto mb-2 text-ember" />
               <h3 className="font-display text-4xl leading-none text-paper">Loud</h3>
               <p className="text-mist">
@@ -143,7 +143,7 @@ export const Landing: React.FC = () => {
             </h2>
             
             <div className="space-y-6">
-              <div className="panel p-6">
+              <div className="panel-cut p-7">
                 <h3 className="font-display text-3xl leading-none text-paper mb-4">Basic rules</h3>
                 <ul className="space-y-2 text-bone/85">
                   <li className="flex items-start">
@@ -169,7 +169,7 @@ export const Landing: React.FC = () => {
                 </ul>
               </div>
               
-              <div className="panel p-6">
+              <div className="panel-cut p-7">
                 <h3 className="font-display text-3xl leading-none text-paper mb-4">Special combinations</h3>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>

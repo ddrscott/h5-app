@@ -108,10 +108,29 @@ for (const vp of VIEWPORTS) {
       }
       if (want('table')) {
         await page.click('button:has-text("Start Game")');
-        // Let the deal finish and a few bots play.
-        await page.waitForTimeout(4500);
-        // If it's our turn, play the lowest card so the trick moves on.
-        await page.waitForTimeout(3000);
+        // Mid-trick: wait for the deal, play our part when it's our turn (pass, or lead the
+        // lowest card), and shoot once the pile holds a play from another seat while a bot thinks.
+        await page.waitForTimeout(3500);
+        const deadline = Date.now() + 40000;
+        while (Date.now() < deadline) {
+          const mine = await page.isVisible('text=/^(Your lead|Your turn)$/i').catch(() => false);
+          if (mine) {
+            const pass = page.locator('button[title="Pass (P)"]');
+            if (await pass.isEnabled()) await pass.click();
+            else {
+              // lead whichever card is on top where we tap (cards overlap on a phone)
+              await page.locator('[data-card]').last().click({ force: true, timeout: 3000 }).catch(() => {});
+              await page.waitForTimeout(150);
+              await page.locator('button[title="Play (Enter)"]').click({ timeout: 3000 }).catch(() => {});
+            }
+            await page.waitForTimeout(1200);
+            continue;
+          }
+          const piles = await page.locator('[data-pile]').count();
+          const botThinking = await page.isVisible('text=is thinking').catch(() => false);
+          if (piles >= 2 && botThinking) { await page.waitForTimeout(700); break; }
+          await page.waitForTimeout(300);
+        }
         await shot('07-table');
       }
       await page.goto('about:blank');
@@ -139,18 +158,26 @@ for (const vp of VIEWPORTS) {
     await page.waitForTimeout(1200);
     await lab('Bo: sisters', 650, '15-lab-sisters');
     await page.waitForTimeout(1200);
-    await lab('Ann: BOMB', 260, '16-lab-bomb-impact');
-    await page.waitForTimeout(500);
+    // the finisher frame shows once the cards land; catch it mid-beat, then the callout after
+    await lab('Ann: BOMB', 0);
+    await page.waitForFunction(() => document.querySelector('[data-impact]'), null, { polling: 'raf', timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(60);
+    await shot('16-lab-bomb-impact');
+    await page.waitForTimeout(900);
     await shot('16-lab-bomb');
     await page.waitForTimeout(1500);
     await lab('Bo: str. flush', 650, '17-lab-strflush');
     await page.waitForTimeout(1500);
-    await lab('Cy: Heart 5', 260, '18-lab-heart5-impact');
-    await page.waitForTimeout(500);
+    // the finisher frame shows once the cards land; catch it mid-beat, then the callout after
+    await lab('Cy: Heart 5', 0);
+    await page.waitForFunction(() => document.querySelector('[data-impact]'), null, { polling: 'raf', timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(60);
+    await shot('18-lab-heart5-impact');
+    await page.waitForTimeout(900);
     await shot('18-lab-heart5');
     await page.waitForTimeout(1500);
     await lab('Bo passes', 600, '19-lab-pass');
-    await lab('Game over', 2500, '20-lab-gameover');
+    await lab('Game over', 4200, '20-lab-gameover');
   }
 
   if (want('cards')) {

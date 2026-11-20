@@ -63,7 +63,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 260, damping: 24, delay: 0.3 }}
         >
-          <div className="panel p-5 sm:p-6">
+          <div className="panel-cut panel-tilt p-6 sm:p-7">
             <label htmlFor="player-name" className="section-head block mb-2">Your name</label>
             <input
               id="player-name"
