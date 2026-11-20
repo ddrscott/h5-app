@@ -163,14 +163,96 @@ export interface SeatBox { x: number; y: number; hw: number; hh: number }
 export const seatHalf = (compact: boolean, scale = 1) =>
   compact ? { hw: 67, hh: 41 } : { hw: 89 * scale, hh: 42 * scale };
 /**
- * How much bigger than its base size an opponent's seat draws on a large screen. Phones stay at 1;
- * a 1440x900 laptop gets about 1.15 and a big monitor up to 1.6, so the seats don't look like
- * stamps next to your own hand.
+ * The size an opponent's seat started from on a large screen before seats were sized from free space
+ * (seatLayout): phones 1, a 1440x900 laptop about 1.15, a big monitor up to 1.6. Your own plate still
+ * draws at this size, since it shares the bottom of the screen with your hand; seatLayout never draws
+ * an opponent smaller than it.
  */
 export const seatScale = (vp: { w: number; h: number }, compact: boolean) =>
   compact ? 1 : Math.min(1.6, Math.max(1, Math.min(vp.w / 1100, vp.h / 780)));
-/** How much bigger your own character plate draws: the same as the opponents' seats, so yours never reads smaller. */
+/** How much bigger your own character plate draws (see seatScale). */
 export const myPlateScale = (vp: { w: number; h: number }) => seatScale(vp, vp.w < 640);
+/** The biggest an opponent's seat draws: about a 380px plate with a 30px name. */
+export const SEAT_MAX_SCALE = 2.3;
+/** An active seat pops this much bigger (Seat.tsx), so spacing allows for it. */
+const ACTIVE_POP = 1.06;
+
+export interface SeatLayout { scale: number; spots: Array<{ x: number; y: number }>; boxes: SeatBox[] }
+
+/**
+ * Opponent seats sized from the free felt rather than a fixed number. `anchors` are the seat
+ * centres from seatSpots. Starting from SEAT_MAX_SCALE and stepping down, each try clamps the seats
+ * inside the screen and under the header, lifts a side seat that would reach the hand, and keeps the
+ * largest scale where:
+ *  - no two seats touch (the active seat's pop included),
+ *  - no seat reaches your hand or your status stack,
+ *  - the newest five-card meld draws exactly as it does with seats at their old size (meldFit), and
+ *    no seat covers it (unless the old-size seats already did, as on a 640x640 car screen),
+ *  - the ring keeps at least RING_KEEP of its old radius (the top seat may grow into the felt above
+ *    it, nudging the pile down a little).
+ * Phones keep the compact seat at scale 1: their felt has no room to spare.
+ */
+const RING_KEEP = 0.86;
+export function seatLayout(vp: Viewport, anchors: Array<{ x: number; y: number }>, handTop: number, compact: boolean): SeatLayout {
+  const handY = vp.h - vp.handBase - handTop;
+  const place = (scale: number) => {
+    const half = seatHalf(compact, scale);
+    const hw = half.hw * ACTIVE_POP, hh = half.hh * ACTIVE_POP;
+    const spots = anchors.map((p) => {
+      const x = Math.min(vp.w - hw - 6, Math.max(hw + 6, p.x));
+      let y = Math.min(p.y, handY - 8 - hh);
+      y = Math.max(HEADER + hh - 2, y);
+      return { x, y };
+    });
+    return { scale, spots, boxes: spots.map((p) => ({ ...p, ...half })) };
+  };
+  const base = place(seatScale(vp, compact));
+  if (compact || anchors.length === 0) return base;
+  const lanes0 = tableLanes(vp, base.boxes, handTop);
+  const fit0 = meldFit(5, vp, lanes0.meldRoom);
+  // how much of the newest five-card meld's box (at the readable floor) the seats cover
+  const meldCover = (t: SeatLayout, pileY: number, half: number) => {
+    const mh = Math.max(vp.PH, MIN_MELD_W * 1.4);
+    const top = pileY - mh * MELD_UP - 4, bottom = pileY + mh * 0.58 + 4;
+    let area = 0;
+    for (const b of t.boxes) {
+      const hw = b.hw * ACTIVE_POP, hh = b.hh * ACTIVE_POP;
+      const ox = Math.min(b.x + hw, vp.w / 2 + half) - Math.max(b.x - hw, vp.w / 2 - half);
+      const oy = Math.min(b.y + hh, bottom) - Math.max(b.y - hh, top);
+      if (ox > 0 && oy > 0) area += ox * oy;
+    }
+    return area;
+  };
+  const cover0 = meldCover(base, lanes0.pileY, fit0.half);
+  const ok = (t: SeatLayout) => {
+    const hw = t.boxes[0].hw * ACTIVE_POP, hh = t.boxes[0].hh * ACTIVE_POP;
+    for (let i = 0; i < t.spots.length; i++) {
+      const a = t.spots[i];
+      if (a.x - hw < 2 || a.x + hw > vp.w - 2 || a.y - hh < HEADER - 6) return false;
+      if (a.y + hh > handY - 4) return false;
+      for (let j = i + 1; j < t.spots.length; j++) {
+        const b = t.spots[j];
+        if (Math.abs(a.x - b.x) < hw * 2 + 10 && Math.abs(a.y - b.y) < hh * 2 + 8) return false;
+      }
+    }
+    const lanes = tableLanes(vp, t.boxes, handTop);
+    // your status stack: the turn banner (up to about 420px wide) over your plate
+    for (const a of t.spots) {
+      if (Math.abs(a.x - vp.w / 2) < hw + 220 && a.y + hh > lanes.statusTop - 6) return false;
+    }
+    if (lanes.ringR < lanes0.ringR * RING_KEEP) return false;
+    const fit = meldFit(5, vp, lanes.meldRoom);
+    if (fit.scale < fit0.scale - 0.001 || fit.spacing < fit0.spacing - 0.5) return false;
+    // never cover more of the newest meld than seats at their old size did (none, on most screens)
+    if (meldCover(t, lanes.pileY, fit.half) > cover0 + 1) return false;
+    return true;
+  };
+  for (let scale = SEAT_MAX_SCALE; scale > base.scale; scale = Math.round((scale - 0.05) * 100) / 100) {
+    const t = place(scale);
+    if (ok(t)) return t;
+  }
+  return base;
+}
 /** Full width of an opponent's name plate at scale 1 (Seat.tsx PLATE_W); your own plate is at least this wide off a phone. */
 export const SEAT_W = 172;
 /** Height of the status chip + your nameplate stack, at plate scale 1. */

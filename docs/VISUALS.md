@@ -71,7 +71,7 @@ card, never a colored fill.
   an orange outline and orange hard offset around the whole active plate, or an inverted (paper)
   row for the winner. Never a colored stripe down one side of a card.
 - **Seats** are name plates with the hand held up behind them. Each opponent is one leaning ink
-  plate (172px wide on a laptop, 128px on a phone, a 3px paper outline) holding the name in a
+  plate (172px wide at scale 1, 128px on a phone, a 3px paper outline) holding the name in a
   tilted paper caption box and a record line: W·L, the personality chip for a bot (its emblem and
   name, the blurb on hover, `thinking…` on its turn), and a place tag once out. The face-down
   hand is a small fan held above the plate, outside it, its cards tucked just behind the plate's
@@ -79,10 +79,17 @@ card, never a colored fill.
   already says who a bot is, and initials said nothing the name doesn't. The plate stamps a hard
   offset in its own shape (drawn as a second shape behind it, not a filter), orange on its turn.
   The leader's crown sits on the plate's top-left corner, and an absent player's 30-second ring
-  goes round their card count. Your own seat, under the status chip, is the same plate with your
-  name and record. Off a phone it's at least as wide as an opponent's plate and grows with them
-  on big screens (`myPlateScale` = `seatScale`), so your plate never reads smaller than theirs. It
-  goes orange on your turn. Lobby seats keep the portrait-and-plate shape for now.
+  goes round their card count. Off a phone the name is one line, as big as fits the plate (13 to
+  16px before scale), then an ellipsis.
+- **Seat size comes from the free felt** (`seatLayout` in `fx/layout.ts`), not a fixed number.
+  It tries scales from 2.3 down and keeps the biggest where the seats stay on screen and clear of
+  each other, your hand and your status stack, the newest five-card meld draws exactly as it did
+  with old-size seats (`meldFit`) and no seat covers it, and the ring keeps at least 86% of its
+  old radius (the top seat may grow into the felt above the ring). A side seat that would reach
+  the hand is lifted. At 1400×1000 that's 1.9 (a 336px plate, 1.5× the old fixed size), 1100×1000
+  1.8, 1920×1080 2.2. Phones keep the compact plate at 1. Your own seat, under the status chip,
+  is the same plate with your name and record at the old size (`myPlateScale`), since it shares
+  the bottom of the screen with your hand. It goes orange on your turn. Lobby seats keep the portrait-and-plate shape for now.
 - **A passed seat** stays a solid ink panel: nothing behind it shows through. Its paper and ink
   go gray (outline, caption, card backs, record) with a faint screentone over the plate,
   while the card count and the `PASS` stamp keep full strength. Never fade a panel with opacity.
@@ -355,5 +362,9 @@ The 红心五 seal in the header stays as it is.
   at 1920×1080, 1100×1000, 1024×768, 640×640 and 390×844, headless. `NAMES=long` runs the FX lab with
   20-character names (`/h5/animation?names=long`), and every shot checks that no seat name is cut
   without an ellipsis and that the YOU chip lands whole.
+- `node scripts/shots-seats.mjs http://localhost:5173 out-dir` screenshots a mid-trick FX lab
+  table with bot opponents (`/h5/animation?bots=1&players=N`) at 4 players 1400×1000, 1100×1000
+  and 390×844 and 6 players 1400×1000 (`SHOTS=5@1920x1080,...` for others). It prints each seat's
+  plate size and name font and fails if a seat overlaps another seat, your hand or the newest meld.
 - `node scripts/perf-frames.mjs http://localhost:5173 [WxH] [lab|table|both]` records frame times
   (see Performance).

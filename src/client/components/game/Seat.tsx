@@ -63,9 +63,16 @@ export function nameFit(name: string, room: number, max: number, min = 9): { px:
   if (typeof document !== 'undefined' && document.fonts?.status === 'loaded') fitCache.set(key, out);
   return out;
 }
+/**
+ * Font size for a one-line seat name (the full plate off a phone): the largest up to `max` at which
+ * the whole name fits `room`, stopping at `min`; past that the caption ends in an ellipsis.
+ */
+export function lineFontPx(name: string, room: number, max: number, min: number) {
+  return nameFit(name.replace(/\s+/g, '\u00a0'), room, max, min).px;
+}
 function measureName(name: string, room: number, max: number, min: number): { px: number; breakAnywhere: boolean } {
   nameRuler ??= typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
-  const longest = name.split(/\s+/).reduce((a, b) => (b.length > a.length ? b : a), '');
+  const longest = name.split(/[ \t\n]+/).reduce((a, b) => (b.length > a.length ? b : a), '');
   if (!longest) return { px: max, breakAnywhere: false };
   let w = longest.length * 0.56 * 100;
   if (nameRuler) { nameRuler.font = '800 100px Barlow, ui-sans-serif, system-ui, sans-serif'; w = nameRuler.measureText(longest).width; }
@@ -135,7 +142,10 @@ export const Seat: React.FC<SeatProps> = React.memo(({ player, x, y, active, lea
   const backW = compact ? 18 : 24;
   const plateW = compact ? PLATE_W_COMPACT : PLATE_W;
   // caption room: plate width less its padding, the caption's own padding and its 5px slanted edge
-  const nameSize = nameFit(player.name, plateW - 28 - 12 - 6 - 5, compact ? 12 : 13);
+  const nameRoom = plateW - 28 - 12 - 6 - 5;
+  const nameSize = nameFit(player.name, nameRoom, 12);
+  // off a phone the name is one line, as big as fits the plate before it falls back to an ellipsis
+  const linePx = compact ? 0 : lineFontPx(player.name, nameRoom, 16, 13);
   // A passed seat stays a solid ink panel (nothing behind shows through); its paper and ink go
   // gray instead, and the PASS stamp and card count keep full strength.
   const dim = player.hasPassed && !active ? 'grayscale(1) brightness(0.58)' : undefined;
@@ -221,10 +231,10 @@ export const Seat: React.FC<SeatProps> = React.memo(({ player, x, y, active, lea
               broken only between words (the font shrinks until the longest word fits)
             */}
             <p data-seat-name className={`max-w-full -rotate-2 -ml-1 px-1.5 pt-[2px] pb-[1px] font-extrabold break-normal ${compact ? 'leading-[1.1] line-clamp-2' : 'leading-tight truncate'} ${active ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
-              style={{ filter: dim, clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)', fontSize: compact ? nameSize.px : 13, overflowWrap: compact && nameSize.breakAnywhere ? 'anywhere' : undefined }}>
+              style={{ filter: dim, clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)', fontSize: compact ? nameSize.px : linePx, overflowWrap: compact && nameSize.breakAnywhere ? 'anywhere' : undefined }}>
               {player.name}
             </p>
-            <p className="font-sans tabular-nums text-[11px] font-semibold text-mist flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-none" style={{ filter: dim }}>
+            <p className={`font-sans tabular-nums ${compact ? 'text-[11px]' : 'text-[12px]'} font-semibold text-mist flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-none`} style={{ filter: dim }}>
               {absent && <WifiOff size={11} className="text-paper" aria-label="Disconnected" />}
               <span>{player.wins}W·{player.losses}L</span>
               {/* a bot's personality: emblem and name, the blurb on hover; on its turn it says it's thinking */}
