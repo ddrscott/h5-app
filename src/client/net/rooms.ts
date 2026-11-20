@@ -245,7 +245,7 @@ export class Room<State = any> {
    * Like onMessage, but for the app shell: removeAllListeners() leaves it alone, and it doesn't
    * take held messages away from the game hooks.
    */
-  listen<T = any>(type: string, handler: (data: T) => void) {
+  listen<T = unknown>(type: string, handler: (data: T) => void) {
     this.appHandlers.set(type, [...(this.appHandlers.get(type) ?? []), handler as Handler]);
     return () => {
       this.appHandlers.set(type, (this.appHandlers.get(type) ?? []).filter((h) => h !== handler));
