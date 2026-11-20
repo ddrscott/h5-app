@@ -52,6 +52,8 @@ interface GameTableProps {
   isHost?: boolean;
   hostName?: string;
   onKick?: (playerId: string) => void;
+  /** Extra buttons for the header, left of the mute switch (the bring-your-own-bot button). */
+  headerExtra?: React.ReactNode;
 }
 
 const MELD_NAME: Record<string, string> = {
@@ -135,7 +137,7 @@ const DealSprites: React.FC<{ id: number; seats: string[]; vp: Viewport }> = ({ 
 export const GameTable: React.FC<GameTableProps> = ({
   players, myPlayerId, myHand, selectedCards, currentMeld, currentTurnPlayerId, leadPlayerId,
   trickMelds, lastTrickMelds, lastError, lastNotification, phase, winner, finalStandings, turnOrder = [],
-  onCardSelect, onPlayCards, onPass, onLeaveGame, onPlayAgain, isHost = true, hostName = 'the host', onKick,
+  onCardSelect, onPlayCards, onPass, onLeaveGame, onPlayAgain, isHost = true, hostName = 'the host', onKick, headerExtra,
 }) => {
   const rawVp = useViewport();
   const [scope, animate] = useAnimate<HTMLDivElement>();
@@ -484,6 +486,7 @@ export const GameTable: React.FC<GameTableProps> = ({
           <span className="hidden sm:block font-sans tabular-nums text-[11px] tracking-[0.2em] text-mist">HEART OF FIVE</span>
         </div>
         <div className="flex gap-2 pointer-events-auto">
+          {headerExtra}
           <MuteButton />
           <button
             onClick={() => setShowLeaveConfirm(true)}

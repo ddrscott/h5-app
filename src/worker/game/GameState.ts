@@ -296,6 +296,8 @@ export class Player {
   position: number;
   /** Bots count as players but never become host. */
   isBot: boolean = false;
+  /** The name of the uploaded bot playing this seat for its human, shown on the seat. Null when they play. */
+  autopilot: string | null = null;
 
   constructor(id?: string, name?: string) {
     if (id && name) {
