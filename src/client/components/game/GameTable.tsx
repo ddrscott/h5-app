@@ -62,12 +62,11 @@ const MELD_NAME: Record<string, string> = {
 const ORD = ['', '1st', '2nd', '3rd', '4th', '5th', '6th'];
 
 /**
- * The ring: the round play area in the middle of the table where every meld lands, like a mat
- * circle drawn in ink on the screentone page. Flat ink inside, so the cards pop; a band of
- * screentone round the edge, held between a thin inner rule and a heavy paper brush stroke that
- * lifts off before it closes (the same dry brush as the Heart 5's ring); a faint gutter rule
- * outside that. The house motto is lettered along the band, HEART OF FIVE over the top and the
- * house line under the bottom, each arc only where nothing sits on it (tableLanes), and it steps
+ * The ring: the round play area in the middle of the table where every meld lands, drawn like a
+ * manga panel border. Flat ink inside, so the cards pop; a band of screentone round the edge, held
+ * between a thin inner rule and one solid, closed paper line, with the same hard black offset every
+ * panel has; a faint gutter rule outside that. The house motto is lettered along the band, HEART OF
+ * FIVE over the top and the house line under the bottom, each arc only where nothing sits on it (tableLanes), and it steps
  * aside while a callout is printed over it. Static: it sits on its own compositor layer, so cards
  * flying over it never make it repaint.
  */
@@ -96,26 +95,21 @@ const TableRing: React.FC<{ cx: number; cy: number; r: number; top: boolean; bot
     <div aria-hidden data-ring className="absolute pointer-events-none" style={{ left: cx - size / 2, top: cy - size / 2, width: size, height: size, willChange: 'transform' }}>
       <svg width={size} height={size} viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`} className="overflow-visible">
         <defs>
-          <pattern id={`${id}tone`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
-            <circle cx="3" cy="3" r="1.25" fill="#FAFAF7" opacity="0.26" />
+          <pattern id={`${id}tone`} width="6" height="6" patternUnits="userSpaceOnUse">
+            <circle cx="3" cy="3" r="1.1" fill="#FAFAF7" opacity="0.22" />
           </pattern>
-          <filter id={`${id}brush`} x="-10%" y="-10%" width="120%" height="120%">
-            <feTurbulence type="fractalNoise" baseFrequency={`${(0.9 * 100 / r).toFixed(3)} 0.06`} numOctaves="2" seed="5" />
-            <feDisplacementMap in="SourceGraphic" scale="5" />
-          </filter>
           {/* top arc left to right; bottom arc also left to right, so both read upright */}
           <path id={`${id}top`} d={`M ${-tr} 0 A ${tr} ${tr} 0 0 1 ${tr} 0`} />
           <path id={`${id}bot`} d={`M ${-tr} 0 A ${tr} ${tr} 0 0 0 ${tr} 0`} />
         </defs>
-        {outer && <circle r={r + 10} fill="none" stroke="#FAFAF7" strokeOpacity="0.45" strokeWidth="2" />}
+        {outer && <circle r={r + 12} fill="none" stroke="#FAFAF7" strokeOpacity="0.3" strokeWidth="1.5" />}
+        {/* a hard black offset under the ring, like every panel's */}
+        <circle cx="5" cy="6" r={r} fill="#000" />
         <circle r={r} fill="#0B0B0D" />
         <circle r={tr} fill="none" stroke={`url(#${id}tone)`} strokeWidth={band} />
-        <circle r={r - band} fill="none" stroke="#FAFAF7" strokeOpacity="0.55" strokeWidth="1.5" />
-        {/* the brush stroke: one heavy loaded pass that lifts off before it closes, and a dry second pass */}
-        <g filter={`url(#${id}brush)`} fill="none" stroke="#FAFAF7" strokeLinecap="round">
-          <circle r={r} strokeWidth="5.5" strokeDasharray={`${(2 * Math.PI * r * 0.93).toFixed(1)} ${(2 * Math.PI * r).toFixed(1)}`} transform="rotate(-62)" />
-          <circle r={r + 3} strokeWidth="1.6" strokeOpacity="0.7" strokeDasharray={`${(2 * Math.PI * r * 0.78).toFixed(1)} ${(2 * Math.PI * r).toFixed(1)}`} transform="rotate(-20)" />
-        </g>
+        <circle r={r - band} fill="none" stroke="#FAFAF7" strokeOpacity="0.6" strokeWidth="2" />
+        {/* the panel border: one solid, closed ink line */}
+        <circle r={r} fill="none" stroke="#FAFAF7" strokeWidth="5" />
         <g fill="#FAFAF7" stroke="#0B0B0D" strokeWidth={Math.max(3, font * 0.28)} paintOrder="stroke" fontSize={font} letterSpacing={font * 0.12}
           fontFamily='Bangers, "H5 Seal", Impact, sans-serif' dominantBaseline="central" style={{ transition: 'opacity .2s ease' }}>
           {top && <text style={{ opacity: hide.top ? 0 : 1, transition: 'opacity .2s ease' }}><textPath href={`#${id}top`} startOffset="50%" textAnchor="middle">{MOTTO_TOP}</textPath></text>}
