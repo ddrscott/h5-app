@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { GameState, GamePhase, Card, Player, Meld, saveState, restoreState, publicState, sanitizeName, RateLimiter } from "./game/GameState";
 import type { Env } from "./env";
+import { classifyBucket, recordResults, resultRows, type ResultRow, type SeatAtDeal } from "./stats";
 
 /**
  * One Heart of Five table. Each room is its own Durable Object, named by its room code.
@@ -49,6 +50,16 @@ interface RoomMeta {
   turnTimer?: { playerId: string; at: number };
   /** Lobby seats whose socket dropped, and when they're given up. */
   dropDeadlines?: Record<string, number>;
+  /** Signed-in user per seat, set by the Worker from the session cookie. Bots never have one. */
+  users?: Record<string, string>;
+  /** Games dealt in this room so far; part of each game's stats key. */
+  gameSeq?: number;
+  /** Who was seated when the current game was dealt. Cleared once its results are queued. */
+  dealt?: { seq: number; seats: SeatAtDeal[] };
+  /** Results waiting to be written to D1. Writes are idempotent, so a retry can't double count. */
+  pendingStats?: ResultRow[];
+  /** When to retry pendingStats after a failed write. */
+  statsRetryAt?: number;
 }
 
 interface Attachment {
@@ -74,6 +85,8 @@ const MAX_FRAME_BYTES = 8_192;
 const TURN_TIMEOUT_MS = 30_000;
 /** How long a lobby seat waits for its dropped player to come back. */
 const LOBBY_GRACE_MS = 2 * 60_000;
+/** How long to wait before retrying a failed stats write. */
+const STATS_RETRY_MS = 30_000;
 
 // Close codes the client turns into join errors.
 const CLOSE_NOT_FOUND = 4404;
@@ -125,6 +138,8 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
 
     const url = new URL(req.url);
     const createId = req.headers.get("X-H5-Create");
+    // Set only by the Worker (src/worker/index.ts), from the session cookie.
+    const userId = req.headers.get("X-H5-User") || undefined;
     const queryName = url.searchParams.get("name");
     let options: HeartOfFiveOptions & { name?: unknown; bot?: unknown } = {};
     try {
@@ -152,6 +167,11 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
         this.attach(ws, { sessionId: resumeId, left: true });
         this.closeWith(ws, CLOSE_REPLACED, "This seat was opened somewhere else");
       }
+      // A seat keeps the user it has. One that had none (a guest who signed in since) takes the
+      // new one, and starts counting from the next deal.
+      if (userId && !this.meta.users?.[resumeId] && !this.state.players.get(resumeId)!.isBot) {
+        this.meta.users = { ...this.meta.users, [resumeId]: userId };
+      }
       const [client, ws] = this.accept(resumeId, resumeToken);
       await this.onReconnect(this.clientFor(ws));
       await this.flush(ws);
@@ -167,8 +187,11 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     const sessionId = randomId(9);
     const token = crypto.randomUUID();
     this.meta.tokens[sessionId] = token;
+    const isBot = options.bot === true;
+    // A bot's socket comes from its host's browser and carries the host's cookie: never give it the user.
+    if (userId && !isBot) this.meta.users = { ...this.meta.users, [sessionId]: userId };
     const [client, ws] = this.accept(sessionId, token);
-    this.onJoin(this.clientFor(ws), { name: queryName ?? options.name, bot: options.bot === true });
+    this.onJoin(this.clientFor(ws), { name: queryName ?? options.name, bot: isBot });
     await this.flush(ws);
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -318,7 +341,37 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
 
     this.syncTurnTimer();
     await this.ctx.storage.put("room", { meta: this.meta, state: saveState(this.state) });
+    if (this.meta.pendingStats?.length) await this.writeStats();
     await this.syncAlarm();
+  }
+
+  /**
+   * Writes queued game results to D1, then tells each signed-in player their game was saved. The
+   * queue is saved with the room first, so a write cut off by eviction is retried, and the insert
+   * ignores rows it already has, so nothing counts twice.
+   */
+  private async writeStats() {
+    const meta = this.meta!;
+    const rows = meta.pendingStats ?? [];
+    try {
+      await recordResults(this.env.DB, rows);
+    } catch (e) {
+      console.error("room", meta.roomId, "stats write failed; retrying", (e as Error).message);
+      meta.statsRetryAt = Date.now() + STATS_RETRY_MS;
+      await this.ctx.storage.put("room", { meta, state: saveState(this.state!) });
+      return;
+    }
+    meta.pendingStats = (meta.pendingStats ?? []).filter((r) => !rows.includes(r));
+    meta.statsRetryAt = undefined;
+    await this.ctx.storage.put("room", { meta, state: saveState(this.state!) });
+    for (const r of rows) {
+      for (const [sid, uid] of Object.entries(meta.users ?? {})) {
+        if (uid !== r.userId) continue;
+        for (const ws of this.ctx.getWebSockets(sid)) {
+          this.sendTo(ws, { t: "msg", type: "stats_saved", data: { bucket: r.bucket, place: r.place, win: r.win, loss: r.loss } });
+        }
+      }
+    }
   }
 
   /** Is someone holding this seat right now? */
@@ -354,6 +407,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     const next = [
       m?.cleanupAt,
       m?.turnTimer?.at,
+      m?.statsRetryAt,
       ...Object.values(m?.dropDeadlines ?? {}),
     ].filter((t): t is number => !!t);
     if (next.length) await this.ctx.storage.setAlarm(Math.min(...next));
@@ -372,7 +426,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     const now = Date.now();
 
     if (this.meta.cleanupAt && this.meta.cleanupAt <= now) {
-      if (this.sockets.length === 0) {
+      if (this.sockets.length === 0 && !this.meta.pendingStats?.length) {
         console.log("room", this.meta.roomId, "disposing...");
         this.meta = null;
         this.state = null;
@@ -392,6 +446,8 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
         this.dropSeat(id, "didn't come back");
       }
     }
+
+    if (this.meta.statsRetryAt && this.meta.statsRetryAt <= now) this.meta.statsRetryAt = undefined; // flush() retries
 
     const timer = this.meta.turnTimer;
     if (timer && timer.at <= now) {
@@ -740,6 +796,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
         phase: state.phase,
       });
       client.send("your_hand", { cards: player.hand });
+      if (state.phase === GamePhase.PLAYING) this.sendStatsTracking(client);
       if (state.currentTurnPlayerId === client.sessionId) {
         this.sendTurnNotification();
       }
@@ -782,8 +839,49 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     this.broadcastRoundStart();
   }
 
+  /** Notes who's seated for the game just dealt, which decides its stats bucket and who it counts for. */
+  private snapshotDeal() {
+    const meta = this.meta!;
+    const seq = (meta.gameSeq ?? 0) + 1;
+    meta.gameSeq = seq;
+    const seats: SeatAtDeal[] = Array.from(this.state!.players.values()).map((p) => ({
+      id: p.id,
+      isBot: p.isBot,
+      userId: p.isBot ? undefined : meta.users?.[p.id],
+    }));
+    meta.dealt = { seq, seats };
+  }
+
+  /** Tells a seat that the current game counts toward its owner's stats, and in which bucket. */
+  private sendStatsTracking(client: Client) {
+    const dealt = this.meta!.dealt;
+    const seat = dealt?.seats.find((s) => s.id === client.sessionId);
+    const bucket = dealt && classifyBucket(dealt.seats);
+    if (seat?.userId && bucket) client.send("stats_tracking", { bucket });
+  }
+
+  /** Queues the finished game's results for every signed-in human who was dealt in. Once per game. */
+  private queueStats() {
+    const meta = this.meta!;
+    const state = this.state!;
+    const dealt = meta.dealt;
+    if (!dealt) return;
+    meta.dealt = undefined;
+    const rows = resultRows({
+      gameKey: `${meta.roomId}:${meta.createdAt}:${dealt.seq}`,
+      roomId: meta.roomId,
+      seats: dealt.seats,
+      finishOrder: state.finishOrder ?? [],
+      present: Array.from(state.players.keys()),
+      winnerId: state.roundWinnerId || null,
+      finishedAt: Date.now(),
+    });
+    if (rows.length) meta.pendingStats = [...(meta.pendingStats ?? []), ...rows];
+  }
+
   private broadcastRoundStart() {
     const state = this.state!;
+    this.snapshotDeal();
     // Send each player their own hand privately
     for (const client of this.clients) {
       const player = state.players.get(client.sessionId);
@@ -797,6 +895,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     });
 
     state.addSystemMessage(`🎮 Game ${state.currentRound + 1} started!`, "success");
+    for (const client of this.clients) this.sendStatsTracking(client);
 
     // Goes out after the state that shows it's this player's turn (see flush()).
     this.sendTurnNotification();
@@ -815,6 +914,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
   private handleRoundEnd() {
     const state = this.state!;
     const isGameEnding = state.phase === GamePhase.GAME_END;
+    this.queueStats();
 
     this.broadcast("round_ended", {
       winner: state.roundWinnerId,

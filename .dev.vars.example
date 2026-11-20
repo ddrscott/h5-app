@@ -1,0 +1,2 @@
+# Copy to .dev.vars for npm run dev. Sign-in codes show on screen instead of being emailed.
+DEV_LOGIN_CODES=1
