@@ -284,6 +284,10 @@ Two rule tests fail: a long A-K run, and a longer straight flush beating a short
 
 ## Deploy
 
+**Every push to `main` deploys.** `.github/workflows/deploy.yml` runs `npm ci`, the typecheck, the remote D1 migrations, then `npm run deploy`, one deploy at a time in push order. That includes Thunder merges to `main`. It needs the repo variable `CLOUDFLARE_ACCOUNT_ID` and the secret `CLOUDFLARE_API_TOKEN`, a token scoped to Workers Scripts Write, D1 Write, and Workers Routes Write on askscottpierce.com. `scripts/ci-token.sh` makes it with `CF_TOKEN_MANAGER` and pipes it straight into `gh secret set`, so it's never printed; running it again makes a second token, so delete the old one in the dashboard. CI skips `npm test` because of the two known rule failures below. Run it locally before you push. You can also run the workflow by hand from the Actions tab.
+
+To deploy from this machine instead:
+
 ```bash
 npm run db:migrate # apply migrations/ to the remote D1 database "h5" (first deploy, and after any new migration)
 npm run deploy     # build, drop any copied .dev.vars, wrangler deploy
