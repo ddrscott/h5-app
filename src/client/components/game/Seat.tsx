@@ -41,6 +41,21 @@ const initials = (name: string) => {
   return s.toUpperCase();
 };
 
+let nameRuler: CanvasRenderingContext2D | null = null;
+/**
+ * Font size for a seat's name in its caption box: the largest up to `max` at which the longest
+ * word fits `room` across, so a name only ever breaks between words ("Aggressive / Annie"), never
+ * inside one. Measured with Barlow at weight 800.
+ */
+export function nameFontPx(name: string, room: number, max: number, min = 9) {
+  nameRuler ??= typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
+  const longest = name.split(/\s+/).reduce((a, b) => (b.length > a.length ? b : a), '');
+  if (!longest) return max;
+  let w = longest.length * 0.56 * 100;
+  if (nameRuler) { nameRuler.font = '800 100px Barlow, ui-sans-serif, system-ui, sans-serif'; w = nameRuler.measureText(longest).width; }
+  return Math.max(min, Math.min(max, Math.floor((room / w) * 100 * 2) / 2));
+}
+
 /** Avatar letters for everyone at the table, made unique when two players' initials collide. */
 export function seatBadges(players: Array<{ id: string; name: string }>): Map<string, string> {
   const out = new Map<string, string>();
@@ -93,7 +108,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
   const fanCount = Math.min(player.handCount, compact ? 5 : 8);
   const backW = compact ? 18 : 24;
   const pw = compact ? 46 : 64, ph = compact ? 60 : 82;
-  const colW = compact ? 82 : 140;
+  const colW = compact ? 88 : 140;
   const portraitFill = out ? '#8E8E8F' : active ? '#E85D00' : '#FAFAF7';
   const P = 'polygon(0 0, 100% 0, 100% 80%, 78% 100%, 0 100%)';
 
@@ -141,9 +156,12 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
           <span aria-hidden className="absolute inset-0" style={{ background: active ? '#E85D00' : '#FAFAF7', clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)' }} />
           <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: 'polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)' }} />
           <div className="relative flex flex-col items-start gap-1 pl-4 pr-3 py-1.5">
-            {/* name in a caption box; full names, two lines on a phone rather than "Aggressive…" */}
-            <p className={`max-w-full -rotate-2 -ml-1 px-1.5 pt-[2px] pb-[1px] font-extrabold break-words ${compact ? 'text-[11.5px] leading-[1.1] line-clamp-2' : 'text-[13px] leading-tight truncate'} ${active ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
-              style={{ clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)' }}>
+            {/*
+              name in a caption box; full names, two lines on a phone rather than "Aggressive…",
+              broken only between words (the font shrinks until the longest word fits)
+            */}
+            <p data-seat-name className={`max-w-full -rotate-2 -ml-1 px-1.5 pt-[2px] pb-[1px] font-extrabold break-normal ${compact ? 'leading-[1.1] line-clamp-2' : 'text-[13px] leading-tight truncate'} ${active ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
+              style={{ clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)', fontSize: compact ? nameFontPx(player.name, colW + 14 - 28 - 12 - 6, 12) : undefined }}>
               {player.name}
             </p>
             {/* their hand, face down: a small fan whose size follows the card count */}
@@ -170,7 +188,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
                   initial={{ scale: 1.5 }}
                   animate={{ scale: 1 }}
                   data-count
-                  className="absolute z-20 -right-7 top-1/2 -translate-y-1/2 min-w-[24px] h-[22px] px-1 grid place-items-center font-display text-[16px] leading-none pt-px bg-paper text-ink border-2 border-ink rotate-3"
+                  className="absolute z-40 -right-7 top-1/2 -translate-y-1/2 min-w-[24px] h-[22px] px-1 grid place-items-center font-display text-[16px] leading-none pt-px bg-paper text-ink border-2 border-ink rotate-3"
                 >
                   {player.handCount}
                 </motion.span>
@@ -181,7 +199,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
                   <motion.div
                     key={stamp}
                     data-stamp
-                    className="absolute z-30 pointer-events-none font-display text-[19px] leading-none tracking-[0.08em] px-2 pt-1 pb-0.5 border-[3px] border-ink text-ink bg-paper shadow-hard-sm left-0 top-1/2"
+                    className="absolute z-30 pointer-events-none font-display text-[19px] leading-none tracking-[0.08em] px-2 pt-1 pb-0.5 border-[3px] border-ink text-ink bg-paper shadow-hard-sm -left-3 top-1/2"
                     initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
                     animate={{ y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
                     exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.25 } }}

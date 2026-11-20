@@ -11,7 +11,7 @@ import { Callouts, showCallout, calloutFontPx, calloutSize, calloutTilt, splitCa
 import { GameOver } from './GameOver';
 import { DialogBox } from '../ui/DialogBox';
 import { CardBack } from '../ui/CardFace';
-import { useViewport, registry, fan, tableLanes, placeCallout, meldFit, seatHalf, seatScale, MELD_UP } from '../../fx/layout';
+import { useViewport, registry, fan, tableLanes, placeCallout, meldFit, seatHalf, seatScale, myPlateScale, MELD_UP } from '../../fx/layout';
 import type { Viewport } from '../../fx/layout';
 import { bus } from '../../fx/bus';
 import { sfx } from '../../fx/sound';
@@ -68,18 +68,30 @@ const ORD = ['', '1st', '2nd', '3rd', '4th', '5th', '6th'];
  * screentone page around it (index.css .felt-texture). The house motto sits on the rules as two
  * caption boxes, each shown only where no seat covers it.
  */
-const TableStage: React.FC<{ vp: Viewport; r: number; seats: Array<{ x: number; y: number; hw: number; hh: number }> }> = ({ vp, r, seats }) => {
-  const { w, h } = vp;
+/** Geometry of the stage band: its edges' lean, and where the two motto caption boxes go. */
+function stageGeom(vp: Pick<Viewport, 'w' | 'pileY'>, r: number, seats: Array<{ x: number; y: number; hw: number; hh: number }>) {
+  const { w } = vp;
   const top = vp.pileY - r * 1.08, bottom = vp.pileY + r * 0.98;
   const lean = Math.min(w * 0.045, 54);
   const yAt = (edge: number, x: number) => edge + lean - (2 * lean * x) / w;
-  const band = `-20,${yAt(top, -20)} ${w + 20},${yAt(top, w + 20)} ${w + 20},${yAt(bottom, w + 20)} -20,${yAt(bottom, -20)}`;
   const deg = (-Math.atan2(2 * lean, w) * 180) / Math.PI;
   const clear = (x: number, y: number, hw: number) => seats.every((b) => Math.abs(b.x - x) > b.hw + hw + 8 || Math.abs(b.y - y) > b.hh + 22);
   const chips = [
     { x: w * 0.3, y: yAt(top, w * 0.3), text: 'HEART OF FIVE' },
     { x: w * 0.7, y: yAt(bottom, w * 0.7), text: "红心五 · IT'S DA BOMB!" },
-  ].filter((c) => w >= 640 && clear(c.x, c.y, c.text.length * 5.5));
+    // Below about 1080px the band is short and older melds stack up into the rules, so the
+  // lettering would sit half under cards: leave it off there.
+  ].filter((c) => w >= 1080 && clear(c.x, c.y, c.text.length * 5.5));
+  return { top, bottom, lean, yAt, deg, chips };
+}
+/** The motto chips as boxes, so a callout never lands on decorative lettering. */
+const chipBoxes = (g: ReturnType<typeof stageGeom>) =>
+  g.chips.map((c) => { const hw = c.text.length * 5.6 + 18; return { x: c.x, y: c.y, hw, hh: 16 + hw * Math.abs(Math.sin((g.deg * Math.PI) / 180)) }; });
+
+const TableStage: React.FC<{ vp: Viewport; r: number; seats: Array<{ x: number; y: number; hw: number; hh: number }> }> = ({ vp, r, seats }) => {
+  const { w, h } = vp;
+  const { top, bottom, yAt, deg, chips } = stageGeom(vp, r, seats);
+  const band = `-20,${yAt(top, -20)} ${w + 20},${yAt(top, w + 20)} ${w + 20},${yAt(bottom, w + 20)} -20,${yAt(bottom, -20)}`;
   return (
     <svg aria-hidden data-stage className="absolute inset-0 pointer-events-none" width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
       {/* the gutter: a thin outer rule, then the panel with its heavy paper border */}
@@ -178,16 +190,16 @@ export const GameTable: React.FC<GameTableProps> = ({
   const vp = useMemo(() => ({ ...rawVp, pileY: lanes.pileY, pileHalf: lanes.pileHalf, meldRoom: lanes.meldRoom }), [rawVp, lanes.pileY, lanes.pileHalf, lanes.meldRoom]);
   /** A clear spot for a callout: its own space, sized by the play, never over a seat or the newest meld. */
   const lane = useCallback((text: string, level: number, sub: string | undefined, meldN: number) => {
-    // On a phone a bomb or the Heart 5 takes the full width above or below the pile, over the
-    // seats if it must: it's gone in a second and a half, and at seat-dodging size it's a stamp.
+    // On a phone a bomb or the Heart 5 starts from the full width and shrinks only until it clears
+    // the seats and the motto chips, so it never sits on anyone's plate or card count.
     const wide = vp.w < 640 && level >= 3;
     let full = wide ? 200 : calloutFontPx(level, vp.w, text, Infinity);
     while (full > 16 && calloutSize(full, text, level).w > vp.w - 24) full *= 0.96;
     const fit = meldN > 0 ? meldFit(meldN, vp, vp.meldRoom) : null;
     const p = placeCallout({
-      vp, seats: wide ? [] : boxes, pileY: vp.pileY, statusTop: lanes.statusTop,
+      vp, seats: [...boxes, ...chipBoxes(stageGeom(vp, lanes.ringR, boxes))], pileY: vp.pileY, statusTop: lanes.statusTop,
       meldHalfW: fit?.half ?? 0, meldScale: fit?.scale ?? 1,
-      full, floor: CALLOUT_FLOOR[level] ?? 24,
+      full, floor: wide ? 28 : CALLOUT_FLOOR[level] ?? 24,
       size: (f, lines) => {
         if (lines === 2 && !splitCallout(text)) return null;
         const c = calloutSize(f, text, level, sub, lines);
@@ -195,7 +207,7 @@ export const GameTable: React.FC<GameTableProps> = ({
       },
     });
     return { x: p.x, y: p.y, fontPx: p.fontPx, maxW: p.maxW, maxScale: p.maxScale, lines: p.lines, tilt: p.tilt };
-  }, [vp, boxes, lanes.statusTop]);
+  }, [vp, boxes, lanes.statusTop, lanes.ringR]);
   const trickRef = useRef(0);
   trickRef.current = trickMelds[trickMelds.length - 1]?.cards.length ?? 0;
   const badges = useMemo(() => seatBadges(Array.from(players.values())), [players]);
@@ -411,7 +423,7 @@ export const GameTable: React.FC<GameTableProps> = ({
 
         {/* your nameplate and the turn status */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 pointer-events-none"
+          className="absolute left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2.5 pointer-events-none"
           style={{ bottom: lanes.statusBottom, maxWidth: 'calc(100vw - 16px)' }}
         >
           <AnimatePresence mode="wait">
@@ -435,18 +447,7 @@ export const GameTable: React.FC<GameTableProps> = ({
               </motion.div>
             )}
           </AnimatePresence>
-          {me && (
-            <div ref={(el) => registry.seat(myPlayerId, el)} className="relative flex items-center gap-2 px-2 py-0.5 bg-ink border-2 border-paper font-sans tabular-nums text-[12px] font-semibold text-mist shadow-hard-sm">
-              {isLeader && <Crown size={12} className="text-paper" aria-label="You lead this trick" />}
-              <span className="text-bone font-bold font-sans text-[13px]">{me.name}</span>
-              <span>{me.wins}W·{me.losses}L</span>
-              <AnimatePresence>
-                {(passBeats[myPlayerId] ?? 0) > 0 && (
-                  <PassStamp key={passBeats[myPlayerId]} />
-                )}
-              </AnimatePresence>
-            </div>
-          )}
+          {me && <MyPlate k={myPlateScale(vp)} name={me.name} badge={badges.get(myPlayerId)} wins={me.wins} losses={me.losses} live={isMyTurn} leader={isLeader} out={!!myPlace} passBeat={passBeats[myPlayerId] ?? 0} plateRef={(el) => registry.seat(myPlayerId, el)} />}
         </div>
 
         <PlayerHand hand={myHand} selectedCards={selectedCards} onCardSelect={onCardSelect} vp={vp} dealId={dealId} myTurn={isMyTurn} />
@@ -570,6 +571,42 @@ export const GameTable: React.FC<GameTableProps> = ({
  * cards that did it. It never takes input, and reduced motion skips it (impactOnce).
  */
 export const IMPACT_MS = 560;
+const IMPACT_TILT = (6 * Math.PI) / 180;
+let impactRuler: CanvasRenderingContext2D | null = null;
+/** Width of a line of finisher lettering at 100px, in the display face. */
+const impactUnit = (t: string) => {
+  impactRuler ??= typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
+  if (!impactRuler) return t.length * 52;
+  impactRuler.font = '100px Bangers, Impact, sans-serif';
+  return impactRuler.measureText(t).width + t.length * 2; // letter-spacing .02em
+};
+/**
+ * Font size, stretch and line split for the finisher word. The tilted block (widest line, plus the
+ * stroke on both sides and the shadow, by the stack's height) has to fit `budget` across and the
+ * band's height down. On a phone a long word stacks on two lines, split where the wider line is
+ * narrowest.
+ */
+export function impactFit(text: string, w: number, bandH: number, narrow: boolean) {
+  const budget = w * (narrow ? 0.92 : 0.58);
+  const cos = Math.cos(IMPACT_TILT), sin = Math.sin(IMPACT_TILT);
+  const options: string[][] = [[text]];
+  if (narrow) text.split('').forEach((c, i) => { if (c === ' ') options.push([text.slice(0, i), text.slice(i + 1)]); });
+  let best = { font: 0, stretch: 1, words: [text] };
+  for (const words of options) {
+    const unit = Math.max(...words.map(impactUnit)) / 100;
+    // per px of font: line ink + stroke (0.06 each side) + shadow (0.06), and the stack's height
+    const across = (s: number) => (unit * s + 0.18) * cos + words.length * 0.92 * sin;
+    const byH = (bandH * 0.72) / (words.length * 0.95);
+    const font = Math.max(30, Math.min(budget / across(1), byH));
+    const stretch = Math.min(1.3, ((budget / font - words.length * 0.92 * sin) / cos - 0.18) / unit);
+    if (font > best.font + 0.5) best = { font, stretch: Math.max(1, stretch), words };
+  }
+  // the 30px floor must still fit
+  const unit = Math.max(...best.words.map(impactUnit)) / 100;
+  const maxF = budget / ((unit * best.stretch + 0.18) * cos + best.words.length * 0.92 * sin);
+  if (best.font > maxF) best.font = maxF;
+  return best;
+}
 const ImpactFrame: React.FC<{ kind: 'bomb' | 'heart5'; text: string; w: number; h: number; cx: number; cy: number; clearTop: number; clearBottom: number; onDone: () => void }> = ({ kind, text, w, h, cx, cy, clearTop, clearBottom, onDone }) => {
   const heart = kind === 'heart5';
   useEffect(() => { const t = window.setTimeout(onDone, IMPACT_MS + 40); return () => clearTimeout(t); }, [onDone]);
@@ -579,15 +616,12 @@ const ImpactFrame: React.FC<{ kind: 'bomb' | 'heart5'; text: string; w: number; 
   const band = (top: boolean) => (top ? { y0: 0, y1: clearTop } : { y0: clearBottom, y1: h });
   const main = band(mainTop), minor = band(!mainTop);
   const mainH = main.y1 - main.y0, minorH = minor.y1 - minor.y0;
-  // Lettering: as wide as 55% of the screen (90% on a phone), as tall as the band allows; a
-  // horizontal stretch up to 1.3 makes up the width when the band is short.
-  const chars = text.length;
-  const wantW = w * (narrow ? 0.9 : 0.58);
-  const byW = wantW / (chars * 0.42);
-  const lines = !narrow || chars < 9 ? 1 : 2;
-  const font = Math.max(36, Math.min(byW * lines, (mainH * 0.72) / (lines * 0.95)));
-  const stretch = Math.min(1.3, Math.max(1, wantW / (font * chars * 0.42 / lines)));
-  const words = lines === 2 ? (() => { const i = text.lastIndexOf(' ', Math.ceil(chars / 2) + 2); return i > 0 ? [text.slice(0, i), text.slice(i + 1)] : [text]; })() : [text];
+  // Lettering: as wide as 58% of the screen (92% on a phone), as tall as the band allows. Each line
+  // is measured with the real face, and the fit counts the -6° tilt, the ink stroke and the drop
+  // shadow, so the word always lands whole inside the frame. A horizontal stretch up to 1.3 makes
+  // up the width when the band is short.
+  const fit = impactFit(text, w, mainH, narrow);
+  const { font, stretch, words } = fit;
   const lean = Math.min(w * 0.08, mainH * 0.28);
   const slash = (y0: number, y1: number, l: number) => `polygon(0 ${y0 + l}px, 100% ${y0}px, 100% ${y1 - l}px, 0 ${y1}px)`;
   const fill = heart ? '#D7192B' : '#E85D00';
@@ -638,6 +672,41 @@ const ImpactFrame: React.FC<{ kind: 'bomb' | 'heart5'; text: string; w: number; 
           </div>
         </motion.div>
       )}
+    </div>
+  );
+};
+
+/**
+ * Your own seat, as a character panel like everyone else's: a tilted cut portrait frame with your
+ * initials overlapping a leaning ink plate that holds your name in a caption box and your record.
+ * Portrait and plate go orange on your turn. It sits under the status chip, above your hand.
+ */
+const MyPlate: React.FC<{ k: number; name: string; badge?: string; wins: number; losses: number; live: boolean; leader: boolean; out: boolean; passBeat: number; plateRef: (el: HTMLDivElement | null) => void }> = ({ k, name, badge, wins, losses, live, leader, out, passBeat, plateRef }) => {
+  const P = 'polygon(0 0, 100% 0, 100% 80%, 76% 100%, 0 100%)';
+  const fill = out ? '#8E8E8F' : live ? '#E85D00' : '#FAFAF7';
+  return (
+    <div ref={plateRef} data-plate data-my-plate className="relative flex items-center" style={{ filter: `drop-shadow(4px 4px 0 #000)` }}>
+      <div className="relative z-10 shrink-0 -rotate-[5deg]" style={{ width: 40 * k, height: 48 * k, marginRight: -8 * k }}>
+        <span aria-hidden className="absolute inset-0" style={{ background: live ? '#0B0B0D' : '#FAFAF7', clipPath: P }} />
+        <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: P }} />
+        <span aria-hidden className="absolute inset-[5px] overflow-hidden" style={{ background: fill, clipPath: P }}>
+          <span className="tone absolute inset-0 text-ink/25" style={{ clipPath: 'polygon(0 62%, 100% 30%, 100% 100%, 0 100%)' }} />
+        </span>
+        <span className="absolute inset-[5px] grid place-items-center font-display leading-none tracking-[0.02em] text-ink pt-1" style={{ fontSize: 20 * k }}>{badge ?? name.slice(0, 2).toUpperCase()}</span>
+        {leader && <Crown size={15} strokeWidth={2.75} className="absolute -top-2.5 -left-2 text-ember fill-paper drop-shadow-[2px_2px_0_#000]" aria-label="You lead this trick" />}
+      </div>
+      <div className="relative">
+        <span aria-hidden className="absolute inset-0" style={{ background: live ? '#E85D00' : '#FAFAF7', clipPath: 'polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)' }} />
+        <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)' }} />
+        <div className="relative flex items-center gap-2 pl-4 pr-4" style={{ paddingTop: 5 * k, paddingBottom: 5 * k }}>
+          <span className={`-rotate-2 px-1.5 pt-[2px] pb-[1px] font-extrabold leading-tight whitespace-nowrap max-w-[46vw] truncate ${live ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
+            style={{ fontSize: 14 * k, clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)' }}>{name}</span>
+          <span className="font-sans tabular-nums font-semibold text-mist whitespace-nowrap" style={{ fontSize: 12 * k }}>{wins}W·{losses}L</span>
+        </div>
+      </div>
+      <AnimatePresence>
+        {passBeat > 0 && <PassStamp key={passBeat} />}
+      </AnimatePresence>
     </div>
   );
 };

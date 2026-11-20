@@ -76,6 +76,9 @@ card, never a colored fill.
   person's holds their initials in big lettering. The plate holds the name in a tilted paper
   caption box, the face-down hand with its count, and the record. The whole seat stamps a hard
   offset in its own shape, orange on its turn. Lobby seats use the same portrait-and-plate shape.
+  Your own seat, under the status chip, is the same panel at a smaller size: a 40x48px cut
+  portrait with your initials over a leaning ink plate with your name in a caption box and your
+  record. Portrait and plate go orange on your turn.
 - **Personality emblems** (`PersonaEmblem.tsx`) are original bold ink silhouettes: a fin cutting
   a wave (Shark), a level beam (Regular), a flame (Hothead), a hex shell (Turtle), a sprout
   (Rookie) and a plain bot head for anything else. The small tag next to the record uses the
@@ -110,7 +113,10 @@ in `GameTable.tsx`): one full-bleed angled panel of flat ink between heavy 5px p
 with a thin second rule outside each. The cards land on clean ink, so they pop, and the table
 reads as a deliberate page layout instead of an empty field. The house motto sits on the rules as
 two paper caption boxes (HEART OF FIVE on the top rule, 红心五 · IT'S DA BOMB! on the bottom one),
-each left out where a seat covers it and on phones. A patch of orange screentone glides to
+each left out where a seat covers it and on screens under 1080px wide, where older melds stack up
+into the rules. Callout placement treats the two caption boxes
+as obstacles, like seats, so a meld's callout never stacks on top of HEART OF FIVE and reads as a
+Heart 5 callout. A patch of orange screentone glides to
 whoever's turn it is.
 
 The lobby table is the same idea seen from above: an eight-sided arena drawn in ink with a paper
@@ -127,7 +133,8 @@ Text never prints on top of other text. `tableLanes()` and `placeCallout()` in
    to two rows.
 3. **Status stack:** one chip slot above the hand, with your nameplate under it. The chip shows
    the most urgent of a rejected play (blood red), a new leader (paper, crown), `YOUR TURN`
-   (orange) or who is thinking. Your PASS stamp lands beside the plate rather than on it.
+   (orange) or who is thinking. Your character plate sits under it. Your PASS stamp lands beside
+   the plate rather than on it.
 4. **Pile and ring:** the pile goes midway between the top seats and the status stack when a
    five-card spread fits there. When side seats crowd that band (phones with 4 to 6 players), it
    slides to the y with the most room sideways, so a settled meld never covers a nameplate. The
@@ -156,16 +163,19 @@ Text never prints on top of other text. `tableLanes()` and `placeCallout()` in
    that, it goes a little smaller and takes the spot that covers the least. Long words tilt less
    than 4 degrees so their ends don't swing into a neighbour, and the pop-in spring starts small
    enough that its rebound never pushes the word off screen. A play's callout replaces the current
-   one, while a player going out waits for the current one to finish. One exception: on a phone
-   (under 640px wide) a bomb, straight flush or Heart 5 callout ignores the seats and takes the
-   full width above or below the pile. It's gone in about a second and a half, and at
-   seat-dodging size it was a 48px stamp. The lettering's ink stroke scales with its size, so a
+   one, while a player going out waits for the current one to finish. On a phone (under 640px
+   wide) a bomb, straight flush or Heart 5 callout starts from the full width and may shrink to
+   28px to clear the seats. It still never lands on a plate or a card count: the finisher frame
+   just before it is the big moment on a phone. The lettering's ink stroke scales with its size, so a
    smaller burst still shows its fill.
 
-Opponents' PASS stamps land low on their face-down fan, short of the card count, so neither the
-name nor the count is covered. The leader's crown
+Opponents' PASS stamps land on the left of their face-down fan, and the card count sits above
+the stamp, so neither the name nor the count is covered. The leader's crown
 on the avatar's inner corner, so the name keeps both of its lines and nothing pokes off screen.
-Names wrap to two lines on a phone instead of being cut, at the table and in the lobby, and if two
+Names wrap to two lines on a phone instead of being cut, and only between words: the caption's
+font (12px at most, 9px at least) shrinks until the longest word fits on its line, measured with
+Barlow on a canvas (`nameFontPx` in `Seat.tsx`), so "Aggressive Annie" reads "Aggressive / Annie",
+never "Aggressiv / e Annie". Names wrap at the table and in the lobby, and if two
 players' initials match, the avatars get a number (A2) in both places.
 
 
@@ -200,8 +210,11 @@ players' initials match, the avatars get a number (A2) in both places.
    the Heart 5) and ink focus lines rush at the pile. Then a full-bleed slashed panel cuts in
    across the bigger band on either side of the newest meld: Signal Orange for a bomb, blood red
    for the Heart 5, with a paper edge and a black offset. It carries the word in giant tilted
-   lettering, about 55% of the screen's width (90% on a phone, where HEART OF FIVE stacks on two
-   lines). An ink counter-slash with the sound effect (ドドン or ゴゴゴ) cuts in from the other
+   lettering, about 58% of the screen's width (92% on a phone, where HEART OF FIVE stacks on two
+   lines). `impactFit` measures each line in Bangers and sizes the word so the tilted block,
+   stroke and drop shadow included, fits that width and the band's height, so the lettering
+   always lands whole inside the frame. On a phone it picks the line split whose wider line is
+   narrowest. An ink counter-slash with the sound effect (ドドン or ゴゴゴ) cuts in from the other
    side across the opposite band. Both cut out the way they came. The newest meld's own band is
    never covered, so you always see the cards that did it. The regular callout pops in as the
    frame leaves rather than under it. It never takes input and never delays the next play.

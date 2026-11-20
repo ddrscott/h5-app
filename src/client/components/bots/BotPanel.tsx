@@ -101,7 +101,7 @@ export const BotPanel: React.FC<{
             <X size={17} />
           </button>
         </div>
-        <div className="flex gap-1 px-4 border-b-[3px] border-paper/25">
+        <div className="flex gap-1 pl-10 pr-4 border-b-[3px] border-paper/25">
           {(['bots', 'guide'] as const).map((t) => (
             <button
               key={t}
