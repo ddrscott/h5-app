@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { LogOut, Play, Trophy } from 'lucide-react';
+import { BarChart3, Check, LogOut, Play, Trophy } from 'lucide-react';
+import { useAccount } from '../../contexts/AccountContext';
+import { useRoom } from '../../contexts/RoomContext';
 import type { Player } from '../../types/game';
 import { sfx } from '../../fx/sound';
 import { haptics } from '../../fx/haptics';
@@ -44,6 +46,36 @@ const CountUp: React.FC<{ from: number; to: number; delay: number; onTick?: () =
 };
 
 const ORD = ['—', '1st', '2nd', '3rd', '4th', '5th', '6th'];
+
+/** Under the standings: "Saved to your stats" for a signed-in player, a sign-in nudge for a guest. */
+const StatsLine: React.FC = () => {
+  const { account, openSignIn, openStats } = useAccount();
+  const { statsStatus } = useRoom();
+  if (account === undefined) return null;
+  if (account === null) {
+    return (
+      <div className="flex items-center justify-between gap-3 mb-4 text-[13px]" data-stats-line="guest">
+        <span className="text-mist">Guest results end with the room.</span>
+        <button onClick={openSignIn} className="text-bone underline underline-offset-4 decoration-white/30 hover:text-ember hover:decoration-ember transition-colors shrink-0">
+          Sign in to keep your stats
+        </button>
+      </div>
+    );
+  }
+  const text = statsStatus.state === 'saved' ? 'Saved to your stats'
+    : statsStatus.state === 'tracking' ? 'Saving to your stats…'
+    : 'Your stats count from the next game';
+  return (
+    <div className="flex items-center justify-between gap-3 mb-4 text-[13px]" data-stats-line={statsStatus.state}>
+      <span className={`inline-flex items-center gap-1.5 ${statsStatus.state === 'saved' ? 'text-brass-light' : 'text-mist'}`}>
+        {statsStatus.state === 'saved' && <Check size={15} strokeWidth={2.6} />}{text}
+      </span>
+      <button onClick={openStats} className="inline-flex items-center gap-1.5 text-bone hover:text-ember transition-colors shrink-0">
+        <BarChart3 size={14} /> Your stats
+      </button>
+    </div>
+  );
+};
 
 export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, players, myPlayerId, onPlayAgain, onLeaveGame, isHost = true, hostName = 'the host' }) => {
   const iWon = !!myPlayerId && (winner.id ? winner.id === myPlayerId : players?.get(myPlayerId)?.name === winner.name);
@@ -138,6 +170,10 @@ export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, play
             );
           })}
         </div>
+
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
+          <StatsLine />
+        </motion.div>
 
         <motion.div className="flex gap-3" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}>
           <button onClick={onLeaveGame} className="btn-secondary">
