@@ -1,84 +1,116 @@
 # Heart of Five: visuals and motion
 
-The game should feel like a good evening at a real card table. Cards are physical objects with
-weight, the table is lit from above, and the big moments land hard. Everything else stays quiet so
-those moments have room. The look is our own: a lacquered jade table, warm card stock, cinnabar
-red, brass, and Signal Orange for whatever is live right now.
+The game should read like a page out of an action manga: ink black, paper white, screentone
+shading, hard panel borders, and lettering that hits. Most of the time the page stays calm so the
+cards are easy to read. When a big play lands, the page explodes for half a second (a burst, focus
+lines, a sound effect drawn in katakana) and then gets out of the way.
+
+The genre is borrowed; nothing else is. Every motif here is our own: ink brush strokes, speed
+lines, impact bursts, screentone dots, panel borders, made-up onomatopoeia, and the 红心五 seal
+(the game's own name). No characters, symbols, headbands, eyes, logos, technique names or traced
+art from any real series, and none of anything that looks like them.
 
 ## Palette
 
 | Token | Hex | Used for |
 |---|---|---|
-| `ink` | `#0A1012` | page background, plates, panel fill |
-| `jade-900 … 500` | `#0B201D` … `#2C6E60` | the table surface, lit center to dark edge |
-| `paper` | `#F6F0E2` | card stock (warm, never pure white) |
-| `cinnabar` | `#C7352C` | hearts and diamonds, the 红心五 seal, the Heart 5 |
-| `card-black` | `#1C1D24` | spades and clubs |
-| `brass` / `brass-light` | `#D6A54A` / `#F2CF7E` | the Heart 5 frame, the leader's crown, wins, the table inlay |
-| `ember` (Signal Orange) | `#E85D00` | live state only: your turn, the active seat, selection, the primary button |
-| `bone` / `mist` | `#ECE5D3` / `#8FA7A0` | text and secondary text |
+| `ink` | `#0B0B0D` | page background, panels, outlines, hard offsets |
+| `gray-950 … 50` | `#0E0E10` … `#F4F4F2` | screentone: neutral grays only, no tint |
+| `paper` | `#FAFAF7` | card stock, panel outlines, caption boxes, secondary buttons |
+| `ember` (Signal Orange) | `#E85D00` | live state only: your turn, the active seat, selection, the primary button, the bomb burst |
+| `blood` / `blood-deep` | `#D7192B` / `#8F0C18` | the one hot color: hearts and diamonds, danger and errors, the Heart 5, last place |
+| `bone` / `mist` | `#EFEFEA` / `#A3A3A8` | text on ink and secondary text |
 
-The Tailwind `gray` scale is tinted toward jade, so any `gray-800` panel sits on the same surface.
-Orange means "now": if something isn't live, it isn't orange. There are no blue accents and no
-decorative gradients; the only gradients model light (the lamp over the table, the sheen on a card).
+Orange means "now": if something isn't live, it isn't orange. Red means danger or the Heart 5.
+Everything else is black, white or gray. There are no gradients for decoration. The few gradients
+left in the code are masks (fading a screentone field or a focus-line ring) or a light under a
+card, never a colored fill.
 
 ## Type
 
-- **Fraunces** (variable, SOFT axis, self-hosted from `@fontsource-variable`) for display: the
-  title, combo callouts, the winner's name. Black weight, soft terminals, italic for bombs.
-- **Fraunces** also sets the card indices and the table inlay, like the printed numerals on a real deck.
-- **System sans** for everything else: body text, names, buttons, labels, counts and W·L records
-  (with `tabular-nums` so numbers line up). Small labels are plain words in spaced caps, such as
-  "Your name" or "Room code".
+- **Bangers** (SIL OFL, self-hosted from `@fontsource/bangers`, Latin only) for everything that
+  should feel hand-lettered: the title, headings, callouts, buttons, caption boxes, tabs, the
+  results table numbers and the face-card letters. It has one weight, and `font-synthesis: none`
+  stops the browser from faking a bold or italic of it.
+- **Barlow** (SIL OFL, `@fontsource/barlow`, weights 400 to 800, Latin only) for reading: body
+  text, names, form fields, counts, W·L records (with `tabular-nums`), and the card indices,
+  where legibility matters more than style.
+- **H5 SFX**: a 1.4 KB subset of Dela Gothic One (SIL OFL) holding only the katakana the sound
+  effects use (ドドン, ゴゴゴ, ズバッ and a few spares), in `src/client/assets/fonts`.
+- **H5 Seal**: a 2 KB subset of Noto Serif SC holding only 红心五, so the name renders on devices
+  without a CJK font.
 - **No terminal look.** This is a family card table, not a developer tool. Don't use a monospace
-  font, `// SECTION_HEADS`, snake_case labels, or a `$` prompt marker anywhere in the game. This
+  font (the code samples in the bring-your-own-bot panel are the one exception, because they're
+  code), `// SECTION_HEADS`, snake_case labels, or a `$` prompt marker anywhere in the game. This
   overrides the default visual signature from the owner's global instructions; the orange accent
   and hard-edged panels stay.
-- **H5 Seal**: a 2 KB subset of Noto Serif SC holding only 红心五 (`src/client/assets/fonts`),
-  so the name renders on devices without a CJK font.
+- **Copy has some nerve.** Short and direct, with a grin: "Who's in?", "Leaving already?",
+  "First one out takes it all.", "stuck with 3". Never cute at the cost of clear: buttons still
+  say what they do (Play, Pass, Start Game, Sign in).
 
 ## Shapes
 
-UI chrome has hard edges: 2px at most (the Tailwind radius scale is clamped). Cards are the only
-rounded thing on screen, because they are physical objects. Status is shown with content, such as
-a crown, a `PASS` stamp, a place like `1ST`, or an orange outline around the whole plate, and
-never with a colored stripe down one side of a card.
+- **Panels** are manga panel borders: solid ink, a 3px paper outline, and a hard black offset
+  (`.panel`, `shadow-hard`). Corners are square; the Tailwind radius scale is clamped to 2px.
+  Cards are the only rounded thing on screen, because they are physical objects.
+- **Caption boxes** (`.section-head`) are ink lettering on a paper box with one slanted edge, like
+  a narration box. They replace the old tiny spaced-caps labels.
+- **Buttons** are slanted parallelograms (`clip-path`), flat, with a dark inset along the bottom
+  edge so they read as pressable. Primary is Signal Orange, secondary is paper. Square header
+  buttons (`.icon-btn`) are ink with a thick paper outline.
+- **Fields** are speech balloons: paper fill, ink text, a thick outline that turns orange on focus.
+- **Status** is shown with content: a crown, a `PASS` stamp, a place like `1ST` in a paper tag,
+  an orange outline and orange hard offset around the whole active plate, or an inverted (paper)
+  row for the winner. Never a colored stripe down one side of a card.
+- **Seats** are comic-panel portraits: a paper frame with one clipped corner, screentone shading
+  across its lower half, hand-lettered initials, inside an ink nameplate with a paper outline.
+  A personality is a small tilted paper tag holding the personality's mark, plus its name in
+  lettering; the tag turns orange and pulses while that bot thinks.
 
 ## Cards
 
 Drawn in SVG on a 5:7 box (`src/client/components/ui/CardFace.tsx`), so they're crisp at any size.
+Readability comes first: rank and suit have to read at a glance, at arm's length.
 
-- **Indices** are large mono numerals with a suit pip under them, sized for the strip of a card
-  that shows in a fanned hand on a 390px phone. `10` is condensed to fit.
+- **Stock** is flat paper white with a light ink outline, like a card drawn on the page. No sheen.
+- **Indices** are big Barlow ExtraBold numerals with a suit pip under them, sized for the strip of
+  a card that shows in a fanned hand on a 390px phone. `10` is condensed to fit.
 - **Pips** for 2–10 follow the traditional layouts. Aces get one big pip in a hairline ring.
-- **Faces** (J/Q/K) are an original design: a framed panel holding a big serif letter, crowned
-  with one, two or three pips.
-- **Jokers** carry an eight-point star: ink for the small joker, cinnabar and brass for the big
-  joker, with `JOKER` set vertically in the corners.
-- **The Heart 5**, the game's namesake, is the one card that looks precious: a brass double frame,
-  a heart holding a 5 inside a ring of five small brass hearts, a cinnabar seal stamp reading
-  红心五, and a slow foil glint sweeping across it.
-- **The back** is an ink field inside a paper border, with a diagonal lattice of tiny orange
-  hearts and a five-heart rosette in a brass ring at the center.
+- **Faces** (J/Q/K) are an original design: an ink-framed panel holding a big lettered J, Q or K,
+  crowned with one, two or three pips.
+- **Jokers** carry an ink-outlined eight-point star (ink for the small joker, red with an orange
+  core for the big joker), with `JOKER` lettered down the corners.
+- **The Heart 5**, the game's namesake, is the one card that looks precious: an ink double frame
+  with a red inner rule, a screentone halo, one dry-brush ring in red that lifts off before it
+  closes, five small ink hearts, a big red heart with a lettered 5, the red 红心五 seal stamp, and
+  a slow light glint sweeping across it.
+- **The back** is an ink field of screentone dots inside a paper border, with an orange impact
+  burst holding five ink hearts.
 
 ## Table
 
-A radial lamp lights the middle of the jade table, which falls off into a vignette, under a fine
-noise grain blended at low strength. A brass inlay ring marks where melds land. The house motto
-sits on its top arc (HEART OF FIVE) and bottom arc (红心五 · IT'S DA BOMB), and an arc is left
-out wherever a seat would sit on its letters. A second, softer lamp glides to whoever's turn it is.
+A night page: charcoal ink under a screentone dot field that is densest under the pile and fades
+toward the edges, a dry-brush grain, and a heavy vignette (`.felt-texture` in `index.css`, all
+CSS and a tiny inline SVG noise, no images). It is calm on purpose so white cards pop. One loaded
+dry-brush ring in faint paper marks where melds land, lifting off before it closes. The house
+motto is lettered on its top arc (HEART OF FIVE) and bottom arc (红心五 · IT'S DA BOMB!), and an
+arc is left out wherever a seat would sit on its letters. A patch of orange screentone glides to
+whoever's turn it is.
+
+The lobby table is the same idea seen from above: an eight-sided arena drawn in ink with a paper
+outline and screentone on the mat, with the room code on a paper tag in the middle.
 
 ### Lanes
 
 Text never prints on top of other text. `tableLanes()` and `placeCallout()` in
-`src/client/fx/layout.ts` split the felt from the bottom up:
+`src/client/fx/layout.ts` split the table from the bottom up:
 
 1. **Buttons:** Pass and Play sit in a fixed bar at the bottom, so a thumb learns where they are.
 2. **Hand:** the arc is lifted until its lowest corner clears the bar, and it stays inside the
    screen with rotation included. A hand that would show less than about 30px of each card wraps
    to two rows.
 3. **Status stack:** one chip slot above the hand, with your nameplate under it. The chip shows
-   the most urgent of a rejected play (cinnabar), a new leader (brass, crown), `YOUR TURN`
+   the most urgent of a rejected play (blood red), a new leader (paper, crown), `YOUR TURN`
    (orange) or who is thinking. Your PASS stamp lands beside the plate rather than on it.
 4. **Pile and ring:** the pile goes midway between the top seats and the status stack when a
    five-card spread fits there. When side seats crowd that band (phones with 4 to 6 players), it
@@ -106,6 +138,7 @@ on the avatar's inner corner, so the name keeps both of its lines and nothing po
 Names wrap to two lines on a phone instead of being cut, at the table and in the lobby, and if two
 players' initials match, the avatars get a number (A2) in both places.
 
+
 ## Motion rules
 
 1. **Every action answers at once.** A press dips the card (scale 0.94) on pointer-down, before
@@ -116,19 +149,29 @@ players' initials match, the avatars get a number (A2) in both places.
    changes. Particles draw on one canvas that sleeps when nothing is alive.
 4. **Animation never gates input.** State updates the moment the server says so; animations play
    on top. If a new play arrives mid-flight, the old one is interrupted toward its end state.
-5. **Strength sets volume.** Callout size, hang time, sound, shake and particles scale together:
+5. **Quiet, then loud.** The manga rhythm: most frames are still, and the big moments hit hard
+   and short. Callout size, burst, hang time, sound, shake and particles scale together:
 
    | Play | Callout | Feedback |
    |---|---|---|
    | single | none (JOKER for jokers) | land thud, a 1–2px nudge |
-   | pair, triple | small, paper | thud, a few brass sparks |
-   | straight, sisters, full house | medium, brass | flourish, 5px shake, spark burst |
-   | bomb, straight flush | huge, orange italic | boom, 18px shake, warm flash, 150 sparks and embers, vibration |
-   | Heart 5 | large, paper on cinnabar | struck bronze bell, red bloom, brass hearts, vibration |
+   | pair, triple | lettering only, paper with an ink outline | thud, a few paper flecks |
+   | straight, sisters, full house | ink lettering on a paper burst with focus lines, ズバッ | flourish, 5px shake, paper flecks |
+   | bomb, straight flush | paper lettering on an orange burst, ドドン | full-screen impact frame, boom, 16px shake (under 0.4s), sparks and embers, vibration |
+   | Heart 5 | paper lettering on a blood-red burst, ゴゴゴ | full-screen impact frame in red, struck bell, 12px shake, ink-and-red hearts, vibration |
 
+   **Burst frames** (`Burst` in `Callouts.tsx`) are jagged stars stretched to the callout's own
+   box, with focus lines clipped inside them and a hard ink offset. Their padding is part of
+   `calloutSize()`, so `placeCallout()` keeps the whole burst clear of seats, the newest meld and
+   your status stack, just as it did for the bare word.
+
+   **The impact frame** (`ImpactFrame` in `GameTable.tsx`) is the full-screen moment for a bomb
+   or the Heart 5: the page flashes paper white (red for the Heart 5) for under 0.2s, then white
+   focus lines rush at the pile and fade, about half a second in all. The middle is masked clear
+   so the cards that caused it stay in view. It never takes input and never delays the next play.
 6. **Reduced motion** (`prefers-reduced-motion`): `MotionConfig reducedMotion="user"` turns every
-   transform animation into a jump, so flights become fades in place. Shake, flashes, particles,
-   the idle sway, the foil and the inlay spin are all off.
+   transform animation into a jump, so flights become fades in place. Shake, the impact frame,
+   particles, the idle sway and the glint are all off.
 7. **Say no before the tap.** The Play button runs the same rules as the server
    (`src/client/fx/rules.ts`), so a selection that can't beat the table reads like
    "Single · needs a pair" and stays dim instead of pulsing and then bouncing.
@@ -146,17 +189,17 @@ players' initials match, the avatars get a number (A2) in both places.
   a curved path with a turn of spin (a full turn for bombs), squash on contact and rebound. The
   previous meld is shoved back and dimmed at the moment of impact. When everyone passes, the trick
   is swept toward the player who won it.
-- **Pass:** two knuckle knocks on the table, the way people pass at a real one, and a `PASS` stamp
-  that thunks onto the player's card fan (beside the plate for your own).
-- **Turn:** the active seat gets an orange outline, and a slight lift; the
-  lamp moves to it. On your turn an orange `YOUR TURN` chip springs up with what you need to
-  beat, the hand gets a warm underglow, and a soft two-note chime and a short vibration play
-  once. An absent player's turn shows a 30-second ring, the time after which the room plays for
-  them.
+- **Pass:** two knuckle knocks on the table, the way people pass at a real one, and a lettered
+  `PASS` stamp on a paper tag that thunks onto the player's card fan (beside the plate for your own).
+- **Turn:** the active seat gets an orange outline, an orange hard offset and a slight lift; the
+  orange screentone patch moves to it. On your turn an orange `YOUR TURN` caption springs up with
+  what you need to beat, the hand gets a warm underglow, and a soft two-note chime and a short
+  vibration play once. An absent player's turn shows a 30-second orange ring, the time after
+  which the room plays for them.
 - **Going out and winning:** going out pops confetti from the player's seat with a callout of
   their place. Game over raises a results panel whose rows slide in by finishing order while win
-  and loss counts tick up. If you won, confetti fires from both sides twice and a pentatonic run
-  blooms into a chord.
+  and loss counts tick up; the winner's row is inverted to paper. If you won, confetti fires from
+  both sides twice and a pentatonic run blooms into a chord.
 
 ## Sound and haptics
 
@@ -167,9 +210,20 @@ falling roar, and the Heart 5 is an inharmonic bell. There are also deal flicks,
 the win run. `navigator.vibrate` adds taps on selection, your turn, bombs, the Heart 5 and a win.
 One button mutes both sound and vibration, and it's remembered under `storageKey('muted')`.
 
+## Performance
+
+Textures are CSS (dot fields, conic focus lines, clip paths) or tiny inline SVG noise; there are
+no texture images or video. The fonts are Latin-only subsets: Bangers, five Barlow weights, and
+two CJK subsets of a couple of KB each. The impact frame is two layers animating opacity and
+transform for half a second.
+
 ## Where to look
 
 - `/h5/animation` is the FX lab: the real table with a scripted offline game. Its buttons (and
-  `window.__lab` for scripts) trigger the deal, each meld type, a bomb, the Heart 5, passes, the
-  sweep, going out, an error and game over.
+  `window.__lab` for scripts) trigger the deal, each meld type (pair, triple, straight, full
+  house, sisters, bomb, straight flush, the Heart 5), passes, the sweep, going out, an error and
+  game over.
 - `/h5/cards` shows every card face and the back.
+- `node scripts/shots-art.mjs http://localhost:5173 out-dir [screen]` screenshots every screen
+  (landing, welcome, sign-in, stats, lobby, bot panel, a real table, the FX lab moments, cards)
+  at 1920×1080, 1100×1000, 1024×768 and 390×844, headless.
