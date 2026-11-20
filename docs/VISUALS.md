@@ -82,11 +82,21 @@ Text never prints on top of other text. `tableLanes()` and `placeCallout()` in
    (orange) or who is thinking. Your PASS stamp lands beside the plate rather than on it.
 4. **Pile and ring:** the pile goes midway between the top seats and the status stack when a
    five-card spread fits there. When side seats crowd that band (phones with 4 to 6 players), it
-   slides to the y with the most room sideways, so a settled meld never covers a nameplate. Wide
-   melds tighten their spacing to fit that room and shrink only if they still don't, and older
-   melds are nudged aside only as far as the room allows. On wide felt (`pileFlat()`, true when a
-   five-card meld fits beside another at 0.8 scale), older melds slide out level with the newest
-   one, alternating sides, instead of stacking above it. The ring is sized to fit around it.
+   slides to the y with the most room sideways, so a settled meld never covers a nameplate. The
+   newest meld then rests between the top seat's plate and your status chip, tilt included, and
+   only seats level with it limit how wide it may spread (`meldRoom`), so a seat straight above
+   the pile can't squeeze it.
+   **The newest meld is always readable.** `meldFit()` lays it out loosely, then fans it tighter
+   until only `MIN_STRIP` (36%) of each covered card shows, which is still the whole corner rank
+   and suit, and only then shrinks it. It never draws narrower than `MIN_MELD_W` (69px): the
+   corner rank is 0.29 of the card's width, so that keeps the rank at `MIN_RANK_PX` (20px), easy
+   to read at arm's length on a car's centre screen. Table cards smaller than that (phones) are
+   drawn up to it. A meld that can't fit at the floor spills past the ring instead of shrinking.
+   Older melds keep its spacing, shrink to 0.8 and 0.66 and dim. They are nudged aside only as far
+   as the room allows. On wide felt (`pileFlat()`, true when a five-card meld fits beside another
+   at 0.8 scale), older melds slide out level with the newest one, alternating sides, instead of
+   stacking above it. The ring is sized to fit around it. `scripts/shots-pile.mjs` screenshots
+   and measures this at square, desktop, tablet and phone sizes.
 5. **Callouts:** a callout gets a spot of its own, the way a scoring slot sits apart from the
    cards it scores. It never prints over a seat, the newest meld, the header or your status
    stack, although it may ride over the dimmed older melds. `placeCallout()` tries, in order, the
