@@ -71,7 +71,7 @@ await host.click('[data-testid=bot-extra-seat]');
 await host.waitForSelector('text=Starter Bot took a seat');
 await host.screenshot({ path: join(SHOTS, '2-panel.png') });
 await host.click('[data-testid=bot-play-seat]');
-check(await host.isVisible('[data-testid=autopilot-strip]'), 'Hana sees "Starter Bot is playing for you"');
+check(await host.isVisible('[data-testid=bot-dock-button] span'), 'the bot button shows Hana her seat is handed over');
 
 // Gus uploads the same bot as a file
 await guest.click('[data-testid=bot-dock-button]');
@@ -86,6 +86,7 @@ await guest.click('[data-testid=bot-play-seat]');
 // play
 await host.click('button:has-text("Start Game")');
 await host.waitForSelector('[data-plate]');
+check(await host.waitForSelector('[data-testid=autopilot-strip]', { timeout: 5000 }).then(() => true, () => false), 'at the table Hana sees "Starter Bot is playing for you"');
 await host.waitForSelector('[data-autopilot]:has-text("starter bot")', { timeout: 15000 }).catch(() => {});
 const hostSees = await host.locator('[data-autopilot]').allInnerTexts();
 const guestSees = await guest.locator('[data-autopilot]').allInnerTexts();
