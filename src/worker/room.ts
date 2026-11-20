@@ -11,7 +11,7 @@ import { classifyBucket, recordResults, resultRows, type ResultRow, type SeatAtD
  *                    {t:"state", s}                            full public state, after every change
  *                    {t:"msg", type, data}                     a game message ("your_hand", "your_turn", ...)
  *                    {t:"bye", code, reason}                   right before the room closes a seat's socket
- *   client → server  {t:"msg", type, data}                     "play", "pass", "chat", "startGame", "ready", "kick"
+ *   client → server  {t:"msg", type, data}                     "play", "pass", "chat", "startGame", "ready", "kick", "autopilot"
  *                    {t:"leave"}                               leaving on purpose
  *
  * A dropped socket keeps its seat: in the lobby for LOBBY_GRACE_MS, in a game for good (the host
@@ -621,6 +621,20 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
       }
     },
 
+    // The player handed their seat to an uploaded bot ({name}) or took it back ({name: null}). The bot
+    // runs in their browser and sends ordinary play/pass frames; this only labels the seat for the table.
+    autopilot: (client, message: { name?: unknown }) => {
+      const player = this.state!.players.get(client.sessionId);
+      if (!player) return;
+      const next = message.name == null || message.name === "" ? null : sanitizeName(message.name, "Bot");
+      if (player.autopilot === next) return;
+      player.autopilot = next;
+      this.state!.addSystemMessage(
+        next ? `🤖 ${next} is playing for ${player.name}` : `${player.name} took their seat back`,
+        "info",
+      );
+    },
+
     chat: (client, message: { text?: unknown }) => {
       if (!this.chatLimit.allow(client.sessionId)) {
         client.send("error", {
@@ -730,6 +744,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     // The seat stays, and the client can take it back with its token (see fetch()). A dropped
     // connection never plays or passes for anyone; the turn timer does that if they stay away.
     player.isActive = false;
+    player.autopilot = null; // the bot ran in that browser, so it's gone too
     if (state.phase === GamePhase.WAITING) {
       this.meta!.dropDeadlines = { ...this.meta!.dropDeadlines, [client.sessionId]: Date.now() + LOBBY_GRACE_MS };
     }

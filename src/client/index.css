@@ -119,6 +119,13 @@
   .btn-secondary:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #050807; }
   .btn-secondary:disabled { opacity: .45; cursor: not-allowed; }
 
+  /* Code in the bring-your-own-bot panel: the one place the game uses a monospace face. */
+  .bot-code {
+    @apply bg-ink/80 border border-white/10 text-bone/90 px-3 py-2 overflow-x-auto whitespace-pre text-[12px] leading-[1.5];
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .bot-code-input { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+
   .field {
     @apply w-full px-3 py-2.5 bg-ink/70 border border-white/15 text-bone placeholder:text-gray-500 font-sans
            focus:outline-none focus:border-ember;

@@ -42,6 +42,8 @@ export interface Player {
   losses: number;
   position?: number;
   isBot?: boolean;
+  /** Name of the uploaded bot playing this seat for its human, or null. */
+  autopilot?: string | null;
 }
 
 export interface Meld {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Crown, WifiOff } from 'lucide-react';
+import { Bot, Crown, WifiOff } from 'lucide-react';
 import type { Player } from '../../types/game';
 import { CardBack } from '../ui/CardFace';
 import { KickButton } from '../ui/KickButton';
@@ -180,6 +180,16 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
         </div>
         {onKick && absent && <KickButton name={player.name} onConfirm={onKick} />}
       </div>
+      {player.autopilot && (
+        <div
+          className="mt-1 flex items-center gap-1 px-1.5 py-0.5 bg-ink/85 border border-ember/70 text-[10px] font-semibold text-bone max-w-[150px]"
+          title={`${player.autopilot}, an uploaded bot, is playing for ${player.name}`}
+          data-autopilot
+        >
+          <Bot size={11} className="text-ember shrink-0" aria-label="Bot playing" />
+          <span className="truncate">{player.autopilot}</span>
+        </div>
+      )}
 
     </motion.div>
   );
