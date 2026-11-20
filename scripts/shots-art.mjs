@@ -4,6 +4,10 @@
 //
 //   node scripts/shots-art.mjs http://localhost:5173 out-dir [only-screen-substring]
 //
+// NAMES=long runs the FX lab with 20-character names (/h5/animation?names=long). Every shot also
+// checks that no seat name is cut off without an ellipsis and that your YOU chip on the results
+// page lands whole; any miss is listed under page errors.
+//
 // Writes <out-dir>/<screen>@<w>x<h>.png. Screens: landing, welcome, sign-in, stats, lobby,
 // bot panel, a real table mid-trick (built-in bots), the FX lab (deal, every meld callout, bomb,
 // Heart 5, game over) and /h5/cards. Signs in with dev codes, so run against `npm run dev` with
@@ -52,7 +56,24 @@ for (const vp of VIEWPORTS) {
   page.on('pageerror', (e) => errors.push(`${tag}: ${e.message}`));
   const shot = async (name) => {
     await page.screenshot({ path: join(OUT, `${name}@${tag}.png`) });
-    console.log(`  ${name}@${tag}`);
+    // long-name guards: a seat name never clips inside its caption, and your YOU chip on the
+    // results page is always fully inside its strip
+    const clipped = await page.evaluate(() => {
+      const bad = [];
+      for (const el of document.querySelectorAll('[data-seat-name]')) {
+        // a one-line caption that ends in an ellipsis is fine; a cut with no ellipsis is not
+        if (getComputedStyle(el).textOverflow === 'ellipsis') continue;
+        if (el.scrollWidth > el.clientWidth + 1) bad.push(`seat name "${el.textContent}" ${el.scrollWidth}>${el.clientWidth}`);
+      }
+      for (const you of document.querySelectorAll('[data-you]')) {
+        const row = you.closest('[data-standing]')?.getBoundingClientRect();
+        const r = you.getBoundingClientRect();
+        if (!row || r.width < 10 || r.right > row.right - 8 || r.left < row.left) bad.push(`YOU chip clipped (${Math.round(r.left)}..${Math.round(r.right)} in ${Math.round(row?.left ?? 0)}..${Math.round(row?.right ?? 0)})`);
+      }
+      return bad;
+    });
+    for (const b of clipped) errors.push(`${tag} ${name}: ${b}`);
+    console.log(`  ${name}@${tag}${clipped.length ? '  !! ' + clipped.join('; ') : ''}`);
   };
 
   if (want('landing')) {
@@ -143,7 +164,7 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(wait);
       if (name) await shot(name);
     };
-    await page.goto(`${APP}/h5/animation`);
+    await page.goto(`${APP}/h5/animation${process.env.NAMES === "long" ? "?names=long" : ""}`);
     await page.waitForFunction(() => window.__lab);
     // Hide the lab's control panel so the table is what's shown.
     await page.addStyleTag({ content: '[data-lab-panel]{display:none!important}' });

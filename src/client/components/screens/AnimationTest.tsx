@@ -21,14 +21,21 @@ function startingHand(): Card[] {
     card(10, 'D'), card(11, 'C'), card(12, 'H'), card(12, 'S'), card(13, 'D'), card(14, 'C'), card(17, 'J')];
 }
 
+// /h5/animation?names=long seats everyone under a 20-character name (MAX_NAME_LENGTH), to check
+// that captions and the results page hold up with the longest names a player can pick
+const LONG_NAMES = typeof location !== 'undefined' && new URLSearchParams(location.search).get('names') === 'long';
+const NAMES = LONG_NAMES
+  ? { me: 'Wolfgang Amadeus Moz', ann: 'Grandma Annabelle Lu', bo: 'Maximilianoooooooooo', cy: 'Bartholomew Fitzgera' }
+  : { me: 'Scott', ann: 'Grandma Ann', bo: 'Bo', cy: 'Cousin Cy' };
+
 function basePlayers(hand: number): Map<string, Player> {
   const mk = (id: string, name: string, handCount: number, wins = 0, losses = 0): Player =>
     ({ id, name, handCount, isActive: true, hasPassed: false, isOut: false, wins, losses });
   return new Map([
-    [ME, mk(ME, 'Scott', hand, 2, 1)],
-    ['ann', mk('ann', 'Grandma Ann', 13, 3, 0)],
-    ['bo', mk('bo', 'Bo', 13, 0, 2)],
-    ['cy', mk('cy', 'Cousin Cy', 13, 1, 3)],
+    [ME, mk(ME, NAMES.me, hand, 2, 1)],
+    ['ann', mk('ann', NAMES.ann, 13, 3, 0)],
+    ['bo', mk('bo', NAMES.bo, 13, 0, 2)],
+    ['cy', mk('cy', NAMES.cy, 13, 1, 3)],
   ]);
 }
 

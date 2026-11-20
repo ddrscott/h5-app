@@ -431,19 +431,19 @@ export const GameTable: React.FC<GameTableProps> = ({
               <motion.div
                 key={status.err ? `e:${status.small}` : status.big}
                 role={status.err ? 'alert' : undefined}
-                className={`flex items-baseline gap-2.5 ${status.hot ? 'pl-6 pr-7 pt-1.5 pb-1 -rotate-2' : 'pl-4 pr-5 py-1'} ${status.err ? 'bg-blood text-paper max-w-[min(92vw,560px)] flex-wrap justify-center text-center' : 'whitespace-nowrap'} ${status.hot ? 'bg-ember text-ink' : status.err ? '' : status.lead ? 'bg-paper text-ink' : 'bg-gray-800 text-bone'}`}
-                style={{ clipPath: status.hot ? 'polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)' : 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)', boxShadow: status.hot ? 'inset 0 -5px 0 rgba(0,0,0,.25)' : undefined }}
+                className={`flex items-baseline gap-2.5 ${status.hot ? 'pl-6 pr-7 pt-1.5 pb-1 -rotate-2' : 'pl-4 pr-5 py-1'} ${status.err ? 'bg-blood text-paper max-w-[min(92vw,560px)] flex-wrap justify-center text-center' : 'whitespace-nowrap'} ${status.hot ? 'bg-ember text-ink' : status.err ? '' : status.lead ? 'bg-paper text-ink' : 'bg-ink text-paper'}`}
+                style={{ clipPath: status.hot ? 'polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)' : 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)', boxShadow: status.hot ? 'inset 0 -5px 0 rgba(0,0,0,.25)' : !status.err && !status.lead ? 'inset 0 2px 0 #FAFAF7, inset 0 -2px 0 #FAFAF7' : undefined }}
                 initial={{ y: 14, opacity: 0, scale: status.hot ? 0.8 : 1 }}
                 animate={status.err ? { y: 0, opacity: 1, scale: 1, x: [0, -6, 6, -3, 0] } : { y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: -8, opacity: 0, transition: { duration: 0.12 } }}
                 transition={{ type: 'spring', stiffness: 500, damping: 22 }}
               >
-                <span className={`${status.hot ? 'font-display text-[30px] leading-none tracking-[0.04em] uppercase' : status.lead || status.err ? 'font-display text-[18px] leading-none tracking-[0.05em] uppercase' : 'text-[14px] font-bold'}`}>
+                <span className={`${status.hot ? 'font-display text-[30px] leading-none tracking-[0.04em] uppercase' : 'font-display text-[18px] leading-none tracking-[0.05em] uppercase'}`}>
                   
                   {status.lead && <Crown size={14} strokeWidth={2.5} className="inline -mt-1 mr-1.5 text-ink" />}
                   {status.big}
                 </span>
-                {status.small && <span className={`${status.hot ? 'text-[15px] font-bold' : 'text-[13px] font-semibold'} ${status.hot ? 'text-ink/80' : status.err ? 'text-paper/90' : 'text-mist'}`}>{status.small}</span>}
+                {status.small && <span className={`${status.hot ? 'text-[15px] font-bold' : 'text-[13px] font-semibold'} ${status.hot ? 'text-ink/80' : status.err ? 'text-paper/90' : status.lead ? 'text-ink/70' : 'text-bone'}`}>{status.small}</span>}
               </motion.div>
             )}
           </AnimatePresence>

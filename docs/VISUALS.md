@@ -138,7 +138,8 @@ Text never prints on top of other text. `tableLanes()` and `placeCallout()` in
    to two rows.
 3. **Status stack:** one chip slot above the hand, with your nameplate under it. The chip shows
    the most urgent of a rejected play (blood red), a new leader (paper, crown), `YOUR TURN`
-   (orange) or who is thinking. Your character plate sits under it. Your PASS stamp lands beside
+   (orange) or who is thinking (an ink panel with paper rules top and bottom, the name lettered
+   in caps). Your character plate sits under it. Your PASS stamp lands beside
    the plate rather than on it.
 4. **Pile and ring:** the pile goes midway between the top seats and the status stack when a
    five-card spread fits there. When side seats crowd that band (phones with 4 to 6 players), it
@@ -180,7 +181,9 @@ on the avatar's inner corner, so the name keeps both of its lines and nothing po
 Names wrap to two lines on a phone instead of being cut, and only between words: the caption's
 font (12px at most, 9px at least) shrinks until the longest word fits on its line, measured with
 Barlow on a canvas (`nameFontPx` in `Seat.tsx`), so "Aggressive Annie" reads "Aggressive / Annie",
-never "Aggressiv / e Annie". Names wrap at the table and in the lobby, and if two
+never "Aggressiv / e Annie". Only a single word too long for the box even at 9px (a
+20-letter name on a phone) breaks inside the word, so it wraps whole instead of being cut at the
+caption's slanted edge (`nameFit` reports that case). Names wrap at the table and in the lobby, and if two
 players' initials match, the avatars get a number (A2) in both places.
 
 
@@ -255,7 +258,8 @@ players' initials match, the avatars get a number (A2) in both places.
   -5 degrees with the winner in giant lettering (YOU WIN! on orange, or NAME WINS! on paper) and a
   ドン! sound effect. Under it the standings come in as cut strips that step down like panels,
   sliding in by finishing order while the win and loss counts tick up. The winner's strip is
-  paper with an orange offset. The stats line and the Leave and Play again buttons sit in a cut
+  paper with an orange offset. Your YOU chip and a STUCK WITH N chip sit beside and under the
+  name, never inside it, so a long name truncates and the chips always land whole. The stats line and the Leave and Play again buttons sit in a cut
   panel at the bottom. If you won, confetti fires from
   both sides twice and a pentatonic run blooms into a chord.
 
@@ -284,4 +288,6 @@ animating opacity and transform for just over half a second.
 - `/h5/cards` shows every card face and the back.
 - `node scripts/shots-art.mjs http://localhost:5173 out-dir [screen]` screenshots every screen
   (landing, welcome, sign-in, stats, lobby, bot panel, a real table, the FX lab moments, cards)
-  at 1920×1080, 1100×1000, 1024×768 and 390×844, headless.
+  at 1920×1080, 1100×1000, 1024×768 and 390×844, headless. `NAMES=long` runs the FX lab with
+  20-character names (`/h5/animation?names=long`), and every shot checks that no seat name is cut
+  without an ellipsis and that the YOU chip lands whole.

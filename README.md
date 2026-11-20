@@ -235,6 +235,8 @@ The art direction, card design, palette, type and motion rules are in [docs/VISU
 node scripts/shots-art.mjs http://localhost:5173 /tmp/art [screen]
 ```
 
+Run it with `NAMES=long` to put 20-character names (the longest allowed) on everyone in the FX lab (`/h5/animation?names=long`). Every shot also checks that no seat name gets cut off without an ellipsis and that your YOU chip on the results page lands whole, and lists any miss under page errors.
+
 The table shot waits until the pile holds another seat's play (it passes or leads for you when it's your turn), and the bomb and Heart 5 shots catch the finisher frame mid-beat.
 
 Two pages help when working on it:

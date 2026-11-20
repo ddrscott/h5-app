@@ -174,7 +174,7 @@ export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, play
 
         {/* the standings: one cut strip per player, stepping down like panels on a page */}
         <div className="w-full max-w-xl 2xl:max-w-3xl 2xl:text-[1.15em] -rotate-[1.5deg] flex flex-col gap-2">
-          <div className="grid grid-cols-[3.6rem_1fr_3rem_3rem] px-6 font-display text-[15px] leading-none tracking-[0.08em] text-bone" style={{ textShadow: '2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000' }}>
+          <div className="relative z-10 grid grid-cols-[3.6rem_1fr_3rem_3rem] px-6 font-display text-[15px] leading-none tracking-[0.08em] text-bone" style={{ marginRight: (rows.length - 1) * 10, textShadow: '2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000' }}>
             <span>OUT</span><span>PLAYER</span><span className="text-right">W</span><span className="text-right">L</span>
           </div>
           {rows.map((r, i) => {
@@ -200,8 +200,10 @@ export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, play
                   </span>
                   {/* name on one line (it may truncate); the stuck-with count gets a line of its own so it always lands whole */}
                   <span className="min-w-0 flex flex-col items-start gap-0.5">
-                    <span className={`max-w-full truncate text-[16px] ${first ? 'text-ink font-extrabold' : me ? 'text-paper font-extrabold' : 'text-bone font-semibold'}`}>
-                      {r.name}{me && <span className={`ml-2 font-display text-[15px] tracking-[0.05em] px-1.5 pt-px ${first ? 'bg-ink text-ember' : 'bg-ember text-ink'}`}>YOU</span>}
+                    {/* the YOU chip sits beside the name, never inside it, so a long name truncates before the chip does */}
+                    <span className="max-w-full min-w-0 flex items-center gap-2">
+                      <span className={`min-w-0 truncate text-[16px] ${first ? 'text-ink font-extrabold' : me ? 'text-paper font-extrabold' : 'text-bone font-semibold'}`}>{r.name}</span>
+                      {me && <span data-you className={`shrink-0 font-display text-[15px] leading-tight tracking-[0.05em] px-1.5 pt-px ${first ? 'bg-ink text-ember' : 'bg-ember text-ink'}`}>YOU</span>}
                     </span>
                     {!r.place && r.cardsLeft > 0 && (
                       <span data-stuck className="whitespace-nowrap font-display text-[14px] leading-none tracking-[0.06em] px-1.5 pt-[3px] pb-px bg-blood text-paper -rotate-2">

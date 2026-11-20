@@ -48,12 +48,22 @@ let nameRuler: CanvasRenderingContext2D | null = null;
  * inside one. Measured with Barlow at weight 800.
  */
 export function nameFontPx(name: string, room: number, max: number, min = 9) {
+  return nameFit(name, room, max, min).px;
+}
+
+/**
+ * Same as nameFontPx, plus whether the longest word still overflows at the `min` floor. When it
+ * does (a 20-letter single word on a phone seat), the caption has to break inside the word rather
+ * than get clipped mid-letter at its slanted edge.
+ */
+export function nameFit(name: string, room: number, max: number, min = 9): { px: number; breakAnywhere: boolean } {
   nameRuler ??= typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
   const longest = name.split(/\s+/).reduce((a, b) => (b.length > a.length ? b : a), '');
-  if (!longest) return max;
+  if (!longest) return { px: max, breakAnywhere: false };
   let w = longest.length * 0.56 * 100;
   if (nameRuler) { nameRuler.font = '800 100px Barlow, ui-sans-serif, system-ui, sans-serif'; w = nameRuler.measureText(longest).width; }
-  return Math.max(min, Math.min(max, Math.floor((room / w) * 100 * 2) / 2));
+  const ideal = Math.floor((room / w) * 100 * 2) / 2;
+  return { px: Math.max(min, Math.min(max, ideal)), breakAnywhere: ideal < min };
 }
 
 /** Avatar letters for everyone at the table, made unique when two players' initials collide. */
@@ -109,6 +119,8 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
   const backW = compact ? 18 : 24;
   const pw = compact ? 46 : 64, ph = compact ? 60 : 82;
   const colW = compact ? 88 : 140;
+  // caption room: plate width less its padding, the caption's own padding and its 5px slanted edge
+  const nameSize = nameFit(player.name, colW + 14 - 28 - 12 - 6 - 5, 12);
   const portraitFill = out ? '#8E8E8F' : active ? '#E85D00' : '#FAFAF7';
   const P = 'polygon(0 0, 100% 0, 100% 80%, 78% 100%, 0 100%)';
   // A passed seat stays a solid ink panel (nothing behind shows through); its paper and ink go
@@ -165,7 +177,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
               broken only between words (the font shrinks until the longest word fits)
             */}
             <p data-seat-name className={`max-w-full -rotate-2 -ml-1 px-1.5 pt-[2px] pb-[1px] font-extrabold break-normal ${compact ? 'leading-[1.1] line-clamp-2' : 'text-[13px] leading-tight truncate'} ${active ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
-              style={{ filter: dim, clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)', fontSize: compact ? nameFontPx(player.name, colW + 14 - 28 - 12 - 6, 12) : undefined }}>
+              style={{ filter: dim, clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)', fontSize: compact ? nameSize.px : undefined, overflowWrap: compact && nameSize.breakAnywhere ? 'anywhere' : undefined }}>
               {player.name}
             </p>
             {/* their hand, face down: a small fan whose size follows the card count */}
