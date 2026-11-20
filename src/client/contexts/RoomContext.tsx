@@ -6,6 +6,17 @@ import { ConnectError } from '../net/rooms';
 import { saveSeat, clearSeat } from '../net/seat';
 import type { Seat } from '../net/seat';
 import type { GameState } from '../types/game';
+import { useAccount } from './AccountContext';
+import type { Bucket } from '../net/account';
+
+/**
+ * Whether the game in play counts toward the signed-in player's stats. "tracking" comes from the
+ * room at the deal; "saved" once the result is written.
+ */
+export interface StatsStatus {
+  state: 'none' | 'tracking' | 'saved';
+  bucket?: Bucket;
+}
 
 interface RoomContextType {
   client: Client | null;
@@ -22,6 +33,7 @@ interface RoomContextType {
   /** Takes a saved seat back. Resolves false (and sets `error`) when it can't. */
   resumeRoom: (seat: Seat) => Promise<boolean>;
   leaveRoom: () => void;
+  statsStatus: StatsStatus;
 }
 
 const RoomContext = createContext<RoomContextType | undefined>(undefined);
@@ -48,6 +60,22 @@ export const RoomProvider: React.FC<RoomProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const [connection, setConnection] = useState<ConnectionStatus>('connected');
   const [lost, setLost] = useState<ConnectionInfo | null>(null);
+  const [statsStatus, setStatsStatus] = useState<StatsStatus>({ state: 'none' });
+  const { onSignedIn } = useAccount();
+
+  // Listens for the whole life of the room, so a message that lands mid-game isn't missed.
+  useEffect(() => {
+    if (!room) return;
+    const offs = [
+      room.listen('game_started', () => setStatsStatus({ state: 'none' })),
+      room.listen('stats_tracking', (d: { bucket: Bucket }) => setStatsStatus({ state: 'tracking', bucket: d.bucket })),
+      room.listen('stats_saved', (d: { bucket: Bucket }) => setStatsStatus({ state: 'saved', bucket: d.bucket })),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [room]);
+
+  // Signing in mid-session: reopen the socket so the room picks up the account for the next deal.
+  useEffect(() => onSignedIn(() => { void room?.refresh().catch(() => {}); }), [room, onSignedIn]);
 
   /** Every way into a room ends here: remember the seat so a reload can take it back. */
   const seated = (newRoom: Room<GameState>) => {
@@ -176,7 +204,8 @@ export const RoomProvider: React.FC<RoomProviderProps> = ({ children }) => {
         createRoom,
         joinRoom,
         resumeRoom,
-        leaveRoom
+        leaveRoom,
+        statsStatus
       }}
     >
       {children}

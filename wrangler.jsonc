@@ -21,5 +21,13 @@
     // One Durable Object per table, named by its room code (src/worker/room.ts).
     "bindings": [{ "name": "ROOMS", "class_name": "HeartOfFiveRoom" }]
   },
+  // Accounts, sign-in codes, sessions, and permanent stats (src/worker/auth.ts, src/worker/stats.ts).
+  // Schema lives in migrations/; apply with `npm run db:migrate` (remote) or `npm run db:migrate:local`.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "h5", "database_id": "9674abf6-d58a-41ed-94bc-802ba9f0c88b", "migrations_dir": "migrations" }
+  ],
+  // Sign-in emails from hey@askscottpierce.com. Email Sending is already on for the domain.
+  "send_email": [{ "name": "EMAIL" }],
+  "vars": { "EMAIL_FROM": "hey@askscottpierce.com" },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HeartOfFiveRoom"] }]
 }

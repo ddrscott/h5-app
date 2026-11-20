@@ -5,6 +5,7 @@ import './index.css'
 import { MotionConfig } from 'motion/react'
 import App from './App.tsx'
 import { RoomProvider } from './contexts/RoomContext'
+import { AccountProvider } from './contexts/AccountContext'
 import { registerSW } from 'virtual:pwa-register'
 
 // Register service worker with update prompt
@@ -25,9 +26,11 @@ const updateSW = registerSW({
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <MotionConfig reducedMotion="user">
-      <RoomProvider>
-        <App />
-      </RoomProvider>
+      <AccountProvider>
+        <RoomProvider>
+          <App />
+        </RoomProvider>
+      </AccountProvider>
     </MotionConfig>
   </StrictMode>,
 )

@@ -6,14 +6,17 @@
   "type": "module",
   "license": "UNLICENSED",
   "scripts": {
+    "predev": "wrangler d1 migrations apply h5 --local",
     "dev": "vite dev",
+    "db:migrate:local": "wrangler d1 migrations apply h5 --local",
+    "db:migrate": "wrangler d1 migrations apply h5 --remote",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "deploy": "npm run build && rm -f dist/*/.dev.vars && wrangler deploy",
     "typecheck": "tsc -b",
     "types": "wrangler types src/worker/worker-configuration.d.ts",
     "lint": "eslint .",
-    "test": "node --import tsx --test src/worker/game/*.test.ts",
+    "test": "node --import tsx --test src/worker/*.test.ts src/worker/game/*.test.ts",
     "selfplay": "node --import tsx scripts/selfplay.ts"
   },
   "dependencies": {

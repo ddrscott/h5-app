@@ -44,6 +44,8 @@ export interface Player {
   isBot?: boolean;
   /** A bot's personality id (bots/personas.ts), for its seat badge. */
   persona?: string;
+  /** Name of the uploaded bot playing this seat for its human, or null. */
+  autopilot?: string | null;
 }
 
 export interface Meld {

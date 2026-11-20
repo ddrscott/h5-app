@@ -17,6 +17,9 @@ import { ConnectionOverlay } from './components/ui/ConnectionOverlay';
 import { loadSeat } from './net/seat';
 import { Card } from './components/ui/Card';
 import BotManagerSingleton from './bots/BotManagerSingleton';
+import { useBotDock } from './components/bots/useBotDock';
+import { BotLab } from './components/screens/BotLab';
+import { scriptSeats } from './bots/sandbox/scriptSeats';
 
 type AppState = 'play' | 'connecting' | 'lobby' | 'game';
 
@@ -40,7 +43,10 @@ function GameApp() {
     if (!seat) return;
     setAppState('connecting');
     void resumeRoom(seat).then((ok) => {
-      if (ok) void BotManagerSingleton.getInstance().resumeBots(seat.roomId);
+      if (ok) {
+        void BotManagerSingleton.getInstance().resumeBots(seat.roomId);
+        void scriptSeats.resume(seat.roomId);
+      }
       else setAppState('play');
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,6 +119,13 @@ function GameApp() {
     setAppState('play');
     navigate('/play');
   };
+
+  // Bring your own bot: the header button, its panel, and the strip while a bot plays for you.
+  const botDock = useBotDock({
+    room, myPlayerId, roomId,
+    isHost: !!myPlayerId && gameState.hostId === myPlayerId,
+    inLobby: appState === 'lobby',
+  });
 
   // Show error message if any
   if (error) {
@@ -189,7 +202,9 @@ function GameApp() {
           onStartGame={handleStartGame}
           onLeaveRoom={handleLeaveRoom}
           onKick={handleKick}
+          headerExtra={botDock.button}
         />
+        {botDock.overlay}
         <ConnectionOverlay status={connection} lost={lost} onHome={handleGoHome} />
       </>
     );
@@ -232,7 +247,9 @@ function GameApp() {
         isHost={isHost}
         hostName={hostName}
         onKick={handleKick}
+        headerExtra={botDock.button}
       />
+      {botDock.overlay}
       <ConnectionOverlay status={connection} lost={lost} onHome={handleGoHome} />
       </>
     );
@@ -253,6 +270,7 @@ function App() {
           <CardGallery onClose={() => window.location.href = BASE + '/'} />
         } />
         <Route path="/animation" element={<AnimationTest />} />
+        <Route path="/botlab" element={<BotLab />} />
         <Route path="/layouts" element={<LayoutTest />} />
         <Route path="/test-01" element={<TestGameApp />} />
         <Route path="*" element={<Navigate to="/" replace />} />

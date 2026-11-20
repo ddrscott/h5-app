@@ -2,7 +2,8 @@ import { storageKey } from '../../base';
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { BookOpen, Dice5, Home, Layers, Plus } from 'lucide-react';
+import { BarChart3, BookOpen, Dice5, Home, Layers, Plus } from 'lucide-react';
+import { useAccount } from '../../contexts/AccountContext';
 import { Banner } from '../ui/Banner';
 import { Tutor } from './Tutor';
 import { MuteButton } from '../ui/MuteButton';
@@ -17,6 +18,12 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [showTutor, setShowTutor] = useState(false);
+  const { account, openSignIn, openStats, saveName } = useAccount();
+
+  // A signed-in player's display name fills the field.
+  useEffect(() => {
+    if (account?.name) setPlayerName(account.name);
+  }, [account?.name]);
 
   // Check URL for room parameter and load saved name on mount
   useEffect(() => {
@@ -33,9 +40,14 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
     if (newName.trim()) localStorage.setItem(storageKey('playerName'), newName.trim());
   };
 
-  const handleCreateRoom = () => { if (playerName.trim()) onJoinGame(playerName); };
-  const handleJoinSpecificRoom = () => { if (playerName.trim() && roomCode.trim()) onJoinGame(playerName, roomCode); };
-  const handleJoinRandomRoom = () => { if (playerName.trim()) onJoinGame(playerName, ''); };
+  /** A signed-in player with no display name yet keeps the first name they play under. */
+  const join = (roomId?: string) => {
+    if (account && !account.name) void saveName(playerName.trim()).catch(() => {});
+    onJoinGame(playerName, roomId);
+  };
+  const handleCreateRoom = () => { if (playerName.trim()) join(); };
+  const handleJoinSpecificRoom = () => { if (playerName.trim() && roomCode.trim()) join(roomCode); };
+  const handleJoinRandomRoom = () => { if (playerName.trim()) join(''); };
 
   const named = !!playerName.trim();
 
@@ -97,7 +109,23 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
             </div>
           </div>
 
-          <div className="mt-4 flex justify-center gap-5 text-[13px] text-mist">
+          <div className="mt-3 min-h-[24px] flex items-center justify-center gap-4 text-[13px] text-mist" data-account={account ? 'signed-in' : account === null ? 'guest' : 'loading'}>
+            {account === null && (
+              <button onClick={openSignIn} className="text-bone/90 underline underline-offset-4 decoration-white/25 hover:text-ember hover:decoration-ember transition-colors">
+                Sign in to keep your stats
+              </button>
+            )}
+            {account && (
+              <>
+                <span className="min-w-0 truncate">Signed in as <span className="text-bone">{account.name || account.email}</span></span>
+                <button onClick={openStats} className="inline-flex items-center gap-1.5 text-bone hover:text-ember transition-colors shrink-0">
+                  <BarChart3 size={14} /> Your stats
+                </button>
+              </>
+            )}
+          </div>
+
+          <div className="mt-2 flex justify-center gap-5 text-[13px] text-mist">
             <button onClick={() => setShowTutor(true)} className="inline-flex items-center gap-1.5 hover:text-ember transition-colors">
               <BookOpen size={14} /> How to Play
             </button>

@@ -22,6 +22,8 @@ interface LobbyProps {
   onLeaveRoom: () => void;
   /** Host only: remove a player whose connection dropped. */
   onKick?: (playerId: string) => void;
+  /** Extra buttons for the header, left of the mute switch (the bring-your-own-bot button). */
+  headerExtra?: React.ReactNode;
 }
 
 export const Lobby: React.FC<LobbyProps> = ({
@@ -35,6 +37,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   onStartGame,
   onLeaveRoom,
   onKick,
+  headerExtra,
 }) => {
   const canStart = players.length >= 2 && players.length <= 6;
   const [copiedText, setCopiedText] = React.useState<string | null>(null);
@@ -121,6 +124,7 @@ export const Lobby: React.FC<LobbyProps> = ({
           </div>
         </div>
         <div className="flex gap-2">
+          {headerExtra}
           <MuteButton />
           <button
             onClick={() => setShowLeaveConfirm(true)}
