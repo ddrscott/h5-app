@@ -4,6 +4,7 @@ import { Crown, WifiOff } from 'lucide-react';
 import type { Player } from '../../types/game';
 import { CardBack } from '../ui/CardFace';
 import { KickButton } from '../ui/KickButton';
+import { PersonaBadge } from '../ui/PersonaBadge';
 import { registry } from '../../fx/layout';
 
 /** The server plays for an absent player after this long (room.ts TURN_TIMEOUT_MS). */
@@ -175,6 +176,8 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
             {absent && <WifiOff size={11} className="text-brass" aria-label="Disconnected" />}
             {/* the live prompt sits on the stats line, so the name keeps both of its lines */}
             <span>{player.wins}W·{player.losses}L</span>
+            {/* a bot's personality; on its turn the badge says it's thinking */}
+            {player.isBot && <PersonaBadge persona={player.persona} thinking={active && !out && !absent} compact={compact} />}
             {out && place ? <span className="text-brass font-bold">{ORDINAL[place] ?? `${place}TH`}</span> : null}
           </p>
         </div>

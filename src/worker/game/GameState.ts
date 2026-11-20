@@ -1,3 +1,4 @@
+import * as rules from '../../shared/rules';
 
 export enum Suit {
   CLUBS = "C",
@@ -84,28 +85,13 @@ export class Card {
   }
 
   getStrength(): number {
-    if (this.rank === Rank.FIVE && this.suit === Suit.HEARTS) {
-      return Rank.FIVE_OF_HEARTS;
-    }
-    return this.rank;
+    return rules.cardStrength(this);
   }
 }
 
-const MELD_NAMES: Record<MeldType, string> = {
-  [MeldType.SINGLE]: "single",
-  [MeldType.PAIR]: "pair",
-  [MeldType.THREE_OF_KIND]: "three of a kind",
-  [MeldType.BOMB]: "bomb",
-  [MeldType.SISTERS]: "set of sisters",
-  [MeldType.FULL_HOUSE]: "full house",
-  [MeldType.RUN]: "run",
-  [MeldType.STRAIGHT_FLUSH]: "straight flush",
-};
-
 /** Sisters are N groups of the same size (pairs or triples) on consecutive ranks. */
 export function sisterShape(meld: Meld): { groups: number; groupSize: number } {
-  const groups = new Set(meld.cards.map(c => c.rank)).size;
-  return { groups, groupSize: meld.cards.length / groups };
+  return rules.sisterShape(meld);
 }
 
 export class Meld {
@@ -121,165 +107,10 @@ export class Meld {
       const meldCard = new Card(card.suit, card.rank);
       this.cards.push(meldCard);
     });
-    this.type = this.determineMeldType();
-    this.strength = this.calculateStrength();
-  }
-
-  private determineMeldType(): MeldType {
-    const count = this.cards.length;
-    
-    if (count === 1) return MeldType.SINGLE;
-    if (count === 2 && this.isPair()) return MeldType.PAIR;
-    if (count === 3 && this.allSameRank()) return MeldType.THREE_OF_KIND;
-    if (count === 4 && this.allSameRank()) return MeldType.BOMB;
-    
-    if (count === 5 && this.isFullHouse()) return MeldType.FULL_HOUSE;
-    if (count >= 4 && this.isSisters()) return MeldType.SISTERS;
-    if (count >= 5 && this.isStraightFlush()) return MeldType.STRAIGHT_FLUSH;
-    if (count >= 5 && this.isRun()) return MeldType.RUN;
-    
-    // Invalid meld - default to invalid type
-    return null;
-  }
-
-  private allSameRank(): boolean {
-    return this.cards.every(card => card.rank === this.cards[0].rank);
-  }
-
-  private isPair(): boolean {
-    if (this.cards.length !== 2) return false;
-    // Check same rank and neither is a joker
-    return this.cards[0].rank === this.cards[1].rank && 
-           this.cards[0].rank !== Rank.SMALL_JOKER && 
-           this.cards[0].rank !== Rank.BIG_JOKER;
-  }
-
-  private isFullHouse(): boolean {
-    if (this.cards.length !== 5) return false;
-    
-    const ranks = new Map<number, number>();
-    this.cards.forEach(card => {
-      ranks.set(card.rank, (ranks.get(card.rank) || 0) + 1);
-    });
-    
-    const counts = Array.from(ranks.values()).sort();
-    return counts.length === 2 && counts[0] === 2 && counts[1] === 3;
-  }
-
-  private isSisters(): boolean {
-    if (this.cards.length < 4) return false;
-    
-    // Group cards by rank
-    const rankGroups = new Map<number, Card[]>();
-    this.cards.forEach(card => {
-      if (!rankGroups.has(card.rank)) {
-        rankGroups.set(card.rank, []);
-      }
-      rankGroups.get(card.rank).push(card);
-    });
-    
-    // Check if all groups have same size (2 or 3)
-    const groupSizes = Array.from(rankGroups.values()).map(g => g.length);
-    const groupSize = groupSizes[0];
-    if (groupSize < 2 || groupSize > 3) return false;
-    if (!groupSizes.every(size => size === groupSize)) return false;
-    
-    // Check if ranks are consecutive
-    // For sisters, A (14) and 2 (15) ARE consecutive, making A-2 the highest possible sisters
-    const sortedRanks = Array.from(rankGroups.keys()).sort((a, b) => a - b);
-    
-    // Check for normal consecutive ranks
-    for (let i = 1; i < sortedRanks.length; i++) {
-      if (sortedRanks[i] !== sortedRanks[i - 1] + 1) return false;
-    }
-    
-    return true;
-  }
-
-  private isRun(): boolean {
-    if (this.cards.length < 5) return false;
-    
-    // Get unique ranks
-    const ranks = [...new Set(this.cards.map(c => c.rank))];
-    if (ranks.length !== this.cards.length) return false;
-    
-    // Special case first: A-2-3-4-5 (wheel/steel wheel)
-    // This is the ONLY run that can contain a 2
-    if (ranks.includes(Rank.TWO)) {
-      // Check if we have exactly A-2-3-4-5
-      const wheelRanks = [Rank.ACE, Rank.TWO, Rank.THREE, Rank.FOUR, Rank.FIVE];
-      if (ranks.length === 5 && ranks.every(r => wheelRanks.includes(r))) {
-        return true;
-      }
-      // Any other run containing a 2 is invalid
-      return false;
-    }
-    
-    // Sort ranks to check for consecutive sequence
-    const sortedRanks = [...ranks].sort((a, b) => a - b);
-    
-    // Check if it's a normal consecutive run (e.g., 3-4-5-6-7 or 10-J-Q-K-A)
-    // Note: Cannot include 2 (already checked above)
-    let isConsecutive = true;
-    for (let i = 1; i < sortedRanks.length; i++) {
-      if (sortedRanks[i] !== sortedRanks[i - 1] + 1) {
-        isConsecutive = false;
-        break;
-      }
-    }
-    
-    return isConsecutive;
-  }
-
-  private isStraightFlush(): boolean {
-    if (!this.isRun()) return false;
-    
-    const suits = new Set(this.cards.map(c => c.suit));
-    return suits.size === 1;
-  }
-
-  private calculateStrength(): number {
-    if (!this.type) return 0;
-    
-    switch (this.type) {
-      case MeldType.SINGLE:
-        return this.cards[0].getStrength();
-      
-      case MeldType.PAIR:
-      case MeldType.THREE_OF_KIND:
-      case MeldType.BOMB:
-        return this.cards[0].rank;
-      
-      case MeldType.FULL_HOUSE:
-        const ranks = new Map<number, number>();
-        this.cards.forEach(card => {
-          ranks.set(card.rank, (ranks.get(card.rank) || 0) + 1);
-        });
-        for (const [rank, count] of ranks) {
-          if (count === 3) return rank;
-        }
-        return 0;
-      
-      case MeldType.SISTERS:
-        return Math.max(...this.cards.map(c => c.rank));
-      
-      case MeldType.RUN:
-      case MeldType.STRAIGHT_FLUSH:
-        // For runs, the highest card determines strength
-        const runRanks = this.cards.map(c => c.rank);
-        
-        // Special case for A-2-3-4-5 (wheel) - strength is 5
-        if (runRanks.includes(Rank.ACE) && runRanks.includes(Rank.TWO) && 
-            runRanks.includes(Rank.THREE) && runRanks.includes(Rank.FOUR) && runRanks.includes(Rank.FIVE)) {
-          return Rank.FIVE; // Wheel has strength of 5
-        }
-        
-        // For all other runs, use the highest rank
-        return Math.max(...runRanks);
-      
-      default:
-        return 0;
-    }
+    // What the cards are and how strong they are is decided in src/shared/rules.ts,
+    // the same code the bots check their plays with.
+    this.type = rules.meldTypeOf(this.cards) as MeldType;
+    this.strength = rules.meldStrengthOf(this.cards, this.type);
   }
 }
 
@@ -296,6 +127,8 @@ export class Player {
   position: number;
   /** Bots count as players but never become host. */
   isBot: boolean = false;
+  /** A bot's personality id (src/client/bots/personas.ts), so every client can show its badge. */
+  persona?: string;
 
   constructor(id?: string, name?: string) {
     if (id && name) {
@@ -453,11 +286,12 @@ export class GameState {
     this.shuffleDeck();
   }
 
-  addPlayer(id: string, name: string, isBot = false) {
+  addPlayer(id: string, name: string, isBot = false, persona?: string) {
     if (this.players.has(id)) return;
     
     const player = new Player(id, name);
     player.isBot = isBot;
+    if (isBot && persona) player.persona = persona;
     player.position = this.players.size;
     this.players.set(id, player);  // object set by id
     this.turnOrder.push(id);
@@ -827,52 +661,7 @@ export class GameState {
 
   /** Why a meld can't go on the table right now, or null when it can. */
   describeInvalidPlay(meld: Meld): string | null {
-    if (!meld.type) {
-      return "Invalid card combination! Not a valid meld type.";
-    }
-
-    // An empty table means the trick's leader is starting it: anything goes.
-    if (!this.currentMeld) {
-      return null;
-    }
-
-    const table = this.currentMeld;
-    const tableIsBomb = table.type === MeldType.BOMB || table.type === MeldType.STRAIGHT_FLUSH;
-
-    if (meld.type === MeldType.BOMB || meld.type === MeldType.STRAIGHT_FLUSH) {
-      if (!tableIsBomb) return null;
-      const beats = meld.strength > table.strength ||
-        (meld.type === MeldType.STRAIGHT_FLUSH && meld.cards.length > table.cards.length);
-      return beats ? null : "That doesn't beat the table. It needs a higher bomb.";
-    }
-
-    if (tableIsBomb) {
-      return "That doesn't beat the table. It needs a higher bomb.";
-    }
-
-    const name = MELD_NAMES[table.type];
-    if (meld.type !== table.type) {
-      return `That doesn't beat the table. It needs a ${name} or a bomb.`;
-    }
-
-    if (meld.cards.length !== table.cards.length) {
-      return `That doesn't beat the table. It needs a ${table.cards.length}-card ${name}.`;
-    }
-
-    if (meld.type === MeldType.SISTERS) {
-      const want = sisterShape(table);
-      const got = sisterShape(meld);
-      if (want.groupSize !== got.groupSize || want.groups !== got.groups) {
-        const kind = want.groupSize === 3 ? "triples" : "pairs";
-        return `That doesn't beat the table. It needs sisters of ${want.groups} ${kind}.`;
-      }
-    }
-
-    if (meld.strength <= table.strength) {
-      return `That doesn't beat the table. It needs a higher ${name}.`;
-    }
-
-    return null;
+    return rules.describeInvalidPlay(meld, this.currentMeld);
   }
 
   pass(playerId: string): boolean {

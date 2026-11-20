@@ -87,6 +87,70 @@ A room that turns a player away closes the socket with a 4xxx code and a reason 
 
 Taking a seat back: open `/h5/api/rooms/:code/ws?session=<sessionId>&token=<token>`. The room answers with the same `joined` frame, the state, `game_state`, `your_hand`, and `your_turn` when it's your turn.
 
+## Bots
+
+Bots run in the host's browser and join the room as ordinary players (`src/client/bots/`). The host adds them in the lobby by personality.
+
+### How a bot thinks
+
+A bot can't see the other hands, so it imagines them. On its turn it:
+
+1. Lists its legal plays. The candidates come from a fast generator, and every one is then put through the same rules the room uses (`src/shared/rules.ts`), so a bot can't send a play the room would refuse.
+2. Takes anything certain (`search/exact.ts`): a play that goes out now; a **locked win**, where the hand splits into melds that nothing still unseen could beat plus at most one other; and the **last duel**, where two players are left, every other card has been seen, and the game is solved outright.
+3. Otherwise searches (`search/engine.ts`, `search/tree.ts`). It deals the unseen cards to the other seats at random, in the hand sizes they're known to hold, leaning away from deals where somebody passed on a trick they could cheaply have taken. In each imagined deal it tries every candidate play and plays the game out with a quick rule-of-thumb player in every seat (`search/sim.ts`). That player works from a hand decomposition: lead the natural meld that holds your lowest card, don't break pairs and runs to follow, and keep bombs, 2s, jokers and the Heart 5 back until they win something. A search tree under each candidate remembers which follow-ups worked for whoever made them. Plays are scored by finishing place (first out is best, last holding cards is worst), and plays that fall clearly behind are dropped so the time goes to the close calls.
+
+The search can stop at any moment and answer with the best play so far. If it ever fails, the old rule-based strategy answers instead, and that answer is checked against the rules too.
+
+### Personalities
+
+Each bot seat shows its personality: an icon and a name (hover for the one-line description), and "thinking…" while it works on its move. They're defined in `src/client/bots/personas.ts`.
+
+| Personality | Bot | How it plays | Thinks for |
+|---|---|---|---|
+| Shark | Expert Emma | Counts every card, grows a search tree, takes every sure thing. The strong one. | 1.5 s |
+| Regular | Balanced Betty | A short search and an occasional loose choice. | 0.5 s |
+| Hothead | Aggressive Annie | Plays to win outright and doesn't mind coming last. Sheds big, spends bombs and the Heart 5 early, hates passing. | 0.5 s |
+| Turtle | Cautious Carl | Plays not to come last. Sits on its 2s, jokers and bombs, and passes more. | 1 s |
+| Rookie | Rookie Ricky | Barely searches, forgets what's been played, and makes a random move about one turn in eight. | 0.3 s |
+
+### Thinking time
+
+Every bot has a time budget per move. The lobby's "Thinks for up to" picker sets it when the bot is added (0.5 to 5 seconds; the default is the personality's own pace), and it's stored on the bot as `thinkSeconds`, clamped to 0.2-5 s. The search runs in 10 ms slices and hands the thread back between them, so the table keeps animating while a bot thinks; the pauses use a `MessageChannel`, because a background tab slows `setTimeout` to a crawl. A bot that would be instant still waits about half a second, so cards don't snap down. All of this stays far inside the room's 30-second timer, which only applies to absent players anyway.
+
+Most of the strength arrives in the first few hundred playouts, which takes a few milliseconds. In self-play, eight times the playouts made no measurable difference, so a longer budget buys pacing more than it buys strength.
+
+### The bot contract
+
+A bot is one function, `decide(view) -> move`, and both sides are plain JSON. The types are in `src/client/bots/contract.ts`: the view holds the bot's hand, its legal moves, the meld on the table, every player's card count, the cards played, the history of plays and passes, and the time budget; the move is `{action: "pass"}` or `{action: "play", cards: [...codes]}`. The built-in personalities go through this contract (`builtin.ts`), hosted by `strategies/ContractStrategy.ts`, which builds the view, enforces the deadline, and checks the answer with `checkMove()` before it goes to the room.
+
+### Self-play
+
+```bash
+npm run selfplay                       # the standard tables, about a minute
+npm run selfplay -- --deals 25         # quicker and noisier
+npm run selfplay -- --rollouts 800     # let the search bots think harder
+npm run selfplay -- --table shark,regular,old:balanced,old:cautious
+```
+
+`scripts/selfplay.ts` plays whole games on the real `GameState` with no browser. Seats are personalities or the old strategies (`old:balanced`, `old:aggressive`, `old:cautious`). Deals are seeded, and each one is replayed with the entrants rotated through the seats. Search bots get a fixed number of playouts per move instead of a clock (400 by default, scaled by personality), so runs repeat exactly.
+
+Results from `npm run selfplay -- --deals 100` (400 games a table, four players, so even odds are 25% each way; "last" is the one left holding cards):
+
+| Table | Entrant | Win | Last |
+|---|---|---|---|
+| One Shark, three old Balanced | Shark | 79.5% | 0.0% |
+| | old Balanced (each) | 6.8% | 33.3% |
+| Shark and one of each old strategy | Shark | 79.3% | 0.3% |
+| | old Balanced / Aggressive / Cautious | 5.8% / 10.5% / 4.5% | 25.3% / 31.3% / 43.3% |
+| The personalities together | Shark | 39.5% | 9.0% |
+| | Hothead | 35.0% | 19.5% |
+| | Turtle | 17.0% | 5.8% |
+| | Rookie | 8.5% | 65.8% |
+| Regular and the three old strategies | Regular | 62.8% | 3.3% |
+| Rookie and the three old strategies | Rookie | 32.8% | 17.0% |
+
+The search bots never answered with an illegal play. The old strategies did, a handful of times per 400 games; in a live room that play is refused and the bot tries again.
+
 ## Look and feel
 
 The art direction, card design, palette, type and motion rules are in [docs/VISUALS.md](docs/VISUALS.md). In short, the game has a lacquered jade table, warm card stock, cinnabar and brass, and Signal Orange for whatever is live. Cards are springy physical objects. Plays fly in from the seat that made them, and combo callouts, shake and particles scale with the play's strength. All sound is synthesized with the Web Audio API (`src/client/fx/sound.ts`), and one mute switch covers sound and vibration. The motion library is `motion` (`motion/react`), and the app runs inside `MotionConfig reducedMotion="user"`, so `prefers-reduced-motion` turns movement into fades.
@@ -121,7 +185,7 @@ npm run dev        # Vite + the Worker and Durable Object in workerd
 Open `http://localhost:5173/h5/`. Test at `/h5/`, not `/`: the Worker returns 404 outside the prefix, which is how path mistakes show up early.
 
 ```bash
-npm test           # game rules and snapshot round trips (node:test)
+npm test           # game rules, snapshot round trips, and the bots (node:test)
 npm run typecheck  # client, worker, and Vite config
 npm run build      # builds dist/client (assets) and dist/h5 (Worker)
 ```
@@ -154,12 +218,17 @@ Check that the output lists the two `askscottpierce.com/h5` triggers and the `RO
 │   │   ├── base.ts          # the /h5 prefix
 │   │   ├── net/rooms.ts     # WebSocket room client
 │   │   ├── bots/            # in-browser bots that join as players
+│   │   │   ├── contract.ts  # decide(view) -> move: the bot interface, plain JSON
+│   │   │   ├── personas.ts  # the personalities and their dials
+│   │   │   └── search/      # imagined deals, playouts, search tree, exact endgames
 │   │   ├── components/ contexts/ hooks/ types/
 │   │   ├── fx/              # sound, haptics, particles, layout and the FX event bus
+│   ├── shared/rules.ts      # what a meld is and what beats what; used by the room and the bots
 │   └── worker/
 │       ├── index.ts         # Worker entry: routes /h5/api to rooms, the rest to assets
 │       ├── room.ts          # HeartOfFiveRoom Durable Object
 │       └── game/GameState.ts  # rules, deal, turns, and snapshots
+├── scripts/selfplay.ts      # bots against bots on the real rules, for measuring strength
 ├── vite.config.ts
 └── wrangler.jsonc
 ```

@@ -1,7 +1,8 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { Player } from '../../types/game';
-import { Bot, Crown, UserPlus, WifiOff } from 'lucide-react';
+import { Crown, UserPlus, WifiOff } from 'lucide-react';
+import { PersonaBadge } from '../ui/PersonaBadge';
 import { KickButton } from '../ui/KickButton';
 import { seatBadges } from '../game/Seat';
 
@@ -56,7 +57,7 @@ export const PlayerPlaceholders: React.FC<PlayerPlaceholdersProps> = ({
                       {player.id === hostId && <><Crown size={10} className="text-brass" /> <span className="text-brass">HOST</span></>}
                       {player.isActive === false && <span className="text-brass">RECONNECTING…</span>}
                       {player.id !== hostId && player.isActive !== false && (player.isBot
-                        ? <><Bot size={10} aria-hidden /> <span>BOT</span></>
+                        ? <PersonaBadge persona={player.persona} className="uppercase !text-mist" />
                         : <span>{player.id === myPlayerId ? 'YOU' : 'SEATED'}</span>)}
                     </p>
                   </div>

@@ -1,12 +1,18 @@
 import type { BotConfig } from '../types';
+import type { PersonaId } from '../personas';
 
 /**
  * Pre-built bot configurations
- * Each configuration creates a unique bot personality
+ * Each configuration creates a unique bot personality.
+ *
+ * `persona` picks the search personality that actually plays (personas.ts). The five numbers under
+ * `personality` only steer the old rule-based strategy that stands behind it as a fallback.
+ * Silent Sam has no persona and still plays the old way.
  */
 
 export const AGGRESSIVE_ANNIE: BotConfig = {
   name: "Aggressive Annie",
+  persona: 'hothead',
   avatar: "🔥",
   personality: {
     aggressiveness: 0.95,  // Almost always plays
@@ -32,6 +38,7 @@ export const AGGRESSIVE_ANNIE: BotConfig = {
 
 export const CAUTIOUS_CARL: BotConfig = {
   name: "Cautious Carl",
+  persona: 'turtle',
   avatar: "🛡️",
   personality: {
     aggressiveness: 0.4,     // Still plays often, just more selective
@@ -57,6 +64,7 @@ export const CAUTIOUS_CARL: BotConfig = {
 
 export const BALANCED_BETTY: BotConfig = {
   name: "Balanced Betty",
+  persona: 'regular',
   avatar: "⚖️",
   personality: {
     aggressiveness: 0.7,    // Plays frequently but thoughtfully
@@ -82,6 +90,7 @@ export const BALANCED_BETTY: BotConfig = {
 
 export const ROOKIE_RICKY: BotConfig = {
   name: "Rookie Ricky",
+  persona: 'rookie',
   avatar: "🎓",
   personality: {
     aggressiveness: 0.6,
@@ -107,6 +116,7 @@ export const ROOKIE_RICKY: BotConfig = {
 
 export const EXPERT_EMMA: BotConfig = {
   name: "Expert Emma",
+  persona: 'shark',
   avatar: "👑",
   personality: {
     aggressiveness: 0.6,
@@ -146,6 +156,15 @@ export const SILENT_SAM: BotConfig = {
       max: 1000,
   },
   chatEnabled: false, // This bot doesn't chat
+};
+
+/** The named bot that plays each personality. The lobby adds bots by personality. */
+export const PERSONA_BOTS: Record<PersonaId, BotConfig> = {
+  shark: EXPERT_EMMA,
+  regular: BALANCED_BETTY,
+  hothead: AGGRESSIVE_ANNIE,
+  turtle: CAUTIOUS_CARL,
+  rookie: ROOKIE_RICKY,
 };
 
 // Factory function to create custom bots

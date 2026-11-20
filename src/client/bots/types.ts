@@ -1,4 +1,6 @@
 import type { Card, GamePhase, Meld, Player } from '../types/game';
+import type { ViewEvent } from './contract';
+import type { PersonaId } from './personas';
 
 /**
  * Core interfaces for the bot system
@@ -21,6 +23,12 @@ export interface GameContext {
   currentRound: number;
   discardedCards?: Card[]; // If we track this
   phase: GamePhase;
+  /** seat order, for bots that look ahead */
+  turnOrder?: string[];
+  /** codes of every card played this game (the room's discard pile) */
+  playedCards?: string[];
+  /** plays and passes seen this game, oldest first */
+  history?: ViewEvent[];
 }
 
 export interface BotMemory {
@@ -47,6 +55,10 @@ export interface BotConfig {
     min: number; // minimum milliseconds
     max: number; // maximum milliseconds
   };
+  /** Which built-in personality plays this bot (personas.ts). Without one, the old rule-based strategies play. */
+  persona?: PersonaId;
+  /** The most seconds it may think about one move. Defaults to the persona's own. */
+  thinkSeconds?: number;
   chatEnabled: boolean;
   chatPhrases?: {
     greeting?: string[];

@@ -4,6 +4,7 @@ import { BotStrategy } from './types';
 import { GameAnalyzer } from './GameAnalyzer';
 import type { Card, Player, Meld } from '../types/game';
 import { GamePhase, MeldType } from '../types/game';
+import type { ViewEvent } from './contract';
 
 /**
  * Bot client that connects to the game server and plays autonomously
@@ -22,6 +23,8 @@ export class BotClient implements IBotClient {
   private isMyTurn: boolean = false;
   private decisionInProgress: boolean = false;
   private lastLoggedTurn: string | null = null;
+  /** Plays and passes seen this game, for bots that read them (contract.ts). */
+  private history: ViewEvent[] = [];
 
   constructor(config: BotConfig, strategy: BotStrategy) {
     this.id = `bot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -53,6 +56,7 @@ export class BotClient implements IBotClient {
         this.room = await this.client.joinById(roomId, {
           name: this.config.name,
           bot: true, // bots count as players but never become host
+          ...(this.config.persona ? { persona: this.config.persona } : {}), // for the badge on its seat
         });
       } else {
         console.log(`[${this.config.name}] Creating new room`);
@@ -215,6 +219,7 @@ export class BotClient implements IBotClient {
     // Listen for game events
     this.room.onMessage('game_started', (data: any) => {
       console.log(`[${this.config.name}] Game started!`, data);
+      this.history = [];
       this.strategy.onGameStart?.();
       
       // Check if it's our turn when game starts
@@ -256,7 +261,8 @@ export class BotClient implements IBotClient {
       }
     });
 
-    this.room.onMessage('meld_played', ({ playerId, meld }: { playerId: string; meld: any }) => {
+    this.room.onMessage('meld_played', ({ playerId, meld, cards }: { playerId: string; meld: any; cards?: string[] }) => {
+      if (Array.isArray(cards)) this.history.push({ playerId, cards });
       this.strategy.onPlayerMove?.(playerId, meld);
       
       // Very rarely compliment amazing plays (bombs, straight flushes, or 5+ card melds)
@@ -324,7 +330,9 @@ export class BotClient implements IBotClient {
     this.room.onMessage('new_turn', (data: any) => {
       console.log(`[${this.config.name}] New turn:`, data);
     });
-    this.room.onMessage('player_passed', () => {});
+    this.room.onMessage('player_passed', ({ playerId }: { playerId: string }) => {
+      if (playerId) this.history.push({ playerId, cards: null });
+    });
     this.room.onMessage('new_leader', () => {});
     this.room.onMessage('game_ended', () => {});
     this.room.onMessage('__playground_message_types__', () => {});
@@ -343,7 +351,10 @@ export class BotClient implements IBotClient {
       players: new Map(state.players),
       myPlayerId: this.room?.sessionId || '',
       currentRound: state.currentRound,
-      phase: state.phase
+      phase: state.phase,
+      turnOrder: Array.isArray(state.turnOrder) ? state.turnOrder : undefined,
+      playedCards: Array.isArray(state.discardPile) ? state.discardPile.map((c: Card) => c.code ?? '') : [],
+      history: this.history,
     };
     
     // Debug log currentMeld state

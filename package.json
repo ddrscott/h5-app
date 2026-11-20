@@ -13,7 +13,8 @@
     "typecheck": "tsc -b",
     "types": "wrangler types src/worker/worker-configuration.d.ts",
     "lint": "eslint .",
-    "test": "node --import tsx --test src/worker/game/*.test.ts"
+    "test": "node --import tsx --test src/worker/game/*.test.ts",
+    "selfplay": "node --import tsx scripts/selfplay.ts"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",

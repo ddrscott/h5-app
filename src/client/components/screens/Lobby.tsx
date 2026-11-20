@@ -2,13 +2,13 @@ import { BASE } from '../../base';
 import React from 'react';
 import type { Player } from '../../types/game';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bot, Check, Copy, Link2, LogOut, Play } from 'lucide-react';
+import { Check, Copy, Link2, LogOut, Play } from 'lucide-react';
 import { MuteButton } from '../ui/MuteButton';
 import { sfx } from '../../fx/sound';
 import { PlayerPlaceholders } from './PlayerPlaceholders';
-import { BOT_CONFIGS } from '../../bots/configs';
 import BotManagerSingleton from '../../bots/BotManagerSingleton';
 import { DialogBox } from '../ui/DialogBox';
+import { BotControls } from '../BotControls';
 
 interface LobbyProps {
   roomId: string;
@@ -38,8 +38,6 @@ export const Lobby: React.FC<LobbyProps> = ({
 }) => {
   const canStart = players.length >= 2 && players.length <= 6;
   const [copiedText, setCopiedText] = React.useState<string | null>(null);
-  const [selectedBot, setSelectedBot] = React.useState<string>(Object.keys(BOT_CONFIGS)[0]);
-  const [isAddingBot, setIsAddingBot] = React.useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = React.useState(false);
   
   // Get singleton instance of BotManager
@@ -53,27 +51,6 @@ export const Lobby: React.FC<LobbyProps> = ({
     sfx.select(4);
     setCopiedText(label);
     setTimeout(() => setCopiedText(null), 2000);
-  };
-
-  const handleAddBot = async () => {
-    setIsAddingBot(true);
-    try {
-      const base = BOT_CONFIGS[selectedBot as keyof typeof BOT_CONFIGS];
-      // Two seats must never share a name: number a repeat ("Balanced Betty 2").
-      const taken = new Set(players.map((p) => p.name));
-      let name = base.name;
-      for (let n = 2; taken.has(name); n++) name = `${base.name} ${n}`;
-      taken.add(name);
-      // Step the picker to the next bot nobody has seated, so pressing Add Bot again adds someone new.
-      const keys = Object.keys(BOT_CONFIGS) as Array<keyof typeof BOT_CONFIGS>;
-      const at = keys.indexOf(selectedBot as keyof typeof BOT_CONFIGS);
-      const next = [...keys.slice(at + 1), ...keys.slice(0, at + 1)].find((k) => !taken.has(BOT_CONFIGS[k].name));
-      if (next) setSelectedBot(next);
-      await botManager.createBot({ ...base, name }, roomId);
-    } catch (error) {
-      console.error('Failed to add bot:', error);
-    }
-    setIsAddingBot(false);
   };
 
   const handleLeaveRoom = () => {
@@ -194,28 +171,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             {isHost ? (
               <>
                 {players.length < 6 && (
-                  <div className="mb-5 portrait:mb-3">
-                    <label className="section-head block mb-2">Add a bot</label>
-                    <div className="flex gap-2">
-                      <select
-                        value={selectedBot}
-                        onChange={(e) => setSelectedBot(e.target.value)}
-                        className="field flex-1 !py-2 text-sm"
-                        aria-label="Bot"
-                      >
-                        {Object.entries(BOT_CONFIGS).map(([key, config]) => (
-                          <option key={key} value={key}>{config.name}{players.some((p) => p.name === config.name) ? ' · seated' : ''}</option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={handleAddBot}
-                        disabled={isAddingBot || players.length >= 6}
-                        className="btn-secondary !px-3"
-                      >
-                        <Bot size={16} /> {isAddingBot ? 'Adding...' : 'Add Bot'}
-                      </button>
-                    </div>
-                  </div>
+                  <BotControls roomId={roomId} players={players} />
                 )}
                 <button onClick={onStartGame} disabled={!canStart} className="btn-primary w-full h-12 text-[15px]">
                   {!canStart ? `Need ${2 - players.length} more player` : <><Play size={17} /> Start Game</>}

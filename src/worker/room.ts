@@ -126,7 +126,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     const url = new URL(req.url);
     const createId = req.headers.get("X-H5-Create");
     const queryName = url.searchParams.get("name");
-    let options: HeartOfFiveOptions & { name?: unknown; bot?: unknown } = {};
+    let options: HeartOfFiveOptions & { name?: unknown; bot?: unknown; persona?: unknown } = {};
     try {
       const parsed = JSON.parse(url.searchParams.get("opts") || "{}");
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) options = parsed;
@@ -168,7 +168,7 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     const token = crypto.randomUUID();
     this.meta.tokens[sessionId] = token;
     const [client, ws] = this.accept(sessionId, token);
-    this.onJoin(this.clientFor(ws), { name: queryName ?? options.name, bot: options.bot === true });
+    this.onJoin(this.clientFor(ws), { name: queryName ?? options.name, bot: options.bot === true, persona: options.persona });
     await this.flush(ws);
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -442,12 +442,14 @@ export class HeartOfFiveRoom extends DurableObject<Env> {
     return url.toString();
   }
 
-  private onJoin(client: Client, options: { name?: unknown; bot: boolean }) {
+  private onJoin(client: Client, options: { name?: unknown; bot: boolean; persona?: unknown }) {
     const state = this.state!;
     console.log(client.sessionId, "joined!");
 
     const playerName = sanitizeName(options.name, `Player ${state.players.size + 1}`);
-    state.addPlayer(client.sessionId, playerName, options.bot);
+    // A bot may say which personality it plays, for the badge on its seat. A short lowercase id only.
+    const persona = typeof options.persona === "string" && /^[a-z]{2,16}$/.test(options.persona) ? options.persona : undefined;
+    state.addPlayer(client.sessionId, playerName, options.bot, persona);
 
     // If this is the first player, they're the room creator
     if (state.players.size === 1) {

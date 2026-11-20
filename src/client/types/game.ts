@@ -42,6 +42,8 @@ export interface Player {
   losses: number;
   position?: number;
   isBot?: boolean;
+  /** A bot's personality id (bots/personas.ts), for its seat badge. */
+  persona?: string;
 }
 
 export interface Meld {
