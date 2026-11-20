@@ -11,7 +11,7 @@ import { Callouts, showCallout, dismissCallout, onCalloutBox, calloutFontPx, cal
 import { GameOver } from './GameOver';
 import { DialogBox } from '../ui/DialogBox';
 import { CardBack } from '../ui/CardFace';
-import { useViewport, registry, fan, tableLanes, placeCallout, meldFit, seatHalf, seatScale, myPlateScale, ringBandW, SEAT_W } from '../../fx/layout';
+import { useViewport, registry, fan, tableLanes, placeCallout, meldFit, seatLayout, myPlateScale, ringBandW, SEAT_W } from '../../fx/layout';
 import type { Viewport } from '../../fx/layout';
 import { bus } from '../../fx/bus';
 import { sfx } from '../../fx/sound';
@@ -194,16 +194,13 @@ export const GameTable: React.FC<GameTableProps> = ({
   }, [order, myPlayerId]);
   // ---------- lanes: hand, status stack, pile, ring and callouts never share pixels ----------
   const compact = rawVp.w < 640;
-  const sScale = seatScale(rawVp, compact);
-  const half = seatHalf(compact, sScale);
-  const spots = useMemo(() => seatSpots(opponents.length, rawVp.w, rawVp.h, rawVp.portrait)
-    .map((p) => ({ x: Math.min(rawVp.w - half.hw * 1.06 - 6, Math.max(half.hw * 1.06 + 6, p.x)), y: Math.max(56 + half.hh, p.y) })),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  [opponents.length, rawVp, compact, sScale]);
-  const boxes = useMemo(() => spots.map((p) => ({ ...p, ...half })),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  [spots]);
   const handTop = fan(Math.max(1, myHand.length), rawVp).top;
+  // Seats are as big as the free felt allows (seatLayout), so opponents read as people at the table.
+  const seats = useMemo(() => seatLayout(rawVp, seatSpots(opponents.length, rawVp.w, rawVp.h, rawVp.portrait), handTop, compact),
+    [opponents.length, rawVp, handTop, compact]);
+  const sScale = seats.scale;
+  const spots = seats.spots;
+  const boxes = seats.boxes;
   const lanes = useMemo(() => tableLanes(rawVp, boxes, handTop), [rawVp, boxes, handTop]);
   const vp = useMemo(() => ({ ...rawVp, pileY: lanes.pileY, pileHalf: lanes.pileHalf, meldRoom: lanes.meldRoom }), [rawVp, lanes.pileY, lanes.pileHalf, lanes.meldRoom]);
   /** A clear spot for a callout: its own space, sized by the play, never over a seat or the newest meld. */

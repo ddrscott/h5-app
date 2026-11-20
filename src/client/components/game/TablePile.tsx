@@ -267,7 +267,7 @@ const PileCard: React.FC<{
   return (
     // Its own compositor layer, so a card in flight (transform only) moves without repainting the
     // table under it; the soft shadow is drawn once into that layer.
-    <motion.div data-pile className="absolute" style={{ ...base, borderRadius: '6% / 4.3%', boxShadow: '0 8px 14px -4px rgba(0,0,0,.5)', willChange: 'transform' }} initial={initial} animate={animate} transition={transition}>
+    <motion.div data-pile data-newest={dim === 0 ? "" : undefined} className="absolute" style={{ ...base, borderRadius: '6% / 4.3%', boxShadow: '0 8px 14px -4px rgba(0,0,0,.5)', willChange: 'transform' }} initial={initial} animate={animate} transition={transition}>
       <CardFace suit={card.suit} rank={card.rank} />
       {/* plain CSS for the flip and the dimming: a card mounts with one motion component, not three */}
       {flipDown && (

@@ -250,6 +250,13 @@ Two pages help when working on it:
 node scripts/shots-pile.mjs http://localhost:5173 /tmp/pile 640x640,1000x1000 fullhouse,run8
 ```
 
+`scripts/shots-seats.mjs` checks opponent seat sizes (`seatLayout`, see [docs/VISUALS.md](docs/VISUALS.md)). It plays a pair, a triple and a straight in the FX lab with bot opponents and screenshots the table at 4 players 1400×1000, 1100×1000 and 390×844 and 6 players 1400×1000. It prints each seat's plate size and fails if a seat overlaps another seat, your hand or the newest meld. The lab takes `?players=2..6` and `?bots=1` (personality chips and "thinking…").
+
+```bash
+node scripts/shots-seats.mjs http://localhost:5173 /tmp/seats
+SHOTS=2@1400x1000,5@1920x1080 node scripts/shots-seats.mjs http://localhost:5173 /tmp/seats
+```
+
 `scripts/perf-frames.mjs` records frame times headless while cards fly: a single, a five-card run, a full house, a bomb and the Heart 5 in the FX lab, at normal speed and with the CPU throttled 4x, plus 20 seconds of a real game against bots. It prints p50/p95/max frame time and dropped frames. `GPU=1` uses real Chrome with GPU compositing and vsync off; the default headless shell composites in software, a stand-in for a weak GPU. What keeps it smooth is in [docs/VISUALS.md](docs/VISUALS.md#performance).
 
 ```bash

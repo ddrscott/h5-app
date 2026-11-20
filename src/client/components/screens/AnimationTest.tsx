@@ -14,7 +14,15 @@ const code = (rank: number, suit: string) => (rank === 16 ? 'jj' : rank === 17 ?
 const card = (rank: number, suit: string): Card => ({ rank, suit: rank >= 16 ? 'J' : suit, code: code(rank, suit) });
 
 const ME = 'me';
-const OPP = ['ann', 'bo', 'cy'];
+// /h5/animation?players=2..6 seats that many (you included); the scripted plays still come from
+// Ann, Bo and Cy, so with fewer seats the missing ones just never play. ?bots=1 makes the
+// opponents built-in bots with personality chips (and "thinking" on their turn).
+const QS = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+const SEATS = Math.min(6, Math.max(2, Number(QS.get('players')) || 4));
+const BOTS = QS.get('bots') === '1';
+const ALL_OPP = ['ann', 'bo', 'cy', 'di', 'ed'];
+const OPP = ALL_OPP.slice(0, SEATS - 1);
+const PERSONAS = ['shark', 'regular', 'hothead', 'turtle', 'regular'];
 
 function startingHand(): Card[] {
   return [card(3, 'H'), card(4, 'S'), card(5, 'H'), card(6, 'D'), card(7, 'C'), card(8, 'H'), card(9, 'S'),
@@ -23,19 +31,21 @@ function startingHand(): Card[] {
 
 // /h5/animation?names=long seats everyone under a 20-character name (MAX_NAME_LENGTH), to check
 // that captions and the results page hold up with the longest names a player can pick
-const LONG_NAMES = typeof location !== 'undefined' && new URLSearchParams(location.search).get('names') === 'long';
-const NAMES = LONG_NAMES
-  ? { me: 'Wolfgang Amadeus Moz', ann: 'Grandma Annabelle Lu', bo: 'Maximilianoooooooooo', cy: 'Bartholomew Fitzgera' }
-  : { me: 'Scott', ann: 'Grandma Ann', bo: 'Bo', cy: 'Cousin Cy' };
+const LONG_NAMES = QS.get('names') === 'long';
+const NAMES: Record<string, string> = LONG_NAMES
+  ? { me: 'Wolfgang Amadeus Moz', ann: 'Grandma Annabelle Lu', bo: 'Maximilianoooooooooo', cy: 'Bartholomew Fitzgera', di: 'Dimitrios Papadopoul', ed: 'Uncle Edward Winthro' }
+  : { me: 'Scott', ann: 'Grandma Ann', bo: 'Bo', cy: 'Cousin Cy', di: 'Aunt Di', ed: 'Ed' };
 
 function basePlayers(hand: number): Map<string, Player> {
   const mk = (id: string, name: string, handCount: number, wins = 0, losses = 0): Player =>
     ({ id, name, handCount, isActive: true, hasPassed: false, isOut: false, wins, losses });
+  const rec: Record<string, [number, number]> = { ann: [3, 0], bo: [0, 2], cy: [1, 3], di: [2, 2], ed: [0, 1] };
   return new Map([
     [ME, mk(ME, NAMES.me, hand, 2, 1)],
-    ['ann', mk('ann', NAMES.ann, 13, 3, 0)],
-    ['bo', mk('bo', NAMES.bo, 13, 0, 2)],
-    ['cy', mk('cy', NAMES.cy, 13, 1, 3)],
+    ...OPP.map((id, i): [string, Player] => [id, {
+      ...mk(id, NAMES[id], 13, ...rec[id]),
+      ...(BOTS ? { isBot: true, persona: PERSONAS[i] } : {}),
+    }]),
   ]);
 }
 
@@ -54,7 +64,8 @@ export const AnimationTest: React.FC = () => {
   const setCount = (id: string, delta: number, patch: Partial<Player> = {}) =>
     setPlayers((m) => {
       const n = new Map(m);
-      const p = n.get(id)!;
+      const p = n.get(id);
+      if (!p) return m;
       n.set(id, { ...p, handCount: Math.max(0, p.handCount + delta), ...patch });
       return n;
     });
@@ -64,7 +75,7 @@ export const AnimationTest: React.FC = () => {
     setCount(id, -cards.length, { hasPassed: false });
     bus.emit({ type: 'meld', playerId: id, cards: cards.map((c) => c.code!), meldType: type });
     const next = OPP[(OPP.indexOf(id) + 1) % OPP.length] ?? ME;
-    setTurn(id === 'cy' ? ME : next);
+    setTurn(OPP.indexOf(id) === OPP.length - 1 ? ME : next);
   };
   const pass = (id: string) => {
     bus.emit({ type: 'pass', playerId: id });
@@ -103,10 +114,11 @@ export const AnimationTest: React.FC = () => {
     ['Game over', () => {
       setPlayers((m) => {
         const n = new Map(m);
-        n.set('ann', { ...n.get('ann')!, isOut: true, position: 1, handCount: 0, wins: 4 });
-        n.set('bo', { ...n.get('bo')!, isOut: true, position: 2, handCount: 0 });
-        n.set(ME, { ...n.get(ME)!, isOut: true, position: 3, handCount: 0 });
-        n.set('cy', { ...n.get('cy')!, handCount: 3, losses: 4 });
+        const put = (id: string, patch: Partial<Player>) => { const p = n.get(id); if (p) n.set(id, { ...p, ...patch }); };
+        put('ann', { isOut: true, position: 1, handCount: 0, wins: 4 });
+        put('bo', { isOut: true, position: 2, handCount: 0 });
+        put(ME, { isOut: true, position: 3, handCount: 0 });
+        put('cy', { handCount: 3, losses: 4 });
         return n;
       });
       setPhase(GamePhase.GAME_END);
