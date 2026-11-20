@@ -68,7 +68,9 @@ for (const vp of VIEWPORTS) {
       for (const you of document.querySelectorAll('[data-you]')) {
         const row = you.closest('[data-standing]')?.getBoundingClientRect();
         const r = you.getBoundingClientRect();
-        if (!row || r.width < 10 || r.right > row.right - 8 || r.left < row.left) bad.push(`YOU chip clipped (${Math.round(r.left)}..${Math.round(r.right)} in ${Math.round(row?.left ?? 0)}..${Math.round(row?.right ?? 0)})`);
+        // hit-test the chip's right end: a chip cut off by a truncating parent isn't what's there
+        const hit = document.elementFromPoint(r.right - 3, r.top + r.height / 2);
+        if (!row || r.width < 10 || r.right > row.right - 8 || r.left < row.left || !(hit && you.contains(hit))) bad.push(`YOU chip clipped (${Math.round(r.left)}..${Math.round(r.right)} in ${Math.round(row?.left ?? 0)}..${Math.round(row?.right ?? 0)})`);
       }
       return bad;
     });
