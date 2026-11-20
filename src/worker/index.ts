@@ -1,4 +1,5 @@
 import type { Env } from "./env";
+import { currentUser, handleAuth } from "./auth";
 
 export { HeartOfFiveRoom } from "./room";
 
@@ -20,9 +21,12 @@ const notFound = () => Response.json({ error: "Not found" }, { status: 404 });
  * /api/rooms/new/ws       open a socket to a brand-new room
  * /api/rooms/:code/ws     open a socket to an existing room (or take a seat back)
  * /api/health             liveness check
+ * /api/auth/*, /api/me, /api/stats   sign-in and stats (src/worker/auth.ts)
  */
 async function handleApi(req: Request, env: Env, sub: string): Promise<Response> {
   if (sub === "/api/health") return Response.json({ ok: true });
+  const auth = await handleAuth(req, env, sub);
+  if (auth) return auth;
 
   const m = /^\/api\/rooms\/([A-Za-z0-9]{1,16})\/ws$/.exec(sub);
   if (!m) return notFound();
@@ -30,16 +34,19 @@ async function handleApi(req: Request, env: Env, sub: string): Promise<Response>
     return Response.json({ error: "Expected a WebSocket upgrade" }, { status: 426 });
   }
 
+  // Headers only this Worker sets: strip anything a client sent under these names, then add the
+  // signed-in user (from the session cookie the same-origin upgrade carries) for the room to record.
+  const headers = new Headers(req.headers);
+  headers.delete("X-H5-Create");
+  headers.delete("X-H5-User");
+  const user = await currentUser(req, env).catch(() => null);
+  if (user) headers.set("X-H5-User", user.id);
+
   if (m[1] === "new") {
     const code = newRoomCode();
-    const headers = new Headers(req.headers);
     headers.set("X-H5-Create", code);
     return env.ROOMS.getByName(code).fetch(new Request(req, { headers }));
   }
-
-  // Strip any create header a client might try to send itself.
-  const headers = new Headers(req.headers);
-  headers.delete("X-H5-Create");
   return env.ROOMS.getByName(m[1].toUpperCase()).fetch(new Request(req, { headers }));
 }
 

@@ -65,6 +65,7 @@ export class Room<State = any> {
   private statusHandlers: ((status: ConnectionStatus, info: ConnectionInfo) => void)[] = [];
   private stateHandlers: ((state: State) => void)[] = [];
   private messageHandlers = new Map<string, Handler[]>();
+  private appHandlers = new Map<string, Handler[]>();
   private leaveHandlers: ((code: number) => void)[] = [];
   private errorHandlers: ((code: number, message?: string) => void)[] = [];
   private held: { type: string; data: unknown }[] = [];
@@ -160,6 +161,15 @@ export class Room<State = any> {
     if (!this.leaving) this.giveUp(code, 'Lost connection to the game');
   }
 
+  /**
+   * Opens a fresh socket to the same seat, e.g. after signing in, so the room sees the session
+   * cookie. The room retires the old socket without marking the player away.
+   */
+  async refresh(): Promise<void> {
+    if (this.leaving || this.status !== 'connected' || !this.token) return;
+    await this.connect(resumeUrl(this.roomId, this.sessionId, this.token));
+  }
+
   private giveUp(code: number, reason: string) {
     this.stopPing();
     this.setStatus('lost', { code, reason, seatGone: code === CLOSE_NOT_FOUND || code === CLOSE_REMOVED });
@@ -196,10 +206,12 @@ export class Room<State = any> {
   }
 
   private dispatch(type: string, data: unknown) {
+    const app = this.appHandlers.get(type) ?? [];
+    app.forEach((h) => h(data));
     const handlers = this.messageHandlers.get(type);
     if (handlers?.length) {
       handlers.forEach((h) => h(data));
-    } else if (this.held.length < MAX_HELD) {
+    } else if (!app.length && this.held.length < MAX_HELD) {
       this.held.push({ type, data });
     }
   }
@@ -226,6 +238,17 @@ export class Room<State = any> {
     }
     return () => {
       this.messageHandlers.set(type, (this.messageHandlers.get(type) ?? []).filter((h) => h !== handler));
+    };
+  }
+
+  /**
+   * Like onMessage, but for the app shell: removeAllListeners() leaves it alone, and it doesn't
+   * take held messages away from the game hooks.
+   */
+  listen<T = unknown>(type: string, handler: (data: T) => void) {
+    this.appHandlers.set(type, [...(this.appHandlers.get(type) ?? []), handler as Handler]);
+    return () => {
+      this.appHandlers.set(type, (this.appHandlers.get(type) ?? []).filter((h) => h !== handler));
     };
   }
 

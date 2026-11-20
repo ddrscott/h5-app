@@ -376,6 +376,8 @@ export class GameState {
   lastTrickMelds: Meld[] = []; // Melds from the last completed trick
   
   turnOrder: string[] = [];
+  /** Seat ids in the order they went out this game; reset at every deal. */
+  finishOrder: string[] = [];
   consecutivePasses: number = 0;
   /** The seated human who decides when the game starts. The room's creator, then whoever's next in seat order. */
   hostId: string | null = null;
@@ -610,6 +612,7 @@ export class GameState {
   dealCards(testDeckSize: number = 0, random: () => number = Math.random) {
     this.phase = GamePhase.DEALING;
     const playerIds = Array.from(this.players.keys());
+    this.finishOrder = [];
     
     // Clear player hands
     playerIds.forEach(playerId => {
@@ -797,6 +800,7 @@ export class GameState {
         // Track finishing positions
         const finishedPlayers = Array.from(this.players.values()).filter(p => p.isOut).length;
         player.position = finishedPlayers; // 1st, 2nd, 3rd, etc.
+        this.finishOrder.push(playerId);
         
         // First player out is the round winner
         if (!this.roundWinnerId) {
