@@ -4,6 +4,11 @@ import { reducedMotion } from './prefs';
 /**
  * One full-screen canvas for sparks, embers and confetti. It only runs its frame loop while
  * particles are alive, caps the count, and does nothing at all under reduced motion.
+ *
+ * Kept cheap so it never steals frames from cards in flight: the canvas's size is cached (reading
+ * clientWidth in the loop would force a style and layout pass mid-frame), its backing store is
+ * capped at about 1.3 megapixels, each frame clears only the box the last frame drew in, and a
+ * quality dial drops the particle count when frames start running long (a slow phone or a car).
  */
 type Kind = 'spark' | 'ember' | 'confetti' | 'heart';
 interface P {
@@ -16,6 +21,15 @@ let parts: P[] = [];
 let canvas: HTMLCanvasElement | null = null;
 let raf = 0;
 let last = 0;
+/** css size of the canvas and its pixel ratio, set on mount and resize */
+let cw = 0, ch = 0, ratio = 1;
+/** the box the previous frame drew in, in css px */
+let dirty: [number, number, number, number] | null = null;
+/** 0.35..1: how many of each burst's particles to spawn; falls when frames run long, recovers slowly */
+let quality = typeof navigator !== 'undefined' && (navigator.hardwareConcurrency ?? 8) <= 4 ? 0.7 : 1;
+let frameEma = 16.7;
+/** most pixels the backing store may hold; past this the canvas draws a little soft instead */
+const MAX_PIXELS = 1.3e6;
 
 const PALETTES = {
   // Signal Orange and paper: the bomb's sparks.
@@ -32,13 +46,20 @@ export interface BurstOpts {
 
 function loop(t: number) {
   if (!canvas) { raf = 0; return; }
-  const dt = Math.min(0.033, (t - last) / 1000 || 0.016);
+  const raw = t - last || 16.7;
+  const dt = Math.min(0.033, raw / 1000);
   last = t;
+  frameEma = frameEma * 0.85 + Math.min(raw, 100) * 0.15;
+  if (frameEma > 24) quality = Math.max(0.35, quality * 0.92);
+  else if (frameEma < 18) quality = Math.min(1, quality + 0.004);
   const g = canvas.getContext('2d')!;
-  const dpr = canvas.width / canvas.clientWidth;
-  g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  g.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+  g.setTransform(ratio, 0, 0, ratio, 0, 0);
+  if (dirty) g.clearRect(dirty[0], dirty[1], dirty[2] - dirty[0], dirty[3] - dirty[1]);
   parts = parts.filter((p) => (p.life += dt) < p.max);
+  // running slow: thin out what's already flying too
+  const cap = Math.round(MAX * quality);
+  if (parts.length > cap) parts.length = cap;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const p of parts) {
     p.vx *= 1 - p.drag * dt;
     p.vy = p.vy * (1 - p.drag * dt) + p.g * dt;
@@ -46,6 +67,12 @@ function loop(t: number) {
     p.y += p.vy * dt;
     p.rot += p.vr * dt;
     const k = 1 - p.life / p.max;
+    // the drawn box, with room for a spark's tail and a confetti flake's spin
+    const pad = p.kind === 'spark' ? Math.abs(p.vx * 0.035) + Math.abs(p.vy * 0.035) + p.size + 2 : p.size + 2;
+    if (p.x - pad < x0) x0 = p.x - pad;
+    if (p.y - pad < y0) y0 = p.y - pad;
+    if (p.x + pad > x1) x1 = p.x + pad;
+    if (p.y + pad > y1) y1 = p.y + pad;
     g.globalAlpha = Math.min(1, k * 1.6);
     g.fillStyle = p.color;
     if (p.kind === 'confetti') {
@@ -82,8 +109,9 @@ function loop(t: number) {
     }
   }
   g.globalAlpha = 1;
+  dirty = parts.length ? [Math.max(0, x0), Math.max(0, y0), Math.min(cw, x1), Math.min(ch, y1)] : null;
   if (parts.length) raf = requestAnimationFrame(loop);
-  else { raf = 0; g.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight); }
+  else { raf = 0; canvas.style.visibility = 'hidden'; }
 }
 
 export const particles = {
@@ -91,7 +119,7 @@ export const particles = {
     if (!canvas || reducedMotion()) return;
     const kind = o.kind ?? 'spark';
     const pal = PALETTES[o.palette ?? (kind === 'confetti' ? 'confetti' : 'ember')];
-    const n = Math.min(o.count ?? 40, MAX - parts.length);
+    const n = Math.min(Math.round((o.count ?? 40) * quality), MAX - parts.length);
     const speed = o.speed ?? 520;
     const spread = o.spread ?? Math.PI * 2;
     const angle = o.angle ?? -Math.PI / 2;
@@ -108,7 +136,8 @@ export const particles = {
         g: o.gravity ?? (kind === 'confetti' ? 420 : kind === 'ember' ? -40 : 260),
       });
     }
-    if (!raf) { last = performance.now(); raf = requestAnimationFrame(loop); }
+    // shown only while something is flying, so an idle canvas adds nothing to compositing
+    if (!raf) { canvas.style.visibility = 'visible'; last = performance.now(); raf = requestAnimationFrame(loop); }
   },
   /** Confetti from both top corners, for a win. */
   celebrate() {
@@ -123,9 +152,12 @@ export function FxCanvas() {
   useEffect(() => {
     const c = ref.current!;
     const size = () => {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      c.width = Math.round(window.innerWidth * dpr);
-      c.height = Math.round(window.innerHeight * dpr);
+      cw = window.innerWidth;
+      ch = window.innerHeight;
+      ratio = Math.min(2, window.devicePixelRatio || 1, Math.sqrt(MAX_PIXELS / Math.max(1, cw * ch)));
+      c.width = Math.round(cw * ratio);
+      c.height = Math.round(ch * ratio);
+      dirty = null;
     };
     size();
     canvas = c;
@@ -138,5 +170,5 @@ export function FxCanvas() {
       parts = [];
     };
   }, []);
-  return <canvas ref={ref} aria-hidden className="fixed inset-0 w-full h-full pointer-events-none" style={{ zIndex: 70 }} />;
+  return <canvas ref={ref} aria-hidden className="fixed inset-0 w-full h-full pointer-events-none" style={{ zIndex: 70, visibility: 'hidden' }} />;
 }

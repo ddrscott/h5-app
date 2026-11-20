@@ -99,7 +99,9 @@ const HandCard: React.FC<HandCardProps> = React.memo(({ card, slot, index, vp, s
           <motion.div
             aria-hidden
             className="absolute inset-0"
-            style={{ borderRadius: '6% / 4.3%', background: 'rgba(0,0,0,.55)', filter: 'blur(6px)' }}
+            // a soft shadow drawn as a gradient, not a blur filter: a filter re-rasters the whole
+            // blur every frame the shadow moves, and there are fourteen of these
+            style={{ borderRadius: '10% / 7%', background: 'radial-gradient(ellipse 60% 56% at 50% 52%, rgba(0,0,0,.6) 55%, rgba(0,0,0,0) 100%)', transform: 'scale(1.12)' }}
             animate={{ y: 4 + lift * 0.35, scale: 1 - lift / vp.H * 0.12, opacity: 0.55 - lift / vp.H * 0.6 }}
             transition={{ type: 'spring', stiffness: 300, damping: 26 }}
           />
@@ -110,7 +112,8 @@ const HandCard: React.FC<HandCardProps> = React.memo(({ card, slot, index, vp, s
             </motion.div>
           )}
           {/* light catching the card as you tilt it */}
-          <motion.div aria-hidden className="absolute inset-0 pointer-events-none" style={{ borderRadius: '6% / 4.3%', background: shine, opacity: hover ? 1 : 0, mixBlendMode: 'soft-light' }} />
+          {/* only while hovered: a blend mode makes the browser composite the card's backdrop separately */}
+          {hover && <motion.div aria-hidden className="absolute inset-0 pointer-events-none" style={{ borderRadius: '6% / 4.3%', background: shine, mixBlendMode: 'soft-light' }} />}
           {/* selection: ember edge and a warm underglow */}
           <motion.div
             aria-hidden

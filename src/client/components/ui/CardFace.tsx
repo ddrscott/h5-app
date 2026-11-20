@@ -167,17 +167,33 @@ interface CardFaceProps {
 
 export const isHeartFive = (suit: string, rank: number) => suit === 'H' && rank === 5;
 
-export const CardFace: React.FC<CardFaceProps> = React.memo(({ suit, rank, className = '', selected = false }) => {
-  const isJoker = suit === 'J' || rank === 16 || rank === 17;
-  const s = (['H', 'D', 'C', 'S'].includes(suit) ? suit : 'H') as SuitCode;
-  const color = s === 'H' || s === 'D' ? RED : BLACK;
-  const h5 = !isJoker && isHeartFive(s, rank);
-  const label = rankLabel(rank);
-  const name = isJoker ? (rank === 17 ? 'Big joker' : 'Small joker') : `${label} of ${{ H: 'hearts', D: 'diamonds', C: 'clubs', S: 'spades' }[s]}`;
-
-  return (
-    <div className={`card-face relative w-full h-full ${className}`} role="img" aria-label={name}>
-      <svg viewBox="0 0 100 140" className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+/**
+ * A card's drawing as plain SVG elements, built once per card and reused by every copy of it on
+ * screen. Pip, Index, Face and Joker are pure functions, so they're called here instead of being
+ * mounted as components: mounting a played card then only creates its SVG nodes, which keeps the
+ * frame where a meld leaves the hand short (docs/VISUALS.md, Performance). HeartFive keeps its
+ * hook (useId), so it stays a component.
+ */
+const faceCache = new Map<string, React.ReactNode>();
+function flatten(node: React.ReactNode): React.ReactNode {
+  if (Array.isArray(node)) return node.map(flatten);
+  if (!React.isValidElement(node)) return node;
+  const el = node as React.ReactElement<{ children?: React.ReactNode }>;
+  if (typeof el.type === 'function' && el.type !== HeartFive) {
+    const out = flatten((el.type as (p: unknown) => React.ReactNode)(el.props));
+    // a component in a list carried the key; hand it to what it drew
+    return el.key != null && React.isValidElement(out) ? React.cloneElement(out, { key: el.key }) : out;
+  }
+  const kids = el.props.children;
+  if (kids === undefined) return el;
+  return Array.isArray(kids) ? React.cloneElement(el, undefined, ...kids.map(flatten)) : React.cloneElement(el, undefined, flatten(kids));
+}
+function faceArt(s: SuitCode, rank: number, isJoker: boolean, h5: boolean, label: string, color: string): React.ReactNode {
+  const key = `${s}${rank}${isJoker ? 'j' : ''}`;
+  let art = faceCache.get(key);
+  if (art === undefined) {
+    art = flatten(
+      <>
         <rect width="100" height="140" rx="6" fill={PAPER} />
         {/* a light ink outline, like a card drawn on the page */}
         <rect x="0.8" y="0.8" width="98.4" height="138.4" rx="5.4" fill="none" stroke={INK} strokeWidth="1.6" strokeOpacity="0.85" />
@@ -196,6 +212,46 @@ export const CardFace: React.FC<CardFaceProps> = React.memo(({ suit, rank, class
             )}
           </>
         )}
+      </>,
+    );
+    faceCache.set(key, art);
+  }
+  return art;
+}
+
+/**
+ * Build every face's drawing while the browser is idle, a few at a time, so the first time a card
+ * is played its drawing is already made and the launch frame only creates DOM nodes.
+ */
+function warmFaces() {
+  const todo: Array<[SuitCode, number, boolean]> = [];
+  for (const su of ['H', 'D', 'C', 'S'] as SuitCode[]) for (let r = 3; r <= 15; r++) todo.push([su, r, false]);
+  todo.push(['H', 16, true], ['H', 17, true]);
+  const idle = (cb: (d: { timeRemaining: () => number }) => void) =>
+    typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback(cb, { timeout: 4000 }) : setTimeout(() => cb({ timeRemaining: () => 8 }), 200);
+  const step = (d: { timeRemaining: () => number }) => {
+    while (todo.length && d.timeRemaining() > 2) {
+      const [su, r, j] = todo.pop()!;
+      faceArt(su, r, j, !j && isHeartFive(su, r), rankLabel(r), su === 'H' || su === 'D' ? RED : BLACK);
+    }
+    if (todo.length) idle(step);
+  };
+  idle(step);
+}
+if (typeof window !== 'undefined') warmFaces();
+
+export const CardFace: React.FC<CardFaceProps> = React.memo(({ suit, rank, className = '', selected = false }) => {
+  const isJoker = suit === 'J' || rank === 16 || rank === 17;
+  const s = (['H', 'D', 'C', 'S'].includes(suit) ? suit : 'H') as SuitCode;
+  const color = s === 'H' || s === 'D' ? RED : BLACK;
+  const h5 = !isJoker && isHeartFive(s, rank);
+  const label = rankLabel(rank);
+  const name = isJoker ? (rank === 17 ? 'Big joker' : 'Small joker') : `${label} of ${{ H: 'hearts', D: 'diamonds', C: 'clubs', S: 'spades' }[s]}`;
+
+  return (
+    <div className={`card-face relative w-full h-full ${className}`} role="img" aria-label={name}>
+      <svg viewBox="0 0 100 140" className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        {faceArt(s, rank, isJoker, h5, label, color)}
         {selected && <rect x="1.5" y="1.5" width="97" height="137" rx="5" fill="none" stroke="#E85D00" strokeWidth="3" />}
       </svg>
       {h5 && <div className="foil" style={{ borderRadius: '6% / 4.3%' }} />}
@@ -204,35 +260,40 @@ export const CardFace: React.FC<CardFaceProps> = React.memo(({ suit, rank, class
 });
 CardFace.displayName = 'CardFace';
 
+const BACK_BURST = Array.from({ length: 28 }, (_, i) => {
+  const r = i % 2 ? 16 : 27 - (i % 4 === 0 ? 0 : 3);
+  const a = (i * (360 / 28) - 90) * (Math.PI / 180);
+  return `${(50 + Math.cos(a) * r).toFixed(2)},${(70 + Math.sin(a) * r * 1.12).toFixed(2)}`;
+}).join(' ');
 /** The back: an ink field of screentone dots inside a paper border, and an orange impact burst holding five ink hearts. */
+let backArt: React.ReactNode = null;
 export const CardBack: React.FC<{ className?: string }> = React.memo(({ className = '' }) => {
-  const id = React.useId().replace(/:/g, '');
-  const burst = Array.from({ length: 28 }, (_, i) => {
-    const r = i % 2 ? 16 : 27 - (i % 4 === 0 ? 0 : 3);
-    const a = (i * (360 / 28) - 90) * (Math.PI / 180);
-    return `${(50 + Math.cos(a) * r).toFixed(2)},${(70 + Math.sin(a) * r * 1.12).toFixed(2)}`;
-  }).join(' ');
+  // One drawing shared by every back on screen (seat fans, the deal, opponents' cards in flight).
+  // The dot pattern's id is fixed: every copy defines the same pattern, so any of them will do.
+  backArt ??= flatten(
+    <>
+      <defs>
+        <pattern id="h5backdot" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+          <circle cx="2" cy="2" r="0.9" fill={PAPER} opacity="0.22" />
+        </pattern>
+      </defs>
+      <rect width="100" height="140" rx="6" fill={PAPER} />
+      <rect x="0.8" y="0.8" width="98.4" height="138.4" rx="5.4" fill="none" stroke={INK} strokeWidth="1.6" />
+      <rect x="5" y="5" width="90" height="130" rx="1.5" fill={INK} />
+      <rect x="5" y="5" width="90" height="130" rx="1.5" fill="url(#h5backdot)" />
+      <rect x="8.5" y="8.5" width="83" height="123" fill="none" stroke={PAPER} strokeWidth="0.8" opacity="0.6" />
+      <polygon points={BACK_BURST} fill={ORANGE} stroke={PAPER} strokeWidth="1.4" strokeLinejoin="miter" />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i} transform={`rotate(${i * 72} 50 70)`}>
+          <Pip suit="H" x={50} y={61} size={9.5} fill={INK} flip />
+        </g>
+      ))}
+      <circle cx="50" cy="70" r="2.6" fill={INK} />
+    </>,
+  );
   return (
     <div className={`relative w-full h-full ${className}`} aria-label="Card back" role="img">
-      <svg viewBox="0 0 100 140" className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id={`dot${id}`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
-            <circle cx="2" cy="2" r="0.9" fill={PAPER} opacity="0.22" />
-          </pattern>
-        </defs>
-        <rect width="100" height="140" rx="6" fill={PAPER} />
-        <rect x="0.8" y="0.8" width="98.4" height="138.4" rx="5.4" fill="none" stroke={INK} strokeWidth="1.6" />
-        <rect x="5" y="5" width="90" height="130" rx="1.5" fill={INK} />
-        <rect x="5" y="5" width="90" height="130" rx="1.5" fill={`url(#dot${id})`} />
-        <rect x="8.5" y="8.5" width="83" height="123" fill="none" stroke={PAPER} strokeWidth="0.8" opacity="0.6" />
-        <polygon points={burst} fill={ORANGE} stroke={PAPER} strokeWidth="1.4" strokeLinejoin="miter" />
-        {[0, 1, 2, 3, 4].map((i) => (
-          <g key={i} transform={`rotate(${i * 72} 50 70)`}>
-            <Pip suit="H" x={50} y={61} size={9.5} fill={INK} flip />
-          </g>
-        ))}
-        <circle cx="50" cy="70" r="2.6" fill={INK} />
-      </svg>
+      <svg viewBox="0 0 100 140" className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">{backArt}</svg>
     </div>
   );
 });

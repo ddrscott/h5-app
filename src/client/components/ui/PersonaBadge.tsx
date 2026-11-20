@@ -7,7 +7,7 @@ interface PersonaBadgeProps {
   persona?: string;
   /** it's this bot's turn: show that it is working on its move */
   thinking?: boolean;
-  /** icon only, for a phone-sized seat */
+  /** smaller lettering, for a phone-sized seat */
   compact?: boolean;
   className?: string;
 }
@@ -29,8 +29,7 @@ export const PersonaBadge: React.FC<PersonaBadgeProps> = ({ persona, thinking = 
         style={{ boxShadow: '1.5px 1.5px 0 #000' }}>
         <PersonaEmblem persona={persona} size={11} />
       </span>
-      {/* a phone-sized seat has room for the emblem only */}
-      {!compact && <span className="font-display text-[13px] leading-none tracking-[0.05em] pt-px">{thinking ? 'thinking…' : label}</span>}
+      <span className={`font-display leading-none pt-px ${compact ? 'text-[12px] tracking-[0.03em]' : 'text-[13px] tracking-[0.05em]'}`}>{thinking ? 'thinking…' : label}</span>
     </span>
   );
 };

@@ -182,7 +182,7 @@ export const TablePile: React.FC<Props> = ({ trickMelds, vp, myPlayerId, onLand,
           <motion.div
             key={s.key}
             className="absolute"
-            style={{ left: vp.pileX, top: vp.pileY, zIndex: 10 + i }}
+            style={{ left: vp.pileX, top: vp.pileY, zIndex: 10 + i, willChange: 'transform' }}
             initial={false}
             animate={{ x: off.x, y: off.y, scale: off.scale, rotate: s.rot * (1 + age * 0.6), opacity: off.opacity }}
             transition={{ type: 'spring', stiffness: 300, damping: 26, delay: age > 0 ? pushDelay : 0 }}
@@ -212,7 +212,7 @@ export const TablePile: React.FC<Props> = ({ trickMelds, vp, myPlayerId, onLand,
           <motion.div
             key={`sw-${sweep.id}-${s.key}`}
             className="absolute"
-            style={{ left: vp.pileX, top: vp.pileY, zIndex: 5 + i }}
+            style={{ left: vp.pileX, top: vp.pileY, zIndex: 5 + i, willChange: 'transform, opacity' }}
             initial={{ x: off.x, y: off.y, scale: off.scale, rotate: s.rot, opacity: off.opacity }}
             animate={{ x: sweep.tx, y: sweep.ty, scale: 0.22, rotate: s.rot + (i % 2 ? 40 : -40), opacity: 0 }}
             transition={{ duration: reduce ? 0.2 : 0.55, ease: [0.5, 0, 0.75, 0], delay: reduce ? 0 : age * 0.05 }}
@@ -265,14 +265,17 @@ const PileCard: React.FC<{
 
   const flipDown = !!flight && flight.faceDown && !reduce;
   return (
-    <motion.div data-pile className="absolute" style={{ ...base, borderRadius: '6% / 4.3%', boxShadow: '0 8px 14px -4px rgba(0,0,0,.5)' }} initial={initial} animate={animate} transition={transition}>
+    // Its own compositor layer, so a card in flight (transform only) moves without repainting the
+    // table under it; the soft shadow is drawn once into that layer.
+    <motion.div data-pile className="absolute" style={{ ...base, borderRadius: '6% / 4.3%', boxShadow: '0 8px 14px -4px rgba(0,0,0,.5)', willChange: 'transform' }} initial={initial} animate={animate} transition={transition}>
       <CardFace suit={card.suit} rank={card.rank} />
+      {/* plain CSS for the flip and the dimming: a card mounts with one motion component, not three */}
       {flipDown && (
-        <motion.div className="absolute inset-0" initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: 0.06, delay: delay + DURATION * 0.3 }}>
+        <div className="absolute inset-0 pile-flip" style={{ animationDelay: `${delay + DURATION * 0.3}s` }}>
           <CardBack />
-        </motion.div>
+        </div>
       )}
-      <motion.div aria-hidden className="absolute inset-0 bg-black pointer-events-none" style={{ borderRadius: '6% / 4.3%' }} initial={false} animate={{ opacity: dim }} transition={{ duration: 0.3 }} />
+      <div aria-hidden className="absolute inset-0 bg-black pointer-events-none" style={{ borderRadius: '6% / 4.3%', opacity: dim, transition: 'opacity .3s ease' }} />
     </motion.div>
   );
 });

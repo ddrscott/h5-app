@@ -241,6 +241,10 @@
   animation: foil-sweep 3.8s ease-in-out infinite;
 }
 
+/* An opponent's card turning face up mid-flight: its back drops away in one step. */
+@keyframes pile-flip { to { opacity: 0; visibility: hidden; } }
+.pile-flip { animation: pile-flip .06s linear forwards; }
+
 @keyframes pulse-soft { 0%, 100% { opacity: .35; } 50% { opacity: .9; } }
 .pulse-soft { animation: pulse-soft 1.8s ease-in-out infinite; }
 

@@ -5,7 +5,6 @@ import type { Player } from '../../types/game';
 import { CardBack } from '../ui/CardFace';
 import { KickButton } from '../ui/KickButton';
 import { PersonaBadge } from '../ui/PersonaBadge';
-import { PersonaEmblem } from '../ui/PersonaEmblem';
 import { registry } from '../../fx/layout';
 
 /** The server plays for an absent player after this long (room.ts TURN_TIMEOUT_MS). */
@@ -26,8 +25,6 @@ export interface SeatProps {
   compact: boolean;
   /** draws the whole seat this much bigger on a large screen (see seatScale) */
   scale?: number;
-  /** avatar letters, unique at this table (see seatBadges) */
-  badge?: string;
   onKick?: () => void;
 }
 
@@ -56,7 +53,17 @@ export function nameFontPx(name: string, room: number, max: number, min = 9) {
  * does (a 20-letter single word on a phone seat), the caption has to break inside the word rather
  * than get clipped mid-letter at its slanted edge.
  */
+const fitCache = new Map<string, { px: number; breakAnywhere: boolean }>();
 export function nameFit(name: string, room: number, max: number, min = 9): { px: number; breakAnywhere: boolean } {
+  const key = `${name}|${room}|${max}|${min}`;
+  const hit = fitCache.get(key);
+  if (hit) return hit;
+  const out = measureName(name, room, max, min);
+  // only remember a measurement taken in the real face, not the fallback it shows while loading
+  if (typeof document !== 'undefined' && document.fonts?.status === 'loaded') fitCache.set(key, out);
+  return out;
+}
+function measureName(name: string, room: number, max: number, min: number): { px: number; breakAnywhere: boolean } {
   nameRuler ??= typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
   const longest = name.split(/\s+/).reduce((a, b) => (b.length > a.length ? b : a), '');
   if (!longest) return { px: max, breakAnywhere: false };
@@ -101,7 +108,16 @@ const TimerRing: React.FC<{ startedAt: number; size: number }> = ({ startedAt, s
   );
 };
 
-export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place, passBeat, compact, scale = 1, badge, onKick }) => {
+/**
+ * Plate widths: the leaning ink plate holds the name and the record line, nothing else, so it can
+ * be a little wider than the old plate beside a portrait. The face-down hand sits outside it.
+ */
+export const PLATE_W = 172;
+export const PLATE_W_COMPACT = 128;
+const PLATE_SHAPE = 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)';
+const PLATE_INNER = 'polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)';
+
+export const Seat: React.FC<SeatProps> = React.memo(({ player, x, y, active, leader, place, passBeat, compact, scale = 1, onKick }) => {
   const absent = player.isActive === false;
   const out = player.isOut || (place !== undefined && place > 0);
   const [turnStart, setTurnStart] = useState(0);
@@ -115,17 +131,15 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
     return () => clearTimeout(t);
   }, [passBeat]);
 
-  const fanCount = Math.min(player.handCount, compact ? 5 : 8);
+  const fanCount = Math.min(player.handCount, compact ? 6 : 8);
   const backW = compact ? 18 : 24;
-  const pw = compact ? 46 : 64, ph = compact ? 60 : 82;
-  const colW = compact ? 88 : 140;
+  const plateW = compact ? PLATE_W_COMPACT : PLATE_W;
   // caption room: plate width less its padding, the caption's own padding and its 5px slanted edge
-  const nameSize = nameFit(player.name, colW + 14 - 28 - 12 - 6 - 5, 12);
-  const portraitFill = out ? '#8E8E8F' : active ? '#E85D00' : '#FAFAF7';
-  const P = 'polygon(0 0, 100% 0, 100% 80%, 78% 100%, 0 100%)';
+  const nameSize = nameFit(player.name, plateW - 28 - 12 - 6 - 5, compact ? 12 : 13);
   // A passed seat stays a solid ink panel (nothing behind shows through); its paper and ink go
-  // gray instead, and the PASS stamp keeps full strength.
+  // gray instead, and the PASS stamp and card count keep full strength.
   const dim = player.hasPassed && !active ? 'grayscale(1) brightness(0.58)' : undefined;
+  const fanW = backW + Math.max(0, fanCount - 1) * backW * 0.34;
 
   return (
     <motion.div
@@ -136,110 +150,94 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
       transition={{ type: 'spring', stiffness: 400, damping: 24 }}
     >
       {/*
-        The seat is a comic panel: a tilted portrait frame (the bot's emblem, or a person's
-        initials, on paper with screentone) overlapping a leaning ink plate that holds the name in
-        a caption box, their face-down hand and their record.
+        The seat is a leaning ink name plate with the player's face-down hand held up above it, the
+        cards tucked just behind the plate's top edge and the count beside them. The plate holds
+        the name in a caption box and a record line with the personality chip.
       */}
-      <div data-plate className="relative flex items-center" style={{ filter: `drop-shadow(5px 5px 0 ${active ? '#E85D00' : '#000'})` }}>
-        {/* portrait frame */}
-        <div className="relative z-10 shrink-0 -rotate-[4deg]" style={{ width: pw, height: ph, marginRight: -10, filter: dim }}>
-          <span aria-hidden className="absolute inset-0" style={{ background: active ? '#0B0B0D' : '#FAFAF7', clipPath: P }} />
-          <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: P }} />
-          <span aria-hidden className="absolute inset-[5px] overflow-hidden" style={{ background: portraitFill, clipPath: P }}>
-            <span className="tone absolute inset-0 text-ink/25" style={{ clipPath: 'polygon(0 62%, 100% 30%, 100% 100%, 0 100%)' }} />
-          </span>
-          <div className="absolute inset-[5px] grid place-items-center">
-            {player.isBot ? (
-              <PersonaEmblem persona={player.persona} size={compact ? 30 : 42} className={active && !out && !absent ? 'animate-pulse' : ''} />
-            ) : (
-              <span className={`font-display leading-none tracking-[0.02em] text-ink pt-1 ${compact ? 'text-[22px]' : 'text-[32px]'}`}>{badge ?? initials(player.name)}</span>
-            )}
-          </div>
-          {player.isBot && (
-            <span className="absolute -bottom-1.5 left-0.5 font-display text-[12px] leading-none tracking-[0.04em] px-1 pt-[3px] pb-[1px] bg-ink text-paper border-[1.5px] border-paper">
-              {badge ?? initials(player.name)}
-            </span>
-          )}
-          {active && absent && turnStart > 0 && <TimerRing startedAt={turnStart} size={pw} />}
-          {leader && (
-            <Crown size={18} strokeWidth={2.75} className="absolute -top-3 -left-2 text-ember fill-paper drop-shadow-[2px_2px_0_#000]" aria-label="Leads this trick" />
-          )}
-        </div>
-
-        {/* the plate */}
-        <div className="relative" style={{ width: colW + 14 }}>
-          <span aria-hidden className="absolute inset-0" style={{ background: active ? '#E85D00' : dim ? '#848482' : '#FAFAF7', clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)' }} />
-          <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: 'polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)' }} />
-          {dim && <span aria-hidden className="tone absolute inset-[3px] text-paper/[0.12]" style={{ clipPath: 'polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)' }} />}
-          <div className="relative flex flex-col items-start gap-1 pl-4 pr-3 py-1.5">
-            {/*
-              name in a caption box; full names, two lines on a phone rather than "Aggressive…",
-              broken only between words (the font shrinks until the longest word fits)
-            */}
-            <p data-seat-name className={`max-w-full -rotate-2 -ml-1 px-1.5 pt-[2px] pb-[1px] font-extrabold break-normal ${compact ? 'leading-[1.1] line-clamp-2' : 'text-[13px] leading-tight truncate'} ${active ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
-              style={{ filter: dim, clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)', fontSize: compact ? nameSize.px : undefined, overflowWrap: compact && nameSize.breakAnywhere ? 'anywhere' : undefined }}>
-              {player.name}
-            </p>
-            {/* their hand, face down: a small fan whose size follows the card count */}
-            <div ref={(el) => registry.seat(player.id, el)} className="relative" style={{ height: backW * 1.4 + 2, width: backW + Math.max(0, fanCount - 1) * backW * 0.34 }}>
-              {Array.from({ length: fanCount }).map((_, i) => {
-                const c = i - (fanCount - 1) / 2;
-                return (
-                  <motion.div
-                    key={i}
-                    className="absolute top-0"
-                    style={{ width: backW, height: backW * 1.4, left: i * backW * 0.34, borderRadius: 2, filter: dim }}
-                    initial={{ opacity: 0, y: -12, rotate: 0 }}
-                    animate={{ opacity: 1, y: Math.abs(c) * 1.2, rotate: c * 6 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ type: 'spring', stiffness: 380, damping: 22, delay: i * 0.02 }}
-                  >
-                    <CardBack />
-                  </motion.div>
-                );
-              })}
-              {player.handCount > 0 && (
+      <div data-plate className="relative flex flex-col items-center" style={{ width: plateW + 5 }}>
+        {/* their hand, face down: a small fan whose size follows the card count */}
+        <div className="relative z-0 flex justify-center w-full" style={{ height: backW * 1.4 + 2, marginBottom: compact ? -5 : -7 }}>
+          <div ref={(el) => registry.seat(player.id, el)} className="relative" style={{ height: backW * 1.4 + 2, width: fanW }}>
+            {Array.from({ length: fanCount }).map((_, i) => {
+              const c = i - (fanCount - 1) / 2;
+              return (
+                <motion.div
+                  key={i}
+                  className="absolute top-0"
+                  style={{ width: backW, height: backW * 1.4, left: i * backW * 0.34, borderRadius: 2, filter: dim, transformOrigin: '50% 100%' }}
+                  initial={{ opacity: 0, y: -12, rotate: 0 }}
+                  animate={{ opacity: 1, y: Math.abs(c) * 1.2, rotate: c * 6 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 22, delay: i * 0.02 }}
+                >
+                  <CardBack />
+                </motion.div>
+              );
+            })}
+            {player.handCount > 0 && (
+              <span className={`absolute z-40 top-[42%] -translate-y-1/2 ${compact ? '-right-[30px]' : '-right-[34px]'}`}>
                 <motion.span
                   key={player.handCount}
                   initial={{ scale: 1.5 }}
                   animate={{ scale: 1 }}
                   data-count
-                  className="absolute z-40 -right-7 top-1/2 -translate-y-1/2 min-w-[24px] h-[22px] px-1 grid place-items-center font-display text-[16px] leading-none pt-px bg-paper text-ink border-2 border-ink rotate-3"
+                  className="relative grid place-items-center min-w-[24px] h-[22px] px-1 font-display text-[16px] leading-none pt-px bg-paper text-ink border-2 border-ink rotate-3 shadow-[2px_2px_0_#000]"
                 >
                   {player.handCount}
                 </motion.span>
+                {active && absent && turnStart > 0 && <TimerRing startedAt={turnStart} size={24} />}
+              </span>
+            )}
+            {/* PASS: a stamp that thunks onto their cards */}
+            <AnimatePresence>
+              {stamp > 0 && (
+                <motion.div
+                  key={stamp}
+                  data-stamp
+                  className="absolute z-30 pointer-events-none font-display text-[19px] leading-none tracking-[0.08em] px-2 pt-1 pb-0.5 border-[3px] border-ink text-ink bg-paper shadow-hard-sm -left-5 top-1/2"
+                  initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
+                  animate={{ y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
+                  exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.25 } }}
+                  transition={{ type: 'spring', stiffness: 700, damping: 20 }}
+                >
+                  PASS
+                </motion.div>
               )}
-              {/* PASS: a stamp that thunks onto their cards */}
-              <AnimatePresence>
-                {stamp > 0 && (
-                  <motion.div
-                    key={stamp}
-                    data-stamp
-                    className="absolute z-30 pointer-events-none font-display text-[19px] leading-none tracking-[0.08em] px-2 pt-1 pb-0.5 border-[3px] border-ink text-ink bg-paper shadow-hard-sm -left-3 top-1/2"
-                    initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
-                    animate={{ y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
-                    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.25 } }}
-                    transition={{ type: 'spring', stiffness: 700, damping: 20 }}
-                  >
-                    PASS
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <p className="font-sans tabular-nums text-[11px] font-semibold text-mist flex items-center gap-1 leading-none" style={{ filter: dim }}>
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* the plate, with its hard offset drawn as a shape behind it (orange on its turn) */}
+        <div className="relative z-10 self-start" style={{ width: plateW }}>
+          <span aria-hidden className="absolute inset-0 translate-x-[5px] translate-y-[5px]" style={{ background: active ? '#E85D00' : '#000', clipPath: PLATE_SHAPE }} />
+          <span aria-hidden className="absolute inset-0" style={{ background: active ? '#E85D00' : dim ? '#848482' : '#FAFAF7', clipPath: PLATE_SHAPE }} />
+          <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: PLATE_INNER }} />
+          {dim && <span aria-hidden className="tone absolute inset-[3px] text-paper/[0.12]" style={{ clipPath: PLATE_INNER }} />}
+          {leader && (
+            <Crown size={18} strokeWidth={2.75} className="absolute z-20 -top-3 -left-1 text-ember fill-paper drop-shadow-[2px_2px_0_#000]" aria-label="Leads this trick" />
+          )}
+          <div className="relative flex flex-col items-start gap-1 pl-4 pr-3 py-1.5">
+            {/*
+              name in a caption box; full names, two lines on a phone rather than "Aggressive…",
+              broken only between words (the font shrinks until the longest word fits)
+            */}
+            <p data-seat-name className={`max-w-full -rotate-2 -ml-1 px-1.5 pt-[2px] pb-[1px] font-extrabold break-normal ${compact ? 'leading-[1.1] line-clamp-2' : 'leading-tight truncate'} ${active ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
+              style={{ filter: dim, clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)', fontSize: compact ? nameSize.px : 13, overflowWrap: compact && nameSize.breakAnywhere ? 'anywhere' : undefined }}>
+              {player.name}
+            </p>
+            <p className="font-sans tabular-nums text-[11px] font-semibold text-mist flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-none" style={{ filter: dim }}>
               {absent && <WifiOff size={11} className="text-paper" aria-label="Disconnected" />}
               <span>{player.wins}W·{player.losses}L</span>
-              {/* a bot's personality; on its turn the badge says it's thinking */}
+              {/* a bot's personality: emblem and name, the blurb on hover; on its turn it says it's thinking */}
               {player.isBot && <PersonaBadge persona={player.persona} thinking={active && !out && !absent} compact={compact} />}
               {out && place ? <span className="font-display text-[13px] leading-none px-1 pt-px bg-paper text-ink">{ORDINAL[place] ?? `${place}TH`}</span> : null}
+              {onKick && absent && <KickButton name={player.name} onConfirm={onKick} />}
             </p>
           </div>
         </div>
-        {onKick && absent && <KickButton name={player.name} onConfirm={onKick} />}
       </div>
       {player.autopilot && (
         <div
-          className="mt-1 flex items-center gap-1 px-1.5 py-0.5 bg-ink border-2 border-ember text-[11px] font-bold text-bone max-w-[150px]"
+          className="mt-2 flex items-center gap-1 px-1.5 py-0.5 bg-ink border-2 border-ember text-[11px] font-bold text-bone max-w-[150px]"
           title={`${player.autopilot}, an uploaded bot, is playing for ${player.name}`}
           data-autopilot
         >
@@ -250,7 +248,16 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
 
     </motion.div>
   );
-};
+}, (a, b) =>
+  // Only redraw when something this seat shows changed: the table re-renders on every state
+  // message, and the players map hands us a fresh object each time.
+  a.x === b.x && a.y === b.y && a.active === b.active && a.leader === b.leader && a.place === b.place &&
+  a.passBeat === b.passBeat && a.compact === b.compact && a.scale === b.scale && !a.onKick === !b.onKick &&
+  a.player.id === b.player.id && a.player.name === b.player.name && a.player.handCount === b.player.handCount &&
+  a.player.hasPassed === b.player.hasPassed && a.player.isActive === b.player.isActive && a.player.isOut === b.player.isOut &&
+  a.player.position === b.player.position && a.player.wins === b.player.wins && a.player.losses === b.player.losses &&
+  a.player.isBot === b.player.isBot && a.player.persona === b.player.persona && a.player.autopilot === b.player.autopilot);
+Seat.displayName = 'Seat';
 
 /** Seat centers for the opponents, in turn order after you (clockwise from your left). */
 export function seatSpots(k: number, w: number, h: number, portrait: boolean): Array<{ x: number; y: number }> {

@@ -155,9 +155,13 @@ export function pileFlat(vp: Pick<Viewport, 'w' | 'PW' | 'meldRoom'>) {
 
 export interface SeatBox { x: number; y: number; hw: number; hh: number }
 
-/** Half sizes of an opponent's seat (card fan + nameplate), for keeping text off them. */
+/**
+ * Half sizes of an opponent's seat (the face-down fan held above the nameplate, the plate's hard
+ * offset included), for keeping text and cards off them. Measured from Seat.tsx (PLATE_W 172,
+ * PLATE_W_COMPACT 128).
+ */
 export const seatHalf = (compact: boolean, scale = 1) =>
-  compact ? { hw: 71, hh: 42 } : { hw: 104 * scale, hh: 48 * scale };
+  compact ? { hw: 67, hh: 41 } : { hw: 89 * scale, hh: 42 * scale };
 /**
  * How much bigger than its base size an opponent's seat draws on a large screen. Phones stay at 1;
  * a 1440x900 laptop gets about 1.15 and a big monitor up to 1.6, so the seats don't look like
@@ -167,8 +171,8 @@ export const seatScale = (vp: { w: number; h: number }, compact: boolean) =>
   compact ? 1 : Math.min(1.6, Math.max(1, Math.min(vp.w / 1100, vp.h / 780)));
 /** How much bigger your own character plate draws: the same as the opponents' seats, so yours never reads smaller. */
 export const myPlateScale = (vp: { w: number; h: number }) => seatScale(vp, vp.w < 640);
-/** Full width of an opponent's seat (portrait + plate) at scale 1; your own plate is at least this wide off a phone. */
-export const SEAT_W = 64 - 10 + 154;
+/** Full width of an opponent's name plate at scale 1 (Seat.tsx PLATE_W); your own plate is at least this wide off a phone. */
+export const SEAT_W = 172;
 /** Height of the status chip + your nameplate stack, at plate scale 1. */
 const STATUS_H = 84;
 const HEADER = 58;
@@ -226,27 +230,40 @@ export function tableLanes(vp: Viewport, seats: SeatBox[], handTop: number) {
     if (dx > vp.PW * 0.5) meldRoom = Math.min(meldRoom, dx);
   }
   meldRoom = Math.max(pileHalf, meldRoom);
-  // the motto's letters reach out to about 1.12r on top and 1.26r at the bottom
-  const ringR = Math.max(60, Math.min(vp.w * 0.36, vp.h * 0.2, 230, (pileY - band - 6) / 1.12, (statusTop - pileY - 10) / 1.26));
-  // The motto runs along the top and bottom arcs (about ±50° around each pole); show an arc only
-  // where no seat sits on it.
+  // The ring: the round play area the cards land in, as big as the gap between the top seats' plates
+  // and your status chip allows (it may pass under a side seat; seats draw on top of it). On a
+  // cramped screen (a car's 640x640) it keeps a floor just wider than a five-card meld, so the ring
+  // still frames the play, passing under the top plate and your status chip if it has to.
+  const ringFloor = Math.min(vp.w / 2 - 8, Math.max(mh * 0.62 + 26, meldHalf(5, vp, meldRoom) * Math.max(1, MIN_MELD_W / vp.PW) + 12));
+  const ringR = Math.round(Math.max(ringFloor, Math.min(vp.w * 0.42, 300, pileY - band - 8, statusTop - pileY - 4)));
+  const ringBand = ringBandW(ringR);
+  // The motto runs along the ring's tone band, HEART OF FIVE over the top and the house line under
+  // the bottom. An arc shows only where no seat or status chip sits on it, and where the cards
+  // don't reach into the band (older melds stack up toward the top arc, the newest meld down).
+  const r = ringR - ringBand / 2;
+  const obstacles = [...seats, { x: vp.w / 2, y: statusTop + 30, hw: 150, hh: 30 }];
   const arcClear = (radius: number, from: number, to: number) => {
     for (let a = from; a <= to; a += 5) {
       const t = (a * Math.PI) / 180;
       const x = vp.w / 2 + Math.sin(t) * radius;
       const y = pileY - Math.cos(t) * radius;
-      for (const b of seats) if (Math.abs(b.x - x) < b.hw + 10 && Math.abs(b.y - y) < b.hh + 10) return false;
+      if (x < 4 || x > vp.w - 4 || y < HEADER - 10) return false;
+      for (const b of obstacles) if (Math.abs(b.x - x) < b.hw + 6 && Math.abs(b.y - y) < b.hh + 6) return false;
     }
     return true;
   };
-  const mottoTop = arcClear(ringR * 1.08, -52, 52);
-  const mottoBottom = arcClear(ringR * 1.16, 128, 232);
-  const outerRing = arcClear(ringR * 1.22, 0, 355);
+  const flat = pileFlat({ w: vp.w, PW: vp.PW, meldRoom });
+  const reachUp = flat ? mh * MELD_UP + 6 : vp.PH * PILE_UP + 6;
+  const mottoTop = ringR - ringBand > reachUp && arcClear(r, -48, 48);
+  const mottoBottom = ringR - ringBand > mh * 0.6 + 6 && arcClear(r, 125, 235);
+  const outerRing = arcClear(ringR + 10, 0, 355);
   return { statusBottom, statusTop, pileY, pileHalf, meldRoom, ringR, band, mottoTop, mottoBottom, outerRing };
 }
 
 /** How far above pileY the newest meld's top edge reaches (half a card plus the landing squash). */
 export const MELD_UP = 0.53;
+/** Width of the ring's screentone band, where the motto is lettered. */
+export const ringBandW = (ringR: number) => Math.round(Math.max(16, Math.min(30, ringR * 0.15)));
 
 export interface CalloutPlace { x: number; y: number; fontPx: number; maxW: number; maxScale: number; lines: 1 | 2; tilt: number }
 export interface CalloutBox { w: number; hh: number; tilt: number }

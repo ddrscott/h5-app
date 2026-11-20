@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Screenshots every screen at the four review sizes, headless, for art-direction before/after
+// Screenshots every screen at the five review sizes, headless, for art-direction before/after
 // comparisons (docs/VISUALS.md).
 //
 //   node scripts/shots-art.mjs http://localhost:5173 out-dir [only-screen-substring]
@@ -35,6 +35,7 @@ const VIEWPORTS = [
   { w: 1920, h: 1080 },
   { w: 1100, h: 1000 },
   { w: 1024, h: 768 },
+  { w: 640, h: 640 },
   { w: 390, h: 844, mobile: true },
 ];
 

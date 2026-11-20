@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { reducedMotion } from '../../fx/prefs';
 
 /**
  * Big words over the pile when a play deserves them. Size, color and hang time scale with how
@@ -29,6 +30,23 @@ export interface CalloutSpec {
 type Item = CalloutSpec & { id: number };
 const listeners = new Set<(c: Item) => void>();
 let nextId = 1;
+
+/** Where the callout on screen is (null when none is), so decorative lettering can step aside. */
+export type CalloutBox = { x: number; y: number; hw: number; hh: number } | null;
+const boxListeners = new Set<(b: CalloutBox) => void>();
+export function onCalloutBox(l: (b: CalloutBox) => void) {
+  boxListeners.add(l);
+  return () => { boxListeners.delete(l); };
+}
+
+const dismissers = new Set<() => void>();
+/**
+ * A new play has landed: the last play's word gets out of the way now (a quick fade), even when the
+ * new play brings no word of its own or its word waits for a finisher frame. Queued words stay.
+ */
+export function dismissCallout() {
+  dismissers.forEach((d) => d());
+}
 
 export function showCallout(c: CalloutSpec) {
   const item = { ...c, id: nextId++ };
@@ -94,14 +112,27 @@ const BURST_PAD_Y = 0.3;
 
 /**
  * Per level: the lettering (fill, ink stroke), the burst behind it (none for small plays), the
- * focus lines inside the burst, a made-up sound effect in katakana, and how long it hangs.
+ * focus lines inside the burst and a made-up sound effect in katakana. `hold` is how long the word
+ * stays fully readable after its entrance has settled (ENTER_MS), before it exits: long enough to
+ * read at a glance from across the table. A new play's callout still replaces it at once.
  */
 const STYLE: Record<number, { size: string; color: string; stroke: string; hold: number; burst?: string; lines?: string; sfx?: string }> = {
-  1: { size: 'clamp(26px, 7vw, 40px)', color: '#FAFAF7', stroke: '#0B0B0D', hold: 650 },
-  2: { size: 'clamp(32px, 9vw, 60px)', color: '#0B0B0D', stroke: '#FAFAF7', hold: 900, burst: '#FAFAF7', lines: 'rgba(11,11,13,.22)', sfx: 'ズバッ' },
-  3: { size: 'clamp(44px, 13vw, 104px)', color: '#FAFAF7', stroke: '#0B0B0D', hold: 1250, burst: '#E85D00', lines: 'rgba(11,11,13,.3)', sfx: 'ドドン' },
-  4: { size: 'clamp(34px, 10vw, 84px)', color: '#FAFAF7', stroke: '#0B0B0D', hold: 1500, burst: '#D7192B', lines: 'rgba(11,11,13,.34)', sfx: 'ゴゴゴ' },
+  1: { size: 'clamp(26px, 7vw, 40px)', color: '#FAFAF7', stroke: '#0B0B0D', hold: 900 },
+  2: { size: 'clamp(32px, 9vw, 60px)', color: '#0B0B0D', stroke: '#FAFAF7', hold: 1200, burst: '#FAFAF7', lines: 'rgba(11,11,13,.22)', sfx: 'ズバッ' },
+  3: { size: 'clamp(44px, 13vw, 104px)', color: '#FAFAF7', stroke: '#0B0B0D', hold: 1800, burst: '#E85D00', lines: 'rgba(11,11,13,.3)', sfx: 'ドドン' },
+  4: { size: 'clamp(34px, 10vw, 84px)', color: '#FAFAF7', stroke: '#0B0B0D', hold: 1800, burst: '#D7192B', lines: 'rgba(11,11,13,.34)', sfx: 'ゴゴゴ' },
 };
+/**
+ * How long the pop-in takes to settle, per level: the plain spring (stiffness 520, damping 20)
+ * is within a couple of percent of rest by about 0.36s, the big-play spring (620, 14) rings a
+ * little longer. Under reduced motion the entrance is a short fade.
+ */
+export const ENTER_MS: Record<number, number> = { 1: 360, 2: 380, 3: 560, 4: 560 };
+const ENTER_REDUCED_MS = 240;
+const EXIT_S = 0.28;
+/** Total time a callout is on screen before it starts to leave (entrance plus readable hold). */
+export const calloutStayMs = (level: number, reduced = reducedMotion()) =>
+  (reduced ? ENTER_REDUCED_MS : ENTER_MS[level] ?? 380) + (STYLE[level]?.hold ?? 900);
 
 /** A tiny seeded random, so each callout's burst is jagged in its own way but stable per render. */
 function rand(seed: number) {
@@ -154,43 +185,65 @@ function popFrom(item: Item) {
   return Math.max(1, Math.min(want, 1 + (room - 1) / k, room * 1.6));
 }
 
+/** How a callout leaves: a quick fade when a new one replaces it, a drift up and fade when its time is up. */
+const EXIT = {
+  exit: (replaced: boolean) => (replaced
+    ? { opacity: 0, transition: { duration: 0.1 } }
+    : { y: '-62%', opacity: 0, scale: 0.92, transition: { duration: EXIT_S, ease: 'easeIn' as const } }),
+};
+
 export const Callouts: React.FC = () => {
   const [item, setItem] = useState<Item | null>(null);
   const [waiting, setWaiting] = useState<Item[]>([]);
   const itemRef = useRef(item);
   itemRef.current = item;
+  // true while the current word is being replaced by a new one: it gets out of the way in a blink
+  // instead of drifting off underneath the newcomer
+  const [replaced, setReplaced] = useState(false);
   useEffect(() => {
     const on = (c: Item) => {
       if (c.queue && itemRef.current) setWaiting((w) => [...w, c]);
-      else setItem(c);
+      else { setReplaced(!!itemRef.current); setItem(c); }
     };
+    const off = () => { if (itemRef.current && !itemRef.current.queue) { setReplaced(true); setItem(null); } };
     listeners.add(on);
-    return () => { listeners.delete(on); };
+    dismissers.add(off);
+    return () => { listeners.delete(on); dismissers.delete(off); };
   }, []);
   useEffect(() => {
+    let box: CalloutBox = null;
+    if (item) {
+      const c = item.fontPx ? calloutSize(item.fontPx, item.text, item.level, item.sub, item.lines ?? 1) : { w: Math.min(window.innerWidth * 0.92, item.text.length * 40), hh: 60 };
+      box = { x: item.x, y: item.y, hw: c.w / 2, hh: c.hh + 6 };
+    }
+    boxListeners.forEach((l) => l(box));
+  }, [item]);
+  useEffect(() => {
     if (!item) return;
-    const t = window.setTimeout(() => setItem((cur) => (cur?.id === item.id ? null : cur)), STYLE[item.level].hold);
+    const t = window.setTimeout(() => { setReplaced(false); setItem((cur) => (cur?.id === item.id ? null : cur)); }, calloutStayMs(item.level));
     return () => clearTimeout(t);
   }, [item]);
   // Next in line goes up once the current one has had a moment to leave.
   useEffect(() => {
     if (item || waiting.length === 0) return;
-    const t = window.setTimeout(() => { setItem(waiting[0]); setWaiting((w) => w.slice(1)); }, 160);
+    const t = window.setTimeout(() => { setReplaced(false); setItem(waiting[0]); setWaiting((w) => w.slice(1)); }, 160);
     return () => clearTimeout(t);
   }, [item, waiting]);
 
   const st = item ? STYLE[item.level] : null;
   return (
     <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 60 }} aria-live="polite">
-      <AnimatePresence>
+      <AnimatePresence custom={replaced}>
         {item && st && (
           <motion.div
             key={item.id}
+            custom={replaced}
+            variants={EXIT}
             className="absolute flex flex-col items-center"
-            style={{ left: item.x, top: item.y }}
+            style={{ left: item.x, top: item.y, willChange: 'transform, opacity' }}
             initial={{ x: '-50%', y: '-50%', scale: popFrom(item), rotate: item.level >= 3 ? -12 : -6, opacity: 0 }}
             animate={{ x: '-50%', y: '-50%', scale: 1, rotate: -(item.tilt ?? (item.level === 4 ? 0 : 4)), opacity: 1 }}
-            exit={{ y: '-62%', opacity: 0, scale: 0.92, transition: { duration: 0.28, ease: 'easeIn' } }}
+            exit="exit"
             transition={{ type: 'spring', stiffness: item.level >= 3 ? 620 : 520, damping: item.level >= 3 ? 14 : 20 }}
           >
             <div

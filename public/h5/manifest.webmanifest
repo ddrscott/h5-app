@@ -3,17 +3,20 @@
   "name": "Heart of Five",
   "short_name": "Heart5",
   "description": "A strategic card game where the goal is to be the first player to get rid of all your cards",
-  "theme_color": "#1a3a1a",
-  "background_color": "#1a3a1a",
+  "theme_color": "#0B0B0D",
+  "background_color": "#0B0B0D",
   "display": "standalone",
   "orientation": "landscape",
   "start_url": "/h5/",
   "scope": "/h5/",
   "icons": [
     { "src": "/h5/favicon-96x96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
-    { "src": "/h5/web-app-manifest-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/h5/web-app-manifest-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/h5/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+    { "src": "/h5/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "/h5/web-app-manifest-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/h5/web-app-manifest-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/h5/maskable-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/h5/maskable-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/h5/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ],
   "categories": ["games", "entertainment"]
 }

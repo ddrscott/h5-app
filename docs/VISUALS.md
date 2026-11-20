@@ -70,24 +70,26 @@ card, never a colored fill.
 - **Status** is shown with content: a crown, a `PASS` stamp, a place like `1ST` in a paper tag,
   an orange outline and orange hard offset around the whole active plate, or an inverted (paper)
   row for the winner. Never a colored stripe down one side of a card.
-- **Seats** are character panels: a tilted portrait frame (64x82px on a laptop, 46x60px on a
-  phone, one corner cut, screentone across its lower half) overlapping a leaning ink plate. A
-  bot's portrait holds its personality emblem large, with its initials on a small ink tag; a
-  person's holds their initials in big lettering. The plate holds the name in a tilted paper
-  caption box, the face-down hand with its count, and the record. The whole seat stamps a hard
-  offset in its own shape, orange on its turn. Lobby seats use the same portrait-and-plate shape.
-  Your own seat, under the status chip, is the same kind of panel laid flat: a 46x56px cut
-  portrait with your initials over a leaning ink plate with your name in a caption box and your
-  record. Off a phone it's at least as wide as an opponent's seat and grows with them on big
-  screens (`myPlateScale` = `seatScale`), so your plate never reads smaller than theirs. Portrait
-  and plate go orange on your turn.
+- **Seats** are name plates with the hand held up behind them. Each opponent is one leaning ink
+  plate (172px wide on a laptop, 128px on a phone, a 3px paper outline) holding the name in a
+  tilted paper caption box and a record line: W·L, the personality chip for a bot (its emblem and
+  name, the blurb on hover, `thinking…` on its turn), and a place tag once out. The face-down
+  hand is a small fan held above the plate, outside it, its cards tucked just behind the plate's
+  top edge, with the card count in a paper tag beside it. There is no portrait tile: the chip
+  already says who a bot is, and initials said nothing the name doesn't. The plate stamps a hard
+  offset in its own shape (drawn as a second shape behind it, not a filter), orange on its turn.
+  The leader's crown sits on the plate's top-left corner, and an absent player's 30-second ring
+  goes round their card count. Your own seat, under the status chip, is the same plate with your
+  name and record. Off a phone it's at least as wide as an opponent's plate and grows with them
+  on big screens (`myPlateScale` = `seatScale`), so your plate never reads smaller than theirs. It
+  goes orange on your turn. Lobby seats keep the portrait-and-plate shape for now.
 - **A passed seat** stays a solid ink panel: nothing behind it shows through. Its paper and ink
-  go gray (outline, portrait, caption, card backs, record) with a faint screentone over the plate,
+  go gray (outline, caption, card backs, record) with a faint screentone over the plate,
   while the card count and the `PASS` stamp keep full strength. Never fade a panel with opacity.
 - **Personality emblems** (`PersonaEmblem.tsx`) are original bold ink silhouettes: a fin cutting
   a wave (Shark), a level beam (Regular), a flame (Hothead), a hex shell (Turtle), a sprout
-  (Rookie) and a plain bot head for anything else. The small tag next to the record uses the
-  same emblem and turns orange while that bot thinks.
+  (Rookie) and a plain bot head for anything else. They live on the personality chip in the
+  record line and in the lobby, on a small paper tag that turns orange while that bot thinks.
 
 ## Cards
 
@@ -111,18 +113,21 @@ Readability comes first: rank and suit have to read at a glance, at arm's length
 
 ## Table
 
-A screentone page with one panel cut out of it. The page is charcoal with broad diagonal bands
-of halftone dots, a dry-brush grain and a vignette (`.felt-texture` in `index.css`, all CSS and a
-tiny inline SVG noise, no images). Across it, at the pile's height, lies the stage (`TableStage`
-in `GameTable.tsx`): one full-bleed angled panel of flat ink between heavy 5px paper gutter rules,
-with a thin second rule outside each. The cards land on clean ink, so they pop, and the table
-reads as a deliberate page layout instead of an empty field. The house motto sits on the rules as
-two paper caption boxes (HEART OF FIVE on the top rule, 红心五 · IT'S DA BOMB! on the bottom one),
-each left out where a seat covers it and on screens under 1080px wide, where older melds stack up
-into the rules. Callout placement treats the two caption boxes
-as obstacles, like seats, so a meld's callout never stacks on top of HEART OF FIVE and reads as a
-Heart 5 callout. A patch of orange screentone glides to
-whoever's turn it is.
+A screentone page with a ring drawn on it. The page is charcoal with broad diagonal bands of
+halftone dots, a dry-brush grain and a vignette (`.felt-texture` in `index.css`, all CSS and a
+tiny inline SVG noise, no images). In the middle, round the pile, is the ring (`TableRing` in
+`GameTable.tsx`): the round play area where every meld lands, like a mat circle inked on the
+page. Inside it is flat ink, so the cards pop. Round its edge runs a band of screentone between a
+thin inner rule and a heavy paper brush stroke that lifts off before it closes (the same dry brush
+as the Heart 5's ring, an SVG displacement filter), with a faint gutter rule outside. The house
+motto is lettered along the band in paper Bangers with an ink edge: HEART OF FIVE over the top,
+红心五 · IT'S DA BOMB! under the bottom. Each arc is left out where a seat or your status chip sits
+on it, or where the cards reach into the band (`tableLanes`: `mottoTop`, `mottoBottom`), and an
+arc fades out while a callout is printed over it (`onCalloutBox`), so decorative lettering never
+sits under a word. The ring is as big as the gap between the top seats' plates and your status
+chip allows (at most 42% of the width or 300px), never smaller than the newest meld at the
+readable floor is tall, and it may pass under a side seat, which draws on top. A patch of orange
+screentone glides to whoever's turn it is.
 
 The lobby table is the same idea seen from above: an eight-sided arena drawn in ink with a paper
 outline and screentone on the mat, with the room code on a paper tag in the middle.
@@ -156,7 +161,7 @@ Text never prints on top of other text. `tableLanes()` and `placeCallout()` in
    Older melds keep its spacing, shrink to 0.8 and 0.66 and dim. They are nudged aside only as far
    as the room allows. On wide felt (`pileFlat()`, true when a five-card meld fits beside another
    at 0.8 scale), older melds slide out level with the newest one, alternating sides, instead of
-   stacking above it. The ring is sized to fit around it. `scripts/shots-pile.mjs` screenshots
+   stacking above it, and may reach past the ring. `scripts/shots-pile.mjs` screenshots
    and measures this at square, desktop, tablet and phone sizes.
 5. **Callouts:** a callout gets a spot of its own, the way a scoring slot sits apart from the
    cards it scores. It never prints over a seat, the newest meld, the header or your status
@@ -168,23 +173,29 @@ Text never prints on top of other text. `tableLanes()` and `placeCallout()` in
    flushes 48px, Heart 5 44px, flourishes 32px, plain melds 24px). On a screen too small even for
    that, it goes a little smaller and takes the spot that covers the least. Long words tilt less
    than 4 degrees so their ends don't swing into a neighbour, and the pop-in spring starts small
-   enough that its rebound never pushes the word off screen. A play's callout replaces the current
-   one, while a player going out waits for the current one to finish. On a phone (under 640px
+   enough that its rebound never pushes the word off screen.
+   **Hang time.** Once its entrance settles (`ENTER_MS`: about 0.36s, 0.56s for the big-play
+   spring), a callout stays fully readable for `hold`: 0.9s for a pair or triple, 1.2s for a
+   straight, sisters or full house, 1.8s for a bomb, straight flush or the Heart 5. Then it drifts
+   up and fades in 0.28s. Under reduced motion the hold is the same, the entrance and exit just
+   fades. It never blocks play: when the next play lands, the old word fades out in 0.1s
+   (`dismissCallout`), and that play's own callout, if it has one, takes the spot. A player going
+   out waits for the current one to finish. On a phone (under 640px
    wide) a bomb, straight flush or Heart 5 callout starts from the full width and may shrink to
    28px to clear the seats. It still never lands on a plate or a card count: the finisher frame
    just before it is the big moment on a phone. The lettering's ink stroke scales with its size, so a
    smaller burst still shows its fill.
 
-Opponents' PASS stamps land on the left of their face-down fan, and the card count sits above
-the stamp, so neither the name nor the count is covered. The leader's crown
-on the avatar's inner corner, so the name keeps both of its lines and nothing pokes off screen.
+Opponents' PASS stamps land on the left of their face-down fan, above the plate, and the card
+count sits to the right of the fan, so neither the name nor the count is covered. The leader's
+crown sits on the plate's top-left corner, clear of the name.
 Names wrap to two lines on a phone instead of being cut, and only between words: the caption's
 font (12px at most, 9px at least) shrinks until the longest word fits on its line, measured with
 Barlow on a canvas (`nameFontPx` in `Seat.tsx`), so "Aggressive Annie" reads "Aggressive / Annie",
 never "Aggressiv / e Annie". Only a single word too long for the box even at 9px (a
 20-letter name on a phone) breaks inside the word, so it wraps whole instead of being cut at the
-caption's slanted edge (`nameFit` reports that case). Names wrap at the table and in the lobby, and if two
-players' initials match, the avatars get a number (A2) in both places.
+caption's slanted edge (`nameFit` reports that case). Names wrap at the table and in the lobby. In
+the lobby, where seats still have portraits, two players with the same initials get a number (A2).
 
 
 ## Motion rules
@@ -214,21 +225,25 @@ players' initials match, the avatars get a number (A2) in both places.
    your status stack, just as it did for the bare word.
 
    **The impact frame** (`ImpactFrame` in `GameTable.tsx`) is the finisher for a bomb, a straight
-   flush or the Heart 5. For 0.56s the play owns the screen. The page flashes (paper, or red for
-   the Heart 5) and ink focus lines rush at the pile. Then a full-bleed slashed panel cuts in
-   across the bigger band on either side of the newest meld: Signal Orange for a bomb, blood red
-   for the Heart 5, with a paper edge and a black offset. It carries the word in giant tilted
-   lettering, about 58% of the screen's width (92% on a phone, where HEART OF FIVE stacks on two
-   lines). `impactFit` measures each line in Bangers and sizes the word so the tilted block,
+   flush or the Heart 5. For 0.56s the play owns the screen, and all of it bursts out of the ring.
+   The page outside the ring flashes (paper, or red for the Heart 5) and tapered ink focus lines
+   shoot out from the ring's edge. A wedge whose sides are rays from the ring's centre (58° either
+   side of straight up or down) bursts over the bigger side, above or below the ring: Signal
+   Orange for a bomb, blood red for the Heart 5, with a paper edge and a black offset. It carries
+   the word in giant tilted lettering, about 58% of the screen's width (92% on a phone, where
+   HEART OF FIVE stacks on two lines), cut down if the wedge is narrower where the word's inner
+   edge sits. `impactFit` measures each line in Bangers and sizes the word so the tilted block,
    stroke and drop shadow included, fits that width and the band's height, so the lettering
    always lands whole inside the frame. On a phone it picks the line split whose wider line is
-   narrowest. An ink counter-slash with the sound effect (ドドン or ゴゴゴ) cuts in from the other
-   side across the opposite band. Both cut out the way they came. The newest meld's own band is
-   never covered, so you always see the cards that did it. The regular callout pops in as the
-   frame leaves rather than under it. It never takes input and never delays the next play.
+   narrowest. A narrower ink wedge with the sound effect (ドドン or ゴゴゴ) bursts the other way.
+   Both swell a little from the ring and fade. The ring stays clear the whole time, and so does
+   the newest meld where it spills past the ring, so you always see the cards that did it. The
+   regular callout pops in as the frame leaves rather than under it. It never takes input and
+   never delays the next play.
 6. **Reduced motion** (`prefers-reduced-motion`): `MotionConfig reducedMotion="user"` turns every
    transform animation into a jump, so flights become fades in place. Shake, the impact frame,
-   particles, the idle sway and the glint are all off.
+   particles, the idle sway and the glint are all off. Callouts keep their full hang time and
+   just fade in and out.
 7. **Say no before the tap.** The Play button runs the same rules as the server
    (`src/client/fx/rules.ts`), so a selection that can't beat the table reads like
    "Single · needs a pair" and stays dim instead of pulsing and then bouncing.
@@ -274,10 +289,59 @@ One button mutes both sound and vibration, and it's remembered under `storageKey
 
 ## Performance
 
-Textures are CSS (dot fields, conic focus lines, clip paths) or tiny inline SVG noise; there are
-no texture images or video. The fonts are Latin-only subsets: Bangers, five Barlow weights, and
-two CJK subsets of a couple of KB each. The impact frame is a handful of clip-path layers
-animating opacity and transform for just over half a second.
+Textures are CSS (dot fields, clip paths) or small inline SVG (the ring's brush filter, the noise
+grain); there are no texture images or video. The fonts are Latin-only subsets: Bangers, five
+Barlow weights, and two CJK subsets of a couple of KB each.
+
+The target is a steady 60fps on a desktop and no visible hitch with the CPU slowed 4x (a car or
+an older phone). What keeps it there:
+
+- **Moving things get their own compositor layer** (`will-change: transform`): every card on the
+  pile, each meld's group, the deal sprites, the turn lamp, the callout, and the finisher frame's
+  pieces. A card in flight then moves without repainting the table under it. The ring is a static
+  layer of its own, so its brush filter is drawn once. The whole table is promoted only while the
+  screen shakes; a full-screen layer left in place costs every frame of compositing.
+- **No filters or blend modes on anything that animates.** Plate offsets are a second shape
+  behind the plate, not a `drop-shadow` filter. The hand's contact shadows are a gradient, not a
+  blur. The hover glint's blend mode only exists while a card is hovered.
+- **The frame where a meld leaves the hand is kept short.** Card faces and the back are built
+  once as plain SVG elements and reused (`faceArt` in `CardFace.tsx`), pre-built during idle
+  time, so mounting a played card only creates DOM nodes. A pile card mounts one motion component;
+  its dimming and its flip from face down are plain CSS. Seats are memoized on what they show,
+  and the finisher frame lives in its own layer component, so firing it re-renders nothing else.
+- **Particles stay out of the way.** One canvas, its size cached (no layout reads in the loop),
+  its backing store capped at about 1.3 megapixels, cleared only where the last frame drew, and a
+  quality dial that thins bursts out when frames start running long.
+
+`scripts/perf-frames.mjs` measures it headless: a requestAnimationFrame logger records frame
+times through a single, a five-card run, a full house, a bomb and the Heart 5 in the FX lab
+(each repeated, keeping the median run), at normal speed and at 4x CPU throttle
+(`Emulation.setCPUThrottlingRate`), and through 20 seconds of a real game against bots. By
+default it runs the headless shell, which composites in software at 120Hz and so stands in for a
+weak GPU; `GPU=1` runs real Chrome with GPU compositing and vsync off, where each frame's time is
+its true cost. `--trace=dir` saves a Chrome performance trace of each moment.
+
+```bash
+node scripts/perf-frames.mjs http://localhost:5173 1920x1080 both
+GPU=1 node scripts/perf-frames.mjs http://localhost:5173 390x844 lab
+```
+
+## App icon
+
+The icon is the Heart 5's centre mark on card stock: the red dry-brush ring that lifts off before
+it closes, five small ink hearts, the screentone halo, and the big red heart with a lettered 5
+(the 5 is drawn as a path, so it needs no font). `public/h5/icon.svg` is the full drawing, inside
+the card's ink frame and red rule, and makes the 96, 180 (apple-touch), 192 and 512px PNGs; the
+maskable 192 and 512 drop the frame so the mark sits inside the launcher's safe circle.
+`public/h5/favicon.svg` is a cut for 16 to 32px: a thicker ring with a wider gap, a bigger heart
+and 5, and no small hearts, halo or brush texture. It's the SVG favicon and makes the 16, 32 and
+48px images inside `favicon.ico`. After changing either SVG, regenerate the rest:
+
+```bash
+node scripts/make-icons.mjs
+```
+
+The 红心五 seal in the header stays as it is.
 
 ## Where to look
 
@@ -288,6 +352,8 @@ animating opacity and transform for just over half a second.
 - `/h5/cards` shows every card face and the back.
 - `node scripts/shots-art.mjs http://localhost:5173 out-dir [screen]` screenshots every screen
   (landing, welcome, sign-in, stats, lobby, bot panel, a real table, the FX lab moments, cards)
-  at 1920×1080, 1100×1000, 1024×768 and 390×844, headless. `NAMES=long` runs the FX lab with
+  at 1920×1080, 1100×1000, 1024×768, 640×640 and 390×844, headless. `NAMES=long` runs the FX lab with
   20-character names (`/h5/animation?names=long`), and every shot checks that no seat name is cut
   without an ellipsis and that the YOU chip lands whole.
+- `node scripts/perf-frames.mjs http://localhost:5173 [WxH] [lab|table|both]` records frame times
+  (see Performance).
