@@ -11,7 +11,7 @@ import { Callouts, showCallout, calloutFontPx, calloutSize, calloutTilt, splitCa
 import { GameOver } from './GameOver';
 import { DialogBox } from '../ui/DialogBox';
 import { CardBack } from '../ui/CardFace';
-import { useViewport, registry, fan, tableLanes, placeCallout, meldFit, seatHalf, seatScale, myPlateScale, MELD_UP } from '../../fx/layout';
+import { useViewport, registry, fan, tableLanes, placeCallout, meldFit, seatHalf, seatScale, myPlateScale, SEAT_W, MELD_UP } from '../../fx/layout';
 import type { Viewport } from '../../fx/layout';
 import { bus } from '../../fx/bus';
 import { sfx } from '../../fx/sound';
@@ -447,7 +447,7 @@ export const GameTable: React.FC<GameTableProps> = ({
               </motion.div>
             )}
           </AnimatePresence>
-          {me && <MyPlate k={myPlateScale(vp)} name={me.name} badge={badges.get(myPlayerId)} wins={me.wins} losses={me.losses} live={isMyTurn} leader={isLeader} out={!!myPlace} passBeat={passBeats[myPlayerId] ?? 0} plateRef={(el) => registry.seat(myPlayerId, el)} />}
+          {me && <MyPlate k={myPlateScale(vp)} minW={vp.w >= 640 ? SEAT_W * myPlateScale(vp) : 0} name={me.name} badge={badges.get(myPlayerId)} wins={me.wins} losses={me.losses} live={isMyTurn} leader={isLeader} out={!!myPlace} passBeat={passBeats[myPlayerId] ?? 0} plateRef={(el) => registry.seat(myPlayerId, el)} />}
         </div>
 
         <PlayerHand hand={myHand} selectedCards={selectedCards} onCardSelect={onCardSelect} vp={vp} dealId={dealId} myTurn={isMyTurn} />
@@ -681,24 +681,24 @@ const ImpactFrame: React.FC<{ kind: 'bomb' | 'heart5'; text: string; w: number; 
  * initials overlapping a leaning ink plate that holds your name in a caption box and your record.
  * Portrait and plate go orange on your turn. It sits under the status chip, above your hand.
  */
-const MyPlate: React.FC<{ k: number; name: string; badge?: string; wins: number; losses: number; live: boolean; leader: boolean; out: boolean; passBeat: number; plateRef: (el: HTMLDivElement | null) => void }> = ({ k, name, badge, wins, losses, live, leader, out, passBeat, plateRef }) => {
+const MyPlate: React.FC<{ k: number; minW: number; name: string; badge?: string; wins: number; losses: number; live: boolean; leader: boolean; out: boolean; passBeat: number; plateRef: (el: HTMLDivElement | null) => void }> = ({ k, minW, name, badge, wins, losses, live, leader, out, passBeat, plateRef }) => {
   const P = 'polygon(0 0, 100% 0, 100% 80%, 76% 100%, 0 100%)';
   const fill = out ? '#8E8E8F' : live ? '#E85D00' : '#FAFAF7';
   return (
-    <div ref={plateRef} data-plate data-my-plate className="relative flex items-center" style={{ filter: `drop-shadow(4px 4px 0 #000)` }}>
-      <div className="relative z-10 shrink-0 -rotate-[5deg]" style={{ width: 40 * k, height: 48 * k, marginRight: -8 * k }}>
+    <div ref={plateRef} data-plate data-my-plate className="relative flex items-center" style={{ minWidth: minW, filter: `drop-shadow(4px 4px 0 #000)` }}>
+      <div className="relative z-10 shrink-0 -rotate-[5deg]" style={{ width: 46 * k, height: 56 * k, marginRight: -8 * k }}>
         <span aria-hidden className="absolute inset-0" style={{ background: live ? '#0B0B0D' : '#FAFAF7', clipPath: P }} />
         <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: P }} />
         <span aria-hidden className="absolute inset-[5px] overflow-hidden" style={{ background: fill, clipPath: P }}>
           <span className="tone absolute inset-0 text-ink/25" style={{ clipPath: 'polygon(0 62%, 100% 30%, 100% 100%, 0 100%)' }} />
         </span>
-        <span className="absolute inset-[5px] grid place-items-center font-display leading-none tracking-[0.02em] text-ink pt-1" style={{ fontSize: 20 * k }}>{badge ?? name.slice(0, 2).toUpperCase()}</span>
+        <span className="absolute inset-[5px] grid place-items-center font-display leading-none tracking-[0.02em] text-ink pt-1" style={{ fontSize: 23 * k }}>{badge ?? name.slice(0, 2).toUpperCase()}</span>
         {leader && <Crown size={15} strokeWidth={2.75} className="absolute -top-2.5 -left-2 text-ember fill-paper drop-shadow-[2px_2px_0_#000]" aria-label="You lead this trick" />}
       </div>
-      <div className="relative">
+      <div className="relative flex-1">
         <span aria-hidden className="absolute inset-0" style={{ background: live ? '#E85D00' : '#FAFAF7', clipPath: 'polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)' }} />
         <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)' }} />
-        <div className="relative flex items-center gap-2 pl-4 pr-4" style={{ paddingTop: 5 * k, paddingBottom: 5 * k }}>
+        <div className="relative flex items-center justify-between gap-2 pl-4 pr-4" style={{ paddingTop: 7 * k, paddingBottom: 7 * k }}>
           <span className={`-rotate-2 px-1.5 pt-[2px] pb-[1px] font-extrabold leading-tight whitespace-nowrap max-w-[46vw] truncate ${live ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
             style={{ fontSize: 14 * k, clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)' }}>{name}</span>
           <span className="font-sans tabular-nums font-semibold text-mist whitespace-nowrap" style={{ fontSize: 12 * k }}>{wins}W·{losses}L</span>

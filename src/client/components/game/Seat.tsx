@@ -111,13 +111,16 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
   const colW = compact ? 88 : 140;
   const portraitFill = out ? '#8E8E8F' : active ? '#E85D00' : '#FAFAF7';
   const P = 'polygon(0 0, 100% 0, 100% 80%, 78% 100%, 0 100%)';
+  // A passed seat stays a solid ink panel (nothing behind shows through); its paper and ink go
+  // gray instead, and the PASS stamp keeps full strength.
+  const dim = player.hasPassed && !active ? 'grayscale(1) brightness(0.58)' : undefined;
 
   return (
     <motion.div
       className="absolute z-30 flex flex-col items-center w-max"
       style={{ left: x, top: y, x: '-50%', y: '-50%' }}
       initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: player.hasPassed && !active ? 0.62 : 1, scale: (active ? 1.06 : 1) * scale }}
+      animate={{ opacity: 1, scale: (active ? 1.06 : 1) * scale }}
       transition={{ type: 'spring', stiffness: 400, damping: 24 }}
     >
       {/*
@@ -127,7 +130,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
       */}
       <div data-plate className="relative flex items-center" style={{ filter: `drop-shadow(5px 5px 0 ${active ? '#E85D00' : '#000'})` }}>
         {/* portrait frame */}
-        <div className="relative z-10 shrink-0 -rotate-[4deg]" style={{ width: pw, height: ph, marginRight: -10 }}>
+        <div className="relative z-10 shrink-0 -rotate-[4deg]" style={{ width: pw, height: ph, marginRight: -10, filter: dim }}>
           <span aria-hidden className="absolute inset-0" style={{ background: active ? '#0B0B0D' : '#FAFAF7', clipPath: P }} />
           <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: P }} />
           <span aria-hidden className="absolute inset-[5px] overflow-hidden" style={{ background: portraitFill, clipPath: P }}>
@@ -153,15 +156,16 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
 
         {/* the plate */}
         <div className="relative" style={{ width: colW + 14 }}>
-          <span aria-hidden className="absolute inset-0" style={{ background: active ? '#E85D00' : '#FAFAF7', clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)' }} />
+          <span aria-hidden className="absolute inset-0" style={{ background: active ? '#E85D00' : dim ? '#848482' : '#FAFAF7', clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)' }} />
           <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: 'polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)' }} />
+          {dim && <span aria-hidden className="tone absolute inset-[3px] text-paper/[0.12]" style={{ clipPath: 'polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)' }} />}
           <div className="relative flex flex-col items-start gap-1 pl-4 pr-3 py-1.5">
             {/*
               name in a caption box; full names, two lines on a phone rather than "Aggressive…",
               broken only between words (the font shrinks until the longest word fits)
             */}
             <p data-seat-name className={`max-w-full -rotate-2 -ml-1 px-1.5 pt-[2px] pb-[1px] font-extrabold break-normal ${compact ? 'leading-[1.1] line-clamp-2' : 'text-[13px] leading-tight truncate'} ${active ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
-              style={{ clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)', fontSize: compact ? nameFontPx(player.name, colW + 14 - 28 - 12 - 6, 12) : undefined }}>
+              style={{ filter: dim, clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)', fontSize: compact ? nameFontPx(player.name, colW + 14 - 28 - 12 - 6, 12) : undefined }}>
               {player.name}
             </p>
             {/* their hand, face down: a small fan whose size follows the card count */}
@@ -172,7 +176,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
                   <motion.div
                     key={i}
                     className="absolute top-0"
-                    style={{ width: backW, height: backW * 1.4, left: i * backW * 0.34, borderRadius: 2 }}
+                    style={{ width: backW, height: backW * 1.4, left: i * backW * 0.34, borderRadius: 2, filter: dim }}
                     initial={{ opacity: 0, y: -12, rotate: 0 }}
                     animate={{ opacity: 1, y: Math.abs(c) * 1.2, rotate: c * 6 }}
                     exit={{ opacity: 0, y: -10 }}
@@ -210,7 +214,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
                 )}
               </AnimatePresence>
             </div>
-            <p className="font-sans tabular-nums text-[11px] font-semibold text-mist flex items-center gap-1 leading-none">
+            <p className="font-sans tabular-nums text-[11px] font-semibold text-mist flex items-center gap-1 leading-none" style={{ filter: dim }}>
               {absent && <WifiOff size={11} className="text-paper" aria-label="Disconnected" />}
               <span>{player.wins}W·{player.losses}L</span>
               {/* a bot's personality; on its turn the badge says it's thinking */}

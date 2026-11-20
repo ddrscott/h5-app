@@ -45,7 +45,7 @@ card, never a colored fill.
   overrides the default visual signature from the owner's global instructions; the orange accent
   and hard-edged panels stay.
 - **Copy has some nerve.** Short and direct, with a grin: "Who's in?", "Leaving already?",
-  "First one out takes it all.", "stuck with 3". Never cute at the cost of clear: buttons still
+  "First one out takes it all.", "STUCK WITH 3". Never cute at the cost of clear: buttons still
   say what they do (Play, Pass, Start Game, Sign in).
 
 ## Shapes
@@ -76,9 +76,14 @@ card, never a colored fill.
   person's holds their initials in big lettering. The plate holds the name in a tilted paper
   caption box, the face-down hand with its count, and the record. The whole seat stamps a hard
   offset in its own shape, orange on its turn. Lobby seats use the same portrait-and-plate shape.
-  Your own seat, under the status chip, is the same panel at a smaller size: a 40x48px cut
+  Your own seat, under the status chip, is the same kind of panel laid flat: a 46x56px cut
   portrait with your initials over a leaning ink plate with your name in a caption box and your
-  record. Portrait and plate go orange on your turn.
+  record. Off a phone it's at least as wide as an opponent's seat and grows with them on big
+  screens (`myPlateScale` = `seatScale`), so your plate never reads smaller than theirs. Portrait
+  and plate go orange on your turn.
+- **A passed seat** stays a solid ink panel: nothing behind it shows through. Its paper and ink
+  go gray (outline, portrait, caption, card backs, record) with a faint screentone over the plate,
+  while the card count and the `PASS` stamp keep full strength. Never fade a panel with opacity.
 - **Personality emblems** (`PersonaEmblem.tsx`) are original bold ink silhouettes: a fin cutting
   a wave (Shark), a level beam (Regular), a flame (Hothead), a hex shell (Turtle), a sprout
   (Rookie) and a plain bot head for anything else. The small tag next to the record uses the

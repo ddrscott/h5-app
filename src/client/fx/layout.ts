@@ -165,8 +165,10 @@ export const seatHalf = (compact: boolean, scale = 1) =>
  */
 export const seatScale = (vp: { w: number; h: number }, compact: boolean) =>
   compact ? 1 : Math.min(1.6, Math.max(1, Math.min(vp.w / 1100, vp.h / 780)));
-/** How much bigger your own character plate draws: like the opponents' seats, but capped lower. */
-export const myPlateScale = (vp: { w: number; h: number }) => Math.min(1.35, seatScale(vp, vp.w < 640));
+/** How much bigger your own character plate draws: the same as the opponents' seats, so yours never reads smaller. */
+export const myPlateScale = (vp: { w: number; h: number }) => seatScale(vp, vp.w < 640);
+/** Full width of an opponent's seat (portrait + plate) at scale 1; your own plate is at least this wide off a phone. */
+export const SEAT_W = 64 - 10 + 154;
 /** Height of the status chip + your nameplate stack, at plate scale 1. */
 const STATUS_H = 84;
 const HEADER = 58;
@@ -178,7 +180,7 @@ const HEADER = 58;
  */
 export function tableLanes(vp: Viewport, seats: SeatBox[], handTop: number) {
   const statusBottom = vp.handBase + handTop + 6;
-  const statusTop = vp.h - statusBottom - STATUS_H - (myPlateScale(vp) - 1) * 50;
+  const statusTop = vp.h - statusBottom - STATUS_H - (myPlateScale(vp) - 1) * 62;
   const col = vp.PW * 0.9;
   let band = HEADER;
   for (const b of seats) {
