@@ -62,7 +62,7 @@ export const Banner: React.FC<BannerProps> = ({ className = '' }) => {
       </motion.div>
 
       <motion.div className="text-center mt-2" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
-        <h1 className="relative font-display text-paper leading-[0.88] tracking-[0.03em] text-[clamp(52px,14vw,104px)] -rotate-2"
+        <h1 className="relative font-display text-paper leading-[0.88] tracking-[0.03em] text-[clamp(52px,14vw,104px)]"
           style={{ WebkitTextStroke: '0.09em #0B0B0D', paintOrder: 'stroke fill', textShadow: '0.07em 0.07em 0 #000' }}>
           Heart <span className="text-blood">of</span> Five
         </h1>

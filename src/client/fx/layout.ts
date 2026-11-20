@@ -164,16 +164,16 @@ export const seatHalf = (compact: boolean, scale = 1) =>
   compact ? { hw: 67, hh: 41 } : { hw: 89 * scale, hh: 42 * scale };
 /**
  * The size an opponent's seat started from on a large screen before seats were sized from free space
- * (seatLayout): phones 1, a 1440x900 laptop about 1.15, a big monitor up to 1.6. Your own plate still
- * draws at this size, since it shares the bottom of the screen with your hand; seatLayout never draws
- * an opponent smaller than it.
+ * (seatLayout): phones 1, a 1440x900 laptop about 1.15, a big monitor up to 1.6. seatLayout never
+ * draws an opponent smaller than it.
  */
 export const seatScale = (vp: { w: number; h: number }, compact: boolean) =>
   compact ? 1 : Math.min(1.6, Math.max(1, Math.min(vp.w / 1100, vp.h / 780)));
-/** How much bigger your own character plate draws (see seatScale). */
-export const myPlateScale = (vp: { w: number; h: number }) => seatScale(vp, vp.w < 640);
-/** The biggest an opponent's seat draws: about a 380px plate with a 30px name. */
-export const SEAT_MAX_SCALE = 2.3;
+/** How much bigger your own character plate draws: up to 1.8, so it keeps up with the opponents' seats. */
+export const myPlateScale = (vp: { w: number; h: number }) =>
+  vp.w < 640 ? 1 : Math.min(1.8, Math.max(1, Math.min(vp.w / 800, vp.h / 600)));
+/** The biggest an opponent's seat draws: about a 330px plate, leaving felt for the callout word. */
+export const SEAT_MAX_SCALE = 1.9;
 /** An active seat pops this much bigger (Seat.tsx), so spacing allows for it. */
 const ACTIVE_POP = 1.06;
 
