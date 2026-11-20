@@ -133,9 +133,9 @@ function GameApp() {
     
     return (
       <div className="min-h-screen felt-texture flex items-center justify-center">
-        <div className="panel p-8 max-w-md">
-          <p className="section-head mb-2">Connection error</p>
-          <h2 className="font-display text-2xl font-bold text-paper mb-3">Couldn't reach the table</h2>
+        <div className="panel-cut panel-tilt p-8 max-w-md">
+          <p className="section-head mb-3">Connection error</p>
+          <h2 className="font-display text-[34px] leading-none tracking-[0.03em] text-paper mb-3">Couldn't reach the table</h2>
           <p className="text-gray-300 mb-4">{error}</p>
           <div className="space-y-3">
             {isRoomLocked ? (
@@ -176,8 +176,8 @@ function GameApp() {
     return (
       <div className="min-h-screen felt-texture flex items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto mb-5 w-14 idle-float" style={{ filter: 'drop-shadow(0 10px 12px rgba(0,0,0,.5))' }}><Card isBack className="w-14 h-20" /></div>
-          <p className="font-sans tabular-nums text-sm tracking-[0.2em] text-mist">CONNECTING TO THE TABLE</p>
+          <div className="mx-auto mb-5 w-14 idle-float" style={{ filter: 'drop-shadow(4px 5px 0 rgba(0,0,0,.9))' }}><Card isBack className="w-14 h-20" /></div>
+          <p className="font-display text-[22px] tracking-[0.06em] text-bone">Heading to the table…</p>
         </div>
       </div>
     );

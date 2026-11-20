@@ -39,15 +39,15 @@ export const Landing: React.FC = () => {
         <div className="relative overflow-hidden">
           <div className="container mx-auto px-4 pt-10 pb-12 lg:pt-16 lg:pb-20">
             <Banner />
-            <p className="mt-6 text-center text-[15px] lg:text-lg text-bone/80 max-w-xl mx-auto leading-relaxed">
-              Race to empty your hand with singles, pairs, straights and bombs. One card outranks
+            <p className="mt-7 text-center text-[17px] lg:text-xl font-semibold text-bone max-w-xl mx-auto leading-snug">
+              Race to empty your hand with singles, pairs, straights and bombs. One card beats
               them all: the Heart of Five.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-7 max-w-md mx-auto">
-              <Link to="/play" className="btn-primary h-12 text-[15px] px-8">
-                <Play size={17} /> Play Now
+              <Link to="/play" className="btn-primary h-14 !text-[24px] px-10">
+                <Play size={20} strokeWidth={2.75} /> Play Now
               </Link>
-              <button onClick={() => setShowTutor(true)} className="btn-secondary h-12 px-6">
+              <button onClick={() => setShowTutor(true)} className="btn-secondary h-14 px-7">
                 <BookOpen size={16} /> Learn How to Play
               </button>
             </div>
@@ -55,16 +55,18 @@ export const Landing: React.FC = () => {
         </div>
 
       {/* What is Heart of Five Section */}
-      <div className="bg-ink/50 border-y border-white/5 py-16">
-        <div className="container mx-auto px-4">
+      <div className="relative bg-paper text-ink border-y-[6px] border-ink py-16 overflow-hidden">
+        {/* screentone shading in one corner of the page */}
+        <div aria-hidden className="tone absolute -right-10 -top-10 w-72 h-72 text-ink/15 rotate-12" />
+        <div className="relative container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <p className="section-head text-center mb-2">The game</p>
-            <h2 className="font-display font-black text-3xl lg:text-4xl text-paper text-center mb-8">
+            <p className="section-head !bg-ink !text-paper mx-auto mb-3">The game</p>
+            <h2 className="font-display text-5xl lg:text-6xl leading-none tracking-[0.03em] text-ink text-center mb-10">
               What is Heart of Five?
             </h2>
             
             <div className="grid md:grid-cols-2 gap-8 items-center">
-              <div className="space-y-4 text-bone/85">
+              <div className="space-y-4 text-[17px] font-medium text-ink/90">
                 <p>
                   Heart of Five (红心五) is a popular Chinese card shedding game that combines 
                   strategy, memory, and a bit of luck. Players race to be the first to play 
@@ -85,9 +87,9 @@ export const Landing: React.FC = () => {
               {/* Card showcase */}
               <div className="flex justify-center">
                 <div className="relative">
-                  <Card suit="H" rank={5} className="w-32 h-48 transform -rotate-6 absolute top-0 left-0 shadow-xl" />
-                  <Card suit="D" rank={15} className="w-32 h-48 transform rotate-3 absolute top-4 left-8 shadow-xl" />
-                  <Card suit="C" rank={13} className="w-32 h-48 transform rotate-12 relative top-8 left-16 shadow-xl" />
+                  <Card suit="H" rank={5} className="w-32 h-48 transform -rotate-6 absolute top-0 left-0 drop-shadow-[5px_6px_0_rgba(0,0,0,.9)]" />
+                  <Card suit="D" rank={15} className="w-32 h-48 transform rotate-3 absolute top-4 left-8 drop-shadow-[5px_6px_0_rgba(0,0,0,.9)]" />
+                  <Card suit="C" rank={13} className="w-32 h-48 transform rotate-12 relative top-8 left-16 drop-shadow-[5px_6px_0_rgba(0,0,0,.9)]" />
                 </div>
               </div>
             </div>
@@ -98,31 +100,31 @@ export const Landing: React.FC = () => {
       {/* Game Features */}
       <div className="py-16">
         <div className="container mx-auto px-4">
-          <p className="section-head text-center mb-2">Why it sticks</p>
-          <h2 className="font-display font-black text-3xl lg:text-4xl text-paper text-center mb-12">
-            Why You'll Love It
+          <p className="section-head mx-auto mb-3">Why it sticks</p>
+          <h2 className="font-display text-5xl lg:text-6xl leading-none tracking-[0.03em] text-paper text-center mb-12">
+            Why you'll keep playing
           </h2>
           
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <div className="text-center space-y-3">
-              <Zap size={34} className="mx-auto mb-4 text-ember" />
-              <h3 className="font-display text-xl font-bold text-brass-light">Fast-Paced</h3>
+            <div className="panel-cut text-center space-y-3 p-7 -rotate-1">
+              <Zap size={38} strokeWidth={2.5} className="mx-auto mb-2 text-ember" />
+              <h3 className="font-display text-4xl leading-none text-paper">Fast</h3>
               <p className="text-mist">
                 Quick games with no set limit - play one game or many in a session
               </p>
             </div>
             
-            <div className="text-center space-y-3">
-              <Brain size={34} className="mx-auto mb-4 text-ember" />
-              <h3 className="font-display text-xl font-bold text-brass-light">Strategic Depth</h3>
+            <div className="panel-cut text-center space-y-3 p-7 rotate-1">
+              <Brain size={38} strokeWidth={2.5} className="mx-auto mb-2 text-ember" />
+              <h3 className="font-display text-4xl leading-none text-paper">Sneaky</h3>
               <p className="text-mist">
                 Decide when to play powerful combinations and when to hold back
               </p>
             </div>
             
-            <div className="text-center space-y-3">
-              <Users size={34} className="mx-auto mb-4 text-ember" />
-              <h3 className="font-display text-xl font-bold text-brass-light">Social Fun</h3>
+            <div className="panel-cut text-center space-y-3 p-7 -rotate-1">
+              <Users size={38} strokeWidth={2.5} className="mx-auto mb-2 text-ember" />
+              <h3 className="font-display text-4xl leading-none text-paper">Loud</h3>
               <p className="text-mist">
                 Play with 2-6 friends online, perfect for game nights
               </p>
@@ -132,58 +134,58 @@ export const Landing: React.FC = () => {
       </div>
 
       {/* How to Play Preview */}
-      <div className="bg-ink/50 border-y border-white/5 py-16" id="how-to-play">
+      <div className="bg-ink border-y-[6px] border-paper py-16" id="how-to-play">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <p className="section-head text-center mb-2">Quick start</p>
-            <h2 className="font-display font-black text-3xl lg:text-4xl text-paper text-center mb-8">
-              Quick Start Guide
+            <p className="section-head mx-auto mb-3">Quick start</p>
+            <h2 className="font-display text-5xl lg:text-6xl leading-none tracking-[0.03em] text-paper text-center mb-10">
+              Learn it in a minute
             </h2>
             
             <div className="space-y-6">
-              <div className="panel p-6">
-                <h3 className="font-display text-xl font-bold text-brass-light mb-3">Basic Rules</h3>
+              <div className="panel-cut p-7">
+                <h3 className="font-display text-3xl leading-none text-paper mb-4">Basic rules</h3>
                 <ul className="space-y-2 text-bone/85">
                   <li className="flex items-start">
-                    <span className="text-cinnabar mr-2">♥</span>
+                    <span className="text-blood mr-2 font-bold">♥</span>
                     Be the first to play all your cards to win the game
                   </li>
                   <li className="flex items-start">
-                    <span className="text-cinnabar mr-2">♥</span>
+                    <span className="text-blood mr-2 font-bold">♥</span>
                     Play singles, pairs, three of a kind, or special combinations
                   </li>
                   <li className="flex items-start">
-                    <span className="text-cinnabar mr-2">♥</span>
+                    <span className="text-blood mr-2 font-bold">♥</span>
                     Higher ranks beat lower ranks (3 is lowest, 2 is highest)
                   </li>
                   <li className="flex items-start">
-                    <span className="text-cinnabar mr-2">♥</span>
+                    <span className="text-blood mr-2 font-bold">♥</span>
                     The Heart 5 beats everything - use it wisely!
                   </li>
                   <li className="flex items-start">
-                    <span className="text-cinnabar mr-2">♥</span>
+                    <span className="text-blood mr-2 font-bold">♥</span>
                     Last player with cards loses - track wins/losses across games
                   </li>
                 </ul>
               </div>
               
-              <div className="panel p-6">
-                <h3 className="font-display text-xl font-bold text-brass-light mb-3">Special Combinations</h3>
+              <div className="panel-cut p-7">
+                <h3 className="font-display text-3xl leading-none text-paper mb-4">Special combinations</h3>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <p className="font-semibold text-bone/85">Runs</p>
+                    <p className="font-display text-[22px] leading-none tracking-[0.04em] text-paper mb-1">Runs</p>
                     <p className="text-sm text-mist">5+ consecutive singles (e.g., 7-8-9-10-J)</p>
                   </div>
                   <div>
-                    <p className="font-semibold text-bone/85">Sisters</p>
+                    <p className="font-display text-[22px] leading-none tracking-[0.04em] text-paper mb-1">Sisters</p>
                     <p className="text-sm text-mist">3+ consecutive pairs (e.g., 77-88-99)</p>
                   </div>
                   <div>
-                    <p className="font-semibold text-bone/85">Full House</p>
+                    <p className="font-display text-[22px] leading-none tracking-[0.04em] text-paper mb-1">Full House</p>
                     <p className="text-sm text-mist">Three of a kind + a pair</p>
                   </div>
                   <div>
-                    <p className="font-semibold text-bone/85">Bomb</p>
+                    <p className="font-display text-[22px] leading-none tracking-[0.04em] text-paper mb-1">Bomb</p>
                     <p className="text-sm text-mist">Four of a kind beats most hands</p>
                   </div>
                 </div>
@@ -193,7 +195,7 @@ export const Landing: React.FC = () => {
             <div className="text-center mt-8">
               <Link
                 to="/play"
-                className="btn-primary h-12 text-[15px] px-8"
+                className="btn-primary h-14 !text-[24px] px-10"
               >
                 Start Playing
               </Link>
@@ -203,7 +205,7 @@ export const Landing: React.FC = () => {
       </div>
 
         {/* Footer */}
-        <div className="py-8 border-t border-white/10">
+        <div className="py-8 border-t-[3px] border-paper/20">
           <div className="container mx-auto px-4">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-mist">
               <div className="flex gap-4">
@@ -220,7 +222,7 @@ export const Landing: React.FC = () => {
                 </a>
               </div>
               <p>
-                <span className="inline-flex items-center gap-1.5">Made with <Heart size={13} className="text-cinnabar" fill="currentColor" aria-label="love" /> for family card nights</span>
+                <span className="inline-flex items-center gap-1.5">Built for loud family card nights <Heart size={13} className="text-blood" fill="currentColor" aria-hidden /></span>
               </p>
             </div>
           </div>
@@ -228,11 +230,11 @@ export const Landing: React.FC = () => {
       </div>
       
       {/* iPhone SE iframe - fixed to right side on medium screens and up */}
-      <div className="hidden md:block fixed top-0 right-0 h-full w-[400px] bg-ink border-l border-white/10">
+      <div className="hidden md:block fixed top-0 right-0 h-full w-[400px] bg-ink border-l-[4px] border-paper">
         <div className="flex flex-col items-center justify-center h-full p-4">
           <div className="space-y-2">
             <div 
-              className="bg-black overflow-hidden shadow-2xl border border-white/10"
+              className="bg-black overflow-hidden border-[3px] border-paper shadow-[7px_7px_0_0_#E85D00]"
               style={{ width: '375px', height: '667px' }}
             >
               <iframe
@@ -244,7 +246,7 @@ export const Landing: React.FC = () => {
             </div>
             <Link 
               to="/play" 
-              className="text-center text-sm text-mist hover:text-ember transition-colors block"
+              className="text-center font-display text-[20px] tracking-[0.05em] text-bone hover:text-ember transition-colors block pt-2"
             >
               Play directly here →
             </Link>

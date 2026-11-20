@@ -69,7 +69,7 @@ export const BotControls: React.FC<BotControlsProps> = ({ roomId, players, maxPl
       </div>
       {/* what the picked personality is like, and how long it may think */}
       <div className="mt-2 flex items-start gap-2 text-[12px] leading-snug text-bone/80">
-        <PickedIcon size={15} className="mt-0.5 shrink-0 text-brass" aria-hidden />
+        <PickedIcon size={15} className="mt-0.5 shrink-0 text-paper" aria-hidden />
         <p className="flex-1">{persona.blurb}</p>
       </div>
       <label className="mt-2 flex items-center justify-between gap-2 text-[12px] text-mist">

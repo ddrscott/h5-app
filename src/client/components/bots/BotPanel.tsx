@@ -85,35 +85,35 @@ export const BotPanel: React.FC<{
     <>
       <div className="fixed inset-0 bg-black/50 z-[85]" onClick={onClose} />
       <motion.aside
-        className="fixed top-0 right-0 bottom-0 z-[86] w-[min(440px,100vw)] panel flex flex-col"
+        className="fixed top-0 right-0 bottom-0 z-[86] w-[min(440px,100vw)] panel-cut panel-sheet flex flex-col"
         initial={{ x: 40, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         role="dialog"
         aria-label="Your bot"
         data-testid="bot-panel"
       >
-        <div className="flex items-start justify-between p-4 pb-2">
+        <div className="flex items-start justify-between p-4 pl-10 pb-2">
           <div>
-            <p className="section-head">Bring your own bot</p>
-            <h2 className="font-display text-2xl font-bold text-paper leading-tight">Let a bot play your seat</h2>
+            <p className="section-head mb-2">Bring your own bot</p>
+            <h2 className="font-display text-[32px] tracking-[0.03em] text-paper leading-none">Let a bot play your seat</h2>
           </div>
-          <button onClick={onClose} className="grid place-items-center w-9 h-9 bg-ink/80 border border-white/15 text-bone hover:border-ember" aria-label="Close">
+          <button onClick={onClose} className="icon-btn !w-9 !h-9" aria-label="Close">
             <X size={17} />
           </button>
         </div>
-        <div className="flex gap-1 px-4 border-b border-white/10">
+        <div className="flex gap-1 pl-10 pr-4 border-b-[3px] border-paper/25">
           {(['bots', 'guide'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-3 py-2 text-xs font-bold uppercase tracking-wide border-b-2 -mb-px ${tab === t ? 'border-ember text-bone' : 'border-transparent text-mist hover:text-bone'}`}
+              className={`px-3 pt-2 pb-1.5 font-display text-[18px] leading-none tracking-[0.05em] border-b-[3px] -mb-[3px] ${tab === t ? 'border-ember text-paper' : 'border-transparent text-mist hover:text-bone'}`}
             >
               {t === 'bots' ? 'Your bots' : 'How to write a bot'}
             </button>
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 pl-10 space-y-5">
           {tab === 'guide' ? (
             <>
               <BotGuide />
@@ -129,7 +129,7 @@ export const BotPanel: React.FC<{
                   <p className="section-head">Saved in this browser</p>
                   <ul className="space-y-1.5">
                     {bots.map((b) => (
-                      <li key={b.id} className={`flex items-center gap-2 px-2.5 py-2 border ${picked?.id === b.id ? 'border-ember bg-ember/10' : 'border-white/10 bg-ink/40'}`}>
+                      <li key={b.id} className={`flex items-center gap-2 px-2.5 py-2 border-2 ${picked?.id === b.id ? 'border-ember bg-ember/10' : 'border-gray-700 bg-black/40'}`}>
                         <label className="flex-1 flex items-center gap-2 cursor-pointer min-w-0">
                           <input type="radio" name="bot" checked={picked?.id === b.id} onChange={() => onPick(b.id)} className="accent-[#E85D00]" />
                           <span className="font-semibold text-bone truncate">{b.name}</span>
@@ -140,7 +140,7 @@ export const BotPanel: React.FC<{
                       </li>
                     ))}
                   </ul>
-                  {test && <p className="text-xs text-gray-300 bg-ink/50 border border-white/10 px-2.5 py-2" data-testid="bot-test-result">{test}</p>}
+                  {test && <p className="text-[13px] font-semibold text-bone bg-black/40 border-2 border-gray-700 px-2.5 py-2" data-testid="bot-test-result">{test}</p>}
 
                   {picked && (
                     <div className="pt-1 space-y-2">
@@ -151,7 +151,7 @@ export const BotPanel: React.FC<{
                           <Bot size={16} /> Let {picked.name} play my seat
                         </button>
                       )}
-                      <p className="text-xs text-mist">
+                      <p className="text-[13px] text-mist">
                         {status.enabled
                           ? `Strikes this game: ${status.strikes} of 3.`
                           : 'It plays your turns until you take over. Everyone at the table sees a bot badge on your seat.'}
@@ -197,8 +197,8 @@ export const BotPanel: React.FC<{
           {/* its own layer, so the warning sits above the panel and the backdrop */}
           <div className="fixed inset-0 z-[91] pointer-events-none">
           <DialogBox className="max-w-sm">
-            <p className="section-head mb-2">Before it runs</p>
-            <h3 className="font-display text-2xl font-bold mb-2">This runs code in your browser</h3>
+            <p className="section-head mb-3">Before it runs</p>
+            <h3 className="font-display text-[30px] leading-none tracking-[0.03em] mb-3">This runs code in your browser</h3>
             <p className="text-gray-300 mb-2 text-sm">
               A bot is a program. It runs on this device, inside a locked-down sandbox with no network, no storage and no
               access to this page or your seat.

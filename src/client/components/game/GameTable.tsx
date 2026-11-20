@@ -11,7 +11,7 @@ import { Callouts, showCallout, calloutFontPx, calloutSize, calloutTilt, splitCa
 import { GameOver } from './GameOver';
 import { DialogBox } from '../ui/DialogBox';
 import { CardBack } from '../ui/CardFace';
-import { useViewport, registry, fan, tableLanes, placeCallout, meldFit, seatHalf, seatScale } from '../../fx/layout';
+import { useViewport, registry, fan, tableLanes, placeCallout, meldFit, seatHalf, seatScale, myPlateScale, SEAT_W, MELD_UP } from '../../fx/layout';
 import type { Viewport } from '../../fx/layout';
 import { bus } from '../../fx/bus';
 import { sfx } from '../../fx/sound';
@@ -63,35 +63,48 @@ const MELD_NAME: Record<string, string> = {
 const ORD = ['', '1st', '2nd', '3rd', '4th', '5th', '6th'];
 
 /**
- * The inlay on the table where melds land. The house motto runs along its top and bottom arcs
- * only, so the side seats never sit on its letters, and the ring is sized to fit between the top
- * seat and your status stack.
+ * The stage: one angled manga panel laid across the whole table at the pile's height, flat ink
+ * between two heavy paper gutter rules, so the play area reads as a panel cut out of the
+ * screentone page around it (index.css .felt-texture). The house motto sits on the rules as two
+ * caption boxes, each shown only where no seat covers it.
  */
-const TableInlay: React.FC<{ vp: Viewport; r: number; top: boolean; bottom: boolean; outer: boolean }> = ({ vp, r, top, bottom, outer }) => {
+/** Geometry of the stage band: its edges' lean, and where the two motto caption boxes go. */
+function stageGeom(vp: Pick<Viewport, 'w' | 'pileY'>, r: number, seats: Array<{ x: number; y: number; hw: number; hh: number }>) {
+  const { w } = vp;
+  const top = vp.pileY - r * 1.08, bottom = vp.pileY + r * 0.98;
+  const lean = Math.min(w * 0.045, 54);
+  const yAt = (edge: number, x: number) => edge + lean - (2 * lean * x) / w;
+  const deg = (-Math.atan2(2 * lean, w) * 180) / Math.PI;
+  const clear = (x: number, y: number, hw: number) => seats.every((b) => Math.abs(b.x - x) > b.hw + hw + 8 || Math.abs(b.y - y) > b.hh + 22);
+  const chips = [
+    { x: w * 0.3, y: yAt(top, w * 0.3), text: 'HEART OF FIVE' },
+    { x: w * 0.7, y: yAt(bottom, w * 0.7), text: "红心五 · IT'S DA BOMB!" },
+    // Below about 1080px the band is short and older melds stack up into the rules, so the
+  // lettering would sit half under cards: leave it off there.
+  ].filter((c) => w >= 1080 && clear(c.x, c.y, c.text.length * 5.5));
+  return { top, bottom, lean, yAt, deg, chips };
+}
+/** The motto chips as boxes, so a callout never lands on decorative lettering. */
+const chipBoxes = (g: ReturnType<typeof stageGeom>) =>
+  g.chips.map((c) => { const hw = c.text.length * 5.6 + 18; return { x: c.x, y: c.y, hw, hh: 16 + hw * Math.abs(Math.sin((g.deg * Math.PI) / 180)) }; });
+
+const TableStage: React.FC<{ vp: Viewport; r: number; seats: Array<{ x: number; y: number; hw: number; hh: number }> }> = ({ vp, r, seats }) => {
+  const { w, h } = vp;
+  const { top, bottom, yAt, deg, chips } = stageGeom(vp, r, seats);
+  const band = `-20,${yAt(top, -20)} ${w + 20},${yAt(top, w + 20)} ${w + 20},${yAt(bottom, w + 20)} -20,${yAt(bottom, -20)}`;
   return (
-    <div aria-hidden className="absolute pointer-events-none" style={{ left: vp.pileX - r * 1.5, top: vp.pileY - r * 1.5, width: r * 3, height: r * 3 }}>
-      <svg viewBox="-150 -150 300 300" className="w-full h-full">
-        <defs>
-          {/* top arc, left to right */}
-          <path id="inlayTop" d="M -100,0 a 100,100 0 0,1 200,0" />
-          {/* bottom arc, also left to right so it reads upright */}
-          <path id="inlayBottom" d="M -108,0 a 108,108 0 0,0 216,0" />
-          <radialGradient id="inlayLight">
-            <stop offset="0%" stopColor="#2E7366" stopOpacity="0.55" />
-            <stop offset="70%" stopColor="#2E7366" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle r="140" fill="url(#inlayLight)" />
-        {outer && <circle r="122" fill="none" stroke="#D6A54A" strokeOpacity="0.22" strokeWidth="0.8" />}
-        <g className="spin-slow" style={{ transformOrigin: '0 0' }}>
-          <circle r="88" fill="none" stroke="#D6A54A" strokeOpacity="0.18" strokeWidth="0.6" strokeDasharray="2 4" />
+    <svg aria-hidden data-stage className="absolute inset-0 pointer-events-none" width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      {/* the gutter: a thin outer rule, then the panel with its heavy paper border */}
+      <polyline points={`-20,${yAt(top, -20) - 11} ${w + 20},${yAt(top, w + 20) - 11}`} stroke="#FAFAF7" strokeOpacity=".5" strokeWidth="2" fill="none" />
+      <polyline points={`-20,${yAt(bottom, -20) + 11} ${w + 20},${yAt(bottom, w + 20) + 11}`} stroke="#FAFAF7" strokeOpacity=".5" strokeWidth="2" fill="none" />
+      <polygon points={band} fill="#0B0B0D" stroke="#FAFAF7" strokeWidth="5" />
+      {chips.map((c) => (
+        <g key={c.text} transform={`translate(${c.x} ${c.y}) rotate(${deg})`}>
+          <polygon points={`${-c.text.length * 5.6 - 12},-12 ${c.text.length * 5.6 + 16},-12 ${c.text.length * 5.6 + 10},12 ${-c.text.length * 5.6 - 12},12`} fill="#FAFAF7" />
+          <text y="6.5" textAnchor="middle" fontSize="18" letterSpacing="1.5" fill="#0B0B0D" fontFamily='Bangers, "H5 Seal", Impact, sans-serif'>{c.text}</text>
         </g>
-        <g fill="#D6A54A" fillOpacity="0.34" fontSize="11" fontFamily='"Fraunces Variable", "H5 Seal", Georgia, serif' fontWeight="700" letterSpacing="3">
-          {top && <text><textPath href="#inlayTop" startOffset="50%" textAnchor="middle">✦ HEART OF FIVE ✦</textPath></text>}
-          {bottom && <text><textPath href="#inlayBottom" startOffset="50%" textAnchor="middle">红心五 · IT'S DA BOMB</textPath></text>}
-        </g>
-      </svg>
-    </div>
+      ))}
+    </svg>
   );
 };
 
@@ -142,7 +155,7 @@ export const GameTable: React.FC<GameTableProps> = ({
   const rawVp = useViewport();
   const [scope, animate] = useAnimate<HTMLDivElement>();
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [flash, setFlash] = useState<{ id: number; color: string } | null>(null);
+  const [impact, setImpact] = useState<{ id: number; kind: 'bomb' | 'heart5'; text: string; top: number; bottom: number } | null>(null);
   const [passBeats, setPassBeats] = useState<Record<string, number>>({});
   const isPlaying = phase === GamePhase.PLAYING;
   const isMyTurn = isPlaying && currentTurnPlayerId === myPlayerId;
@@ -177,13 +190,16 @@ export const GameTable: React.FC<GameTableProps> = ({
   const vp = useMemo(() => ({ ...rawVp, pileY: lanes.pileY, pileHalf: lanes.pileHalf, meldRoom: lanes.meldRoom }), [rawVp, lanes.pileY, lanes.pileHalf, lanes.meldRoom]);
   /** A clear spot for a callout: its own space, sized by the play, never over a seat or the newest meld. */
   const lane = useCallback((text: string, level: number, sub: string | undefined, meldN: number) => {
-    let full = calloutFontPx(level, vp.w, text, Infinity);
+    // On a phone a bomb or the Heart 5 starts from the full width and shrinks only until it clears
+    // the seats and the motto chips, so it never sits on anyone's plate or card count.
+    const wide = vp.w < 640 && level >= 3;
+    let full = wide ? 200 : calloutFontPx(level, vp.w, text, Infinity);
     while (full > 16 && calloutSize(full, text, level).w > vp.w - 24) full *= 0.96;
     const fit = meldN > 0 ? meldFit(meldN, vp, vp.meldRoom) : null;
     const p = placeCallout({
-      vp, seats: boxes, pileY: vp.pileY, statusTop: lanes.statusTop,
+      vp, seats: [...boxes, ...chipBoxes(stageGeom(vp, lanes.ringR, boxes))], pileY: vp.pileY, statusTop: lanes.statusTop,
       meldHalfW: fit?.half ?? 0, meldScale: fit?.scale ?? 1,
-      full, floor: CALLOUT_FLOOR[level] ?? 24,
+      full, floor: wide ? 28 : CALLOUT_FLOOR[level] ?? 24,
       size: (f, lines) => {
         if (lines === 2 && !splitCallout(text)) return null;
         const c = calloutSize(f, text, level, sub, lines);
@@ -191,20 +207,33 @@ export const GameTable: React.FC<GameTableProps> = ({
       },
     });
     return { x: p.x, y: p.y, fontPx: p.fontPx, maxW: p.maxW, maxScale: p.maxScale, lines: p.lines, tilt: p.tilt };
-  }, [vp, boxes, lanes.statusTop]);
+  }, [vp, boxes, lanes.statusTop, lanes.ringR]);
   const trickRef = useRef(0);
   trickRef.current = trickMelds[trickMelds.length - 1]?.cards.length ?? 0;
   const badges = useMemo(() => seatBadges(Array.from(players.values())), [players]);
   const placeOf = (p?: Player) => (p?.isOut && p.position ? p.position : undefined);
 
   // ---------- screen shake ----------
+  // Short and hard, like a panel jolting: never longer than about 0.4s, so play isn't held up.
   const shake = useCallback((px: number) => {
     if (!scope.current || reducedMotion() || px <= 0) return;
-    const a = px, b = px * 0.6;
-    void animate(scope.current, { x: [0, -a, a * 0.9, -b, b * 0.7, -b * 0.4, 0], y: [0, a * 0.5, -a * 0.6, b * 0.5, -b * 0.3, 0, 0] }, { duration: 0.42 + px * 0.012, ease: 'easeOut' });
+    const a = px, b = px * 0.55;
+    void animate(scope.current, { x: [0, -a, a * 0.9, -b, b * 0.5, 0], y: [0, a * 0.6, -a * 0.5, b * 0.4, 0, 0] }, { duration: Math.min(0.4, 0.22 + px * 0.01), ease: 'easeOut' });
   }, [animate, scope]);
 
-  const flashOnce = (color: string) => { if (!reducedMotion()) setFlash({ id: Date.now(), color }); };
+  /**
+   * The full-screen impact frame for a bomb or the Heart 5 (skipped under reduced motion). It keeps
+   * the newest meld's band clear, so the cards that did it stay in view. Says whether it ran.
+   */
+  const impactOnce = (kind: 'bomb' | 'heart5', text: string, n: number) => {
+    if (reducedMotion()) return false;
+    const fit = meldFit(n, vp, vp.meldRoom);
+    const mph = vp.PH * fit.scale;
+    setImpact({ id: Date.now(), kind, text, top: vp.pileY - mph * MELD_UP - 10, bottom: vp.pileY + mph * 0.58 + 10 });
+    return true;
+  };
+
+  const clearImpact = useCallback(() => setImpact(null), []);
 
   // ---------- a meld lands ----------
   const onLand = useCallback((meld: Meld, fx: PlayFx) => {
@@ -212,23 +241,27 @@ export const GameTable: React.FC<GameTableProps> = ({
     const n = meld.cards.length;
     sfx.land(fx.level >= 3 ? 3 : n >= 5 ? 2 : 1);
     const cx = vp.pileX, cy = vp.pileY;
+    let framed = false;
     if (fx.heart5) {
-      sfx.heart5(); haptics.heart5(); shake(10); flashOnce('rgba(199,53,44,.35)');
-      particles.burst({ x: cx, y: cy, kind: 'heart', palette: 'brass', count: 34, speed: 520 });
-      particles.burst({ x: cx, y: cy, kind: 'ember', palette: 'brass', count: 40, speed: 260 });
+      sfx.heart5(); haptics.heart5(); shake(12); framed = impactOnce('heart5', fx.label ?? 'HEART OF FIVE', n);
+      particles.burst({ x: cx, y: cy, kind: 'heart', palette: 'ink', count: 34, speed: 520 });
+      particles.burst({ x: cx, y: cy, kind: 'ember', palette: 'ink', count: 40, speed: 260 });
     } else if (fx.level === 3) {
-      sfx.bomb(); haptics.bomb(); shake(18); flashOnce('rgba(255,180,90,.42)');
+      sfx.bomb(); haptics.bomb(); shake(16); framed = impactOnce('bomb', fx.label ?? 'BOMB!', n);
       particles.burst({ x: cx, y: cy, kind: 'spark', count: 150, speed: 900 });
       particles.burst({ x: cx, y: cy, kind: 'ember', count: 70, speed: 340 });
     } else if (fx.level === 2) {
       sfx.flourish(1); shake(5);
-      particles.burst({ x: cx, y: cy, kind: 'spark', palette: 'brass', count: 34, speed: 520 });
+      particles.burst({ x: cx, y: cy, kind: 'spark', palette: 'ink', count: 34, speed: 520 });
     } else {
       shake(n > 1 ? 3 : 1.5);
-      if (n > 1) particles.burst({ x: cx, y: cy + vp.PH * 0.4, kind: 'spark', palette: 'brass', count: 8 + n * 2, speed: 260, angle: -Math.PI / 2, spread: Math.PI * 0.9 });
+      if (n > 1) particles.burst({ x: cx, y: cy + vp.PH * 0.4, kind: 'spark', palette: 'ink', count: 8 + n * 2, speed: 260, angle: -Math.PI / 2, spread: Math.PI * 0.9 });
     }
     if (fx.label) {
-      showCallout({ text: fx.label, level: fx.level as 1 | 2 | 3 | 4, sub: who, ...lane(fx.label, fx.level, who, n) });
+      const label = fx.label;
+      const go = () => showCallout({ text: label, level: fx.level as 1 | 2 | 3 | 4, sub: who, ...lane(label, fx.level, who, n) });
+      // After a finisher frame the callout pops in as the frame cuts out, not underneath it.
+      if (framed) window.setTimeout(go, IMPACT_MS - 80); else go();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myPlayerId, players, vp, shake, lane]);
@@ -352,13 +385,13 @@ export const GameTable: React.FC<GameTableProps> = ({
   return (
     <div className="fixed inset-0 felt-texture overflow-hidden overflow-clip">
       <motion.div ref={scope} className="absolute inset-0 overflow-hidden overflow-clip">
-        <TableInlay vp={vp} r={lanes.ringR} top={lanes.mottoTop} bottom={lanes.mottoBottom} outer={lanes.outerRing} />
+        <TableStage vp={vp} r={lanes.ringR} seats={boxes} />
 
         {/* the lamp over whoever's turn it is */}
         <motion.div
           aria-hidden
-          className="absolute pointer-events-none rounded-full"
-          style={{ width: 460, height: 460, left: -230, top: -230, background: 'radial-gradient(circle, rgba(255,190,120,.16), rgba(255,190,120,0) 62%)' }}
+          className="tone absolute pointer-events-none"
+          style={{ width: 420, height: 420, left: -210, top: -210, color: 'rgba(232,93,0,.28)', WebkitMaskImage: 'radial-gradient(circle, #000 0%, transparent 66%)', maskImage: 'radial-gradient(circle, #000 0%, transparent 66%)' }}
           initial={false}
           animate={light ? { x: light.x, y: light.y, opacity: 1 } : { opacity: 0 }}
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
@@ -390,7 +423,7 @@ export const GameTable: React.FC<GameTableProps> = ({
 
         {/* your nameplate and the turn status */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 pointer-events-none"
+          className="absolute left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2.5 pointer-events-none"
           style={{ bottom: lanes.statusBottom, maxWidth: 'calc(100vw - 16px)' }}
         >
           <AnimatePresence mode="wait">
@@ -398,33 +431,23 @@ export const GameTable: React.FC<GameTableProps> = ({
               <motion.div
                 key={status.err ? `e:${status.small}` : status.big}
                 role={status.err ? 'alert' : undefined}
-                className={`flex items-baseline gap-2 px-3 py-1 border ${status.err ? 'bg-cinnabar-deep text-paper border-cinnabar max-w-[min(92vw,560px)] flex-wrap justify-center text-center' : 'whitespace-nowrap'} ${status.hot ? 'bg-ember text-ink border-ember-hot shadow-[0_6px_24px_-6px_rgba(232,93,0,.8)]' : status.err ? '' : status.lead ? 'bg-ink/90 text-brass-light border-brass/60 font-sans tabular-nums uppercase tracking-[0.14em]' : 'bg-ink/80 text-bone border-white/15'}`}
+                className={`flex items-baseline gap-2.5 ${status.hot ? 'pl-6 pr-7 pt-1.5 pb-1 -rotate-2' : 'pl-4 pr-5 py-1'} ${status.err ? 'bg-blood text-paper max-w-[min(92vw,560px)] flex-wrap justify-center text-center' : 'whitespace-nowrap'} ${status.hot ? 'bg-ember text-ink' : status.err ? '' : status.lead ? 'bg-paper text-ink' : 'bg-ink text-paper'}`}
+                style={{ clipPath: status.hot ? 'polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%)' : 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)', boxShadow: status.hot ? 'inset 0 -5px 0 rgba(0,0,0,.25)' : !status.err && !status.lead ? 'inset 0 2px 0 #FAFAF7, inset 0 -2px 0 #FAFAF7' : undefined }}
                 initial={{ y: 14, opacity: 0, scale: status.hot ? 0.8 : 1 }}
                 animate={status.err ? { y: 0, opacity: 1, scale: 1, x: [0, -6, 6, -3, 0] } : { y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: -8, opacity: 0, transition: { duration: 0.12 } }}
                 transition={{ type: 'spring', stiffness: 500, damping: 22 }}
               >
-                <span className={`text-[13px] font-extrabold ${status.hot ? 'font-sans tabular-nums uppercase tracking-[0.14em]' : 'font-semibold'}`}>
+                <span className={`${status.hot ? 'font-display text-[30px] leading-none tracking-[0.04em] uppercase' : 'font-display text-[18px] leading-none tracking-[0.05em] uppercase'}`}>
                   
-                  {status.lead && <Crown size={13} className="inline -mt-0.5 mr-1.5 text-brass" />}
+                  {status.lead && <Crown size={14} strokeWidth={2.5} className="inline -mt-1 mr-1.5 text-ink" />}
                   {status.big}
                 </span>
-                {status.small && <span className={`text-[12px] ${status.hot ? 'text-ink/75' : status.err ? 'text-paper/90' : 'text-mist'}`}>{status.small}</span>}
+                {status.small && <span className={`${status.hot ? 'text-[15px] font-bold' : 'text-[13px] font-semibold'} ${status.hot ? 'text-ink/80' : status.err ? 'text-paper/90' : status.lead ? 'text-ink/70' : 'text-bone'}`}>{status.small}</span>}
               </motion.div>
             )}
           </AnimatePresence>
-          {me && (
-            <div ref={(el) => registry.seat(myPlayerId, el)} className="relative flex items-center gap-2 px-2 py-0.5 bg-ink/60 border border-white/10 font-sans tabular-nums text-[11px] text-mist">
-              {isLeader && <Crown size={12} className="text-brass" aria-label="You lead this trick" />}
-              <span className="text-bone font-semibold font-sans text-[12px]">{me.name}</span>
-              <span>{me.wins}W·{me.losses}L</span>
-              <AnimatePresence>
-                {(passBeats[myPlayerId] ?? 0) > 0 && (
-                  <PassStamp key={passBeats[myPlayerId]} />
-                )}
-              </AnimatePresence>
-            </div>
-          )}
+          {me && <MyPlate k={myPlateScale(vp)} minW={vp.w >= 640 ? SEAT_W * myPlateScale(vp) : 0} name={me.name} badge={badges.get(myPlayerId)} wins={me.wins} losses={me.losses} live={isMyTurn} leader={isLeader} out={!!myPlace} passBeat={passBeats[myPlayerId] ?? 0} plateRef={(el) => registry.seat(myPlayerId, el)} />}
         </div>
 
         <PlayerHand hand={myHand} selectedCards={selectedCards} onCardSelect={onCardSelect} vp={vp} dealId={dealId} myTurn={isMyTurn} />
@@ -435,7 +458,7 @@ export const GameTable: React.FC<GameTableProps> = ({
             <motion.button
               onClick={pass}
               disabled={!isMyTurn || !canPass}
-              className="btn-secondary min-w-[88px] h-12"
+              className="btn-secondary min-w-[104px] h-12 !text-[22px]"
               whileTap={{ scale: 0.94 }}
               title="Pass (P)"
             >
@@ -444,7 +467,7 @@ export const GameTable: React.FC<GameTableProps> = ({
             <motion.button
               onClick={play}
               disabled={!canPlay}
-              className="btn-primary flex-1 min-w-0 max-w-[300px] h-12 !px-3 sm:!px-5 text-[14px] sm:text-[15px] whitespace-nowrap"
+              className="btn-primary flex-1 min-w-0 max-w-[360px] h-12 !px-3 sm:!px-5 !text-[20px] sm:!text-[24px] whitespace-nowrap"
               aria-describedby={blocked ? 'play-why' : undefined}
               animate={canPlay ? { scale: [1, 1.04, 1] } : { scale: 1 }}
               transition={{ duration: 0.25 }}
@@ -481,17 +504,17 @@ export const GameTable: React.FC<GameTableProps> = ({
       {/* header */}
       <div className="absolute top-2 left-2 right-2 flex justify-between items-start z-50 pointer-events-none">
         <div className="flex items-center gap-2 pointer-events-auto">
-          <div className="font-seal grid place-items-center w-9 h-9 bg-cinnabar text-paper font-black text-[11px] leading-[1.05] text-center shadow-[inset_0_0_0_2px_rgba(246,240,226,.5)] -rotate-3" aria-hidden>
+          <div className="font-seal grid place-items-center w-9 h-9 bg-blood text-paper font-black text-[11px] leading-[1.05] text-center border-2 border-ink shadow-[inset_0_0_0_2px_rgba(250,250,247,.55),3px_3px_0_#000] -rotate-3" aria-hidden>
             红心<br />五
           </div>
-          <span className="hidden sm:block font-sans tabular-nums text-[11px] tracking-[0.2em] text-mist">HEART OF FIVE</span>
+          <span className="hidden sm:block font-display text-[18px] tracking-[0.06em] text-bone">HEART OF FIVE</span>
         </div>
         <div className="flex gap-2 pointer-events-auto">
           {headerExtra}
           <MuteButton />
           <button
             onClick={() => setShowLeaveConfirm(true)}
-            className="grid place-items-center w-10 h-10 bg-ink/80 border border-white/15 text-bone hover:border-ember transition-colors"
+            className="icon-btn"
             title="Leave game"
             aria-label="Leave game"
           >
@@ -501,18 +524,7 @@ export const GameTable: React.FC<GameTableProps> = ({
       </div>
 
       <AnimatePresence>
-        {flash && (
-          <motion.div
-            key={flash.id}
-            aria-hidden
-            className="fixed inset-0 pointer-events-none"
-            style={{ background: flash.color, zIndex: 65 }}
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 0 }}
-            transition={{ duration: 0.35 }}
-            onAnimationComplete={() => setFlash(null)}
-          />
-        )}
+        {impact && <ImpactFrame key={impact.id} kind={impact.kind} text={impact.text} w={vp.w} h={vp.h} cx={vp.pileX} cy={vp.pileY} clearTop={impact.top} clearBottom={impact.bottom} onDone={clearImpact} />}
       </AnimatePresence>
 
       <Callouts />
@@ -522,8 +534,8 @@ export const GameTable: React.FC<GameTableProps> = ({
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setShowLeaveConfirm(false)} />
           <DialogBox className="max-w-sm z-[81]">
-            <p className="section-head mb-2">Leave table</p>
-            <h3 className="font-display text-2xl font-bold mb-2">Leave the game?</h3>
+            <p className="section-head mb-3">Leave table</p>
+            <h3 className="font-display text-[34px] leading-none tracking-[0.03em] mb-3">Leaving already?</h3>
             <p className="text-gray-300 mb-5 text-sm">Your seat stays at the table, and the room plays for you after 30 seconds each turn.</p>
             <div className="flex gap-3">
               <button onClick={() => { setShowLeaveConfirm(false); onLeaveGame(); }} className="btn-primary flex-1">Leave</button>
@@ -549,13 +561,163 @@ export const GameTable: React.FC<GameTableProps> = ({
   );
 };
 
+/**
+ * The finisher frame for a bomb or the Heart 5: for about half a second the play owns the screen.
+ * The page flashes (paper for a bomb, red for the Heart 5) and focus lines rush at the pile, then a
+ * full-bleed slashed panel cuts in across the bigger of the two bands either side of the newest
+ * meld, carrying the word in giant tilted lettering (40-60% of the screen's width), while an ink
+ * slash with the sound effect cuts the other way across the opposite band. Both cut out again and
+ * the table is back. The newest meld's own band stays clear the whole time, so you always see the
+ * cards that did it. It never takes input, and reduced motion skips it (impactOnce).
+ */
+export const IMPACT_MS = 560;
+const IMPACT_TILT = (6 * Math.PI) / 180;
+let impactRuler: CanvasRenderingContext2D | null = null;
+/** Width of a line of finisher lettering at 100px, in the display face. */
+const impactUnit = (t: string) => {
+  impactRuler ??= typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
+  if (!impactRuler) return t.length * 52;
+  impactRuler.font = '100px Bangers, Impact, sans-serif';
+  return impactRuler.measureText(t).width + t.length * 2; // letter-spacing .02em
+};
+/**
+ * Font size, stretch and line split for the finisher word. The tilted block (widest line, plus the
+ * stroke on both sides and the shadow, by the stack's height) has to fit `budget` across and the
+ * band's height down. On a phone a long word stacks on two lines, split where the wider line is
+ * narrowest.
+ */
+export function impactFit(text: string, w: number, bandH: number, narrow: boolean) {
+  const budget = w * (narrow ? 0.92 : 0.58);
+  const cos = Math.cos(IMPACT_TILT), sin = Math.sin(IMPACT_TILT);
+  const options: string[][] = [[text]];
+  if (narrow) text.split('').forEach((c, i) => { if (c === ' ') options.push([text.slice(0, i), text.slice(i + 1)]); });
+  let best = { font: 0, stretch: 1, words: [text] };
+  for (const words of options) {
+    const unit = Math.max(...words.map(impactUnit)) / 100;
+    // per px of font: line ink + stroke (0.06 each side) + shadow (0.06), and the stack's height
+    const across = (s: number) => (unit * s + 0.18) * cos + words.length * 0.92 * sin;
+    const byH = (bandH * 0.72) / (words.length * 0.95);
+    const font = Math.max(30, Math.min(budget / across(1), byH));
+    const stretch = Math.min(1.3, ((budget / font - words.length * 0.92 * sin) / cos - 0.18) / unit);
+    if (font > best.font + 0.5) best = { font, stretch: Math.max(1, stretch), words };
+  }
+  // the 30px floor must still fit
+  const unit = Math.max(...best.words.map(impactUnit)) / 100;
+  const maxF = budget / ((unit * best.stretch + 0.18) * cos + best.words.length * 0.92 * sin);
+  if (best.font > maxF) best.font = maxF;
+  return best;
+}
+const ImpactFrame: React.FC<{ kind: 'bomb' | 'heart5'; text: string; w: number; h: number; cx: number; cy: number; clearTop: number; clearBottom: number; onDone: () => void }> = ({ kind, text, w, h, cx, cy, clearTop, clearBottom, onDone }) => {
+  const heart = kind === 'heart5';
+  useEffect(() => { const t = window.setTimeout(onDone, IMPACT_MS + 40); return () => clearTimeout(t); }, [onDone]);
+  const narrow = w < 640;
+  const above = Math.max(0, clearTop), below = Math.max(0, h - clearBottom);
+  const mainTop = above >= below;
+  const band = (top: boolean) => (top ? { y0: 0, y1: clearTop } : { y0: clearBottom, y1: h });
+  const main = band(mainTop), minor = band(!mainTop);
+  const mainH = main.y1 - main.y0, minorH = minor.y1 - minor.y0;
+  // Lettering: as wide as 58% of the screen (92% on a phone), as tall as the band allows. Each line
+  // is measured with the real face, and the fit counts the -6° tilt, the ink stroke and the drop
+  // shadow, so the word always lands whole inside the frame. A horizontal stretch up to 1.3 makes
+  // up the width when the band is short.
+  const fit = impactFit(text, w, mainH, narrow);
+  const { font, stretch, words } = fit;
+  const lean = Math.min(w * 0.08, mainH * 0.28);
+  const slash = (y0: number, y1: number, l: number) => `polygon(0 ${y0 + l}px, 100% ${y0}px, 100% ${y1 - l}px, 0 ${y1}px)`;
+  const fill = heart ? '#D7192B' : '#E85D00';
+  const sfx = heart ? 'ゴゴゴ' : 'ドドン';
+  // the newest meld's band stays clear of the flash and lines
+  const mask = `linear-gradient(to bottom, #000 0, #000 ${clearTop}px, transparent ${clearTop}px, transparent ${clearBottom}px, #000 ${clearBottom}px)`;
+  const t = IMPACT_MS / 1000;
+  const cut = { duration: t, times: [0, 0.14, 0.72, 1], ease: 'easeOut' as const };
+  return (
+    <div aria-hidden data-impact={kind} className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 58 }}>
+      <div className="absolute inset-0" style={{ WebkitMaskImage: mask, maskImage: mask }}>
+        <motion.div className="absolute inset-0" style={{ background: heart ? '#D7192B' : '#FAFAF7' }}
+          initial={{ opacity: 0 }} animate={{ opacity: [0, 0.95, 0.85, 0] }} transition={{ duration: t * 0.5, times: [0, 0.15, 0.55, 1] }} />
+        <motion.div
+          className="impact-lines speed-lines absolute"
+          style={{ left: cx - 1600, top: cy - 1600, width: 3200, height: 3200, color: heart ? '#0B0B0D' : '#0B0B0D' }}
+          initial={{ rotate: 0, scale: 1.3, opacity: 0 }}
+          animate={{ rotate: 4, scale: 1, opacity: [0, 0.55, 0.45, 0] }}
+          transition={{ duration: t, ease: 'easeOut', opacity: { duration: t, times: [0, 0.12, 0.7, 1] } }}
+        />
+      </div>
+      {/* the word's slash: black offset, then the hot panel with a paper edge, then the lettering */}
+      <motion.div className="absolute inset-0" initial={{ x: mainTop ? '-105%' : '105%' }} animate={{ x: ['-105%', '0%', '0%', '105%'].map((v) => (mainTop ? v : v.startsWith('-') ? v.slice(1) : `-${v}`)) }} transition={cut}>
+        <div className="absolute inset-0" style={{ background: '#000', clipPath: slash(main.y0 + 14, main.y1 + 6, lean), transform: 'translate(14px, 0)' }} />
+        <div className="absolute inset-0" style={{ background: '#FAFAF7', clipPath: slash(main.y0, main.y1, lean) }} />
+        <div className="absolute inset-0 overflow-hidden" style={{ background: fill, clipPath: slash(main.y0 + 5, main.y1 - 5, lean) }}>
+          <div className="speed-lines absolute" style={{ left: cx - 1600, top: cy - 1600, width: 3200, height: 3200, color: 'rgba(11,11,13,.22)' }} />
+          <div className="tone absolute inset-0" style={{ color: 'rgba(11,11,13,.18)' }} />
+        </div>
+        <motion.div
+          data-impact-word
+          className="absolute left-0 right-0 flex flex-col items-center justify-center font-display text-paper"
+          style={{ top: main.y0, height: mainH, fontSize: font, lineHeight: 0.92, letterSpacing: '0.02em', WebkitTextStroke: `${Math.max(5, font * 0.06)}px #0B0B0D`, paintOrder: 'stroke fill', textShadow: `${font * 0.06}px ${font * 0.07}px 0 #0B0B0D` }}
+          initial={{ scale: 1.25, rotate: -10 }}
+          animate={{ scale: 1, rotate: -6 }}
+          transition={{ type: 'spring', stiffness: 700, damping: 18 }}
+        >
+          {words.map((wd, i) => <span key={i} className="block whitespace-nowrap" style={{ transform: `scaleX(${stretch})` }}>{wd}</span>)}
+        </motion.div>
+      </motion.div>
+      {/* the counter-slash: ink with the sound effect, cutting in from the other side */}
+      {minorH > 70 && (
+        <motion.div className="absolute inset-0" initial={{ x: mainTop ? '105%' : '-105%' }} animate={{ x: mainTop ? ['105%', '0%', '0%', '-105%'] : ['-105%', '0%', '0%', '105%'] }} transition={{ ...cut, times: [0, 0.2, 0.7, 1] }}>
+          <div className="absolute inset-0" style={{ background: '#FAFAF7', clipPath: slash(minor.y0 + minorH * 0.12, minor.y1 - minorH * 0.12, -Math.min(lean, minorH * 0.2)) }} />
+          <div className="absolute inset-0" style={{ background: '#0B0B0D', clipPath: slash(minor.y0 + minorH * 0.12 + 4, minor.y1 - minorH * 0.12 - 4, -Math.min(lean, minorH * 0.2)) }} />
+          <div className="font-sfx absolute left-0 right-0 flex items-center justify-center" style={{ top: minor.y0, height: minorH, fontSize: Math.min(minorH * 0.5, w * (narrow ? 0.2 : 0.12)), color: fill, WebkitTextStroke: '4px #FAFAF7', paintOrder: 'stroke fill', transform: 'rotate(5deg)', lineHeight: 1 }}>
+            {sfx}
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Your own seat, as a character panel like everyone else's: a tilted cut portrait frame with your
+ * initials overlapping a leaning ink plate that holds your name in a caption box and your record.
+ * Portrait and plate go orange on your turn. It sits under the status chip, above your hand.
+ */
+const MyPlate: React.FC<{ k: number; minW: number; name: string; badge?: string; wins: number; losses: number; live: boolean; leader: boolean; out: boolean; passBeat: number; plateRef: (el: HTMLDivElement | null) => void }> = ({ k, minW, name, badge, wins, losses, live, leader, out, passBeat, plateRef }) => {
+  const P = 'polygon(0 0, 100% 0, 100% 80%, 76% 100%, 0 100%)';
+  const fill = out ? '#8E8E8F' : live ? '#E85D00' : '#FAFAF7';
+  return (
+    <div ref={plateRef} data-plate data-my-plate className="relative flex items-center" style={{ minWidth: minW, filter: `drop-shadow(4px 4px 0 #000)` }}>
+      <div className="relative z-10 shrink-0 -rotate-[5deg]" style={{ width: 46 * k, height: 56 * k, marginRight: -8 * k }}>
+        <span aria-hidden className="absolute inset-0" style={{ background: live ? '#0B0B0D' : '#FAFAF7', clipPath: P }} />
+        <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: P }} />
+        <span aria-hidden className="absolute inset-[5px] overflow-hidden" style={{ background: fill, clipPath: P }}>
+          <span className="tone absolute inset-0 text-ink/25" style={{ clipPath: 'polygon(0 62%, 100% 30%, 100% 100%, 0 100%)' }} />
+        </span>
+        <span className="absolute inset-[5px] grid place-items-center font-display leading-none tracking-[0.02em] text-ink pt-1" style={{ fontSize: 23 * k }}>{badge ?? name.slice(0, 2).toUpperCase()}</span>
+        {leader && <Crown size={15} strokeWidth={2.75} className="absolute -top-2.5 -left-2 text-ember fill-paper drop-shadow-[2px_2px_0_#000]" aria-label="You lead this trick" />}
+      </div>
+      <div className="relative flex-1">
+        <span aria-hidden className="absolute inset-0" style={{ background: live ? '#E85D00' : '#FAFAF7', clipPath: 'polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)' }} />
+        <span aria-hidden className="absolute inset-[3px]" style={{ background: '#0B0B0D', clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)' }} />
+        <div className="relative flex items-center justify-between gap-2 pl-4 pr-4" style={{ paddingTop: 7 * k, paddingBottom: 7 * k }}>
+          <span className={`-rotate-2 px-1.5 pt-[2px] pb-[1px] font-extrabold leading-tight whitespace-nowrap max-w-[46vw] truncate ${live ? 'bg-ember text-ink' : 'bg-paper text-ink'}`}
+            style={{ fontSize: 14 * k, clipPath: 'polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%)' }}>{name}</span>
+          <span className="font-sans tabular-nums font-semibold text-mist whitespace-nowrap" style={{ fontSize: 12 * k }}>{wins}W·{losses}L</span>
+        </div>
+      </div>
+      <AnimatePresence>
+        {passBeat > 0 && <PassStamp key={passBeat} />}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 const PassStamp: React.FC = () => {
   const [on, setOn] = useState(true);
   useEffect(() => { const t = setTimeout(() => setOn(false), 1200); return () => clearTimeout(t); }, []);
   if (!on) return null;
   return (
     <motion.span
-      className="absolute left-full ml-2 top-1/2 font-sans tabular-nums font-extrabold text-[12px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/80"
+      className="absolute left-full ml-2 top-1/2 font-display text-[18px] leading-none tracking-[0.08em] px-2 pt-1 pb-0.5 border-[3px] border-ink text-ink bg-paper shadow-hard-sm"
       initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
       animate={{ y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
       exit={{ opacity: 0 }}

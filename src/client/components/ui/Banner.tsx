@@ -37,12 +37,18 @@ export const Banner: React.FC<BannerProps> = ({ className = '' }) => {
       }}
       onPointerLeave={() => { mx.set(0); my.set(0); }}
     >
+      {/* focus lines rushing at the fan, the opening splash page */}
+      <div aria-hidden className="relative">
+        <div className="speed-lines absolute left-1/2 top-1/2 pointer-events-none"
+          style={{ width: 1400, height: 1400, marginLeft: -700, marginTop: -620, color: 'rgba(250,250,247,.09)',
+            WebkitMaskImage: 'radial-gradient(circle, transparent 14%, #000 30%, transparent 60%)', maskImage: 'radial-gradient(circle, transparent 14%, #000 30%, transparent 60%)' }} />
+      </div>
       <motion.div className="relative mx-auto" style={{ width: `calc(${w} * 4.2)`, height: `calc(${w} * 1.75)`, rotateX: rotX, rotateY: rotY, transformPerspective: 900 }}>
         {FAN.map((c, i) => (
           <motion.div
             key={i}
             className="absolute left-1/2 top-1/2"
-            style={{ width: w, aspectRatio: '5 / 7', marginLeft: `calc(${w} / -2)`, marginTop: `calc(${w} * -0.7)`, zIndex: c.rank === 5 ? 10 : i, filter: 'drop-shadow(0 10px 14px rgba(0,0,0,.5))' }}
+            style={{ width: w, aspectRatio: '5 / 7', marginLeft: `calc(${w} / -2)`, marginTop: `calc(${w} * -0.7)`, zIndex: c.rank === 5 ? 10 : i, filter: 'drop-shadow(5px 6px 0 rgba(0,0,0,.85))' }}
             initial={{ y: 120, rotate: 0, opacity: 0, x: 0 }}
             animate={{ y: c.y, rotate: c.r, opacity: 1, x: `calc(${w} * ${c.x * 0.78})` }}
             transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.15 + Math.abs(i - 2) * 0.08 }}
@@ -56,12 +62,13 @@ export const Banner: React.FC<BannerProps> = ({ className = '' }) => {
       </motion.div>
 
       <motion.div className="text-center mt-2" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
-        <h1 className="font-display font-black text-paper leading-[0.9] text-[clamp(40px,11vw,76px)]" style={{ fontVariationSettings: '"SOFT" 100' }}>
-          Heart <span className="text-cinnabar">of</span> Five
+        <h1 className="relative font-display text-paper leading-[0.88] tracking-[0.03em] text-[clamp(52px,14vw,104px)] -rotate-2"
+          style={{ WebkitTextStroke: '0.09em #0B0B0D', paintOrder: 'stroke fill', textShadow: '0.07em 0.07em 0 #000' }}>
+          Heart <span className="text-blood">of</span> Five
         </h1>
-        <div className="mt-2 flex items-center justify-center gap-3">
-          <span className="font-seal font-black text-[13px] px-1.5 py-0.5 bg-cinnabar text-paper -rotate-2 whitespace-nowrap shrink-0">红心五</span>
-          <span className="font-sans tabular-nums text-[11px] tracking-[0.2em] text-mist">A FAMILY CARD GAME · 2–6 PLAYERS</span>
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <span className="font-seal font-black text-[14px] px-1.5 py-0.5 bg-blood text-paper border-2 border-ink shadow-hard-sm -rotate-3 whitespace-nowrap shrink-0">红心五</span>
+          <span className="font-display text-[16px] sm:text-[18px] tracking-[0.08em] text-bone">A family card brawl · 2–6 players</span>
         </div>
       </motion.div>
     </div>

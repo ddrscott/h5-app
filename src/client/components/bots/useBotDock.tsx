@@ -63,7 +63,7 @@ export function useBotDock({ room, myPlayerId, roomId, isHost, inLobby }: BotDoc
   const button = (
     <button
       onClick={() => setOpen(true)}
-      className={`relative grid place-items-center w-10 h-10 bg-ink/80 border text-bone hover:border-ember transition-colors ${status.enabled ? 'border-ember text-ember' : 'border-white/15'}`}
+      className={`relative icon-btn ${status.enabled ? "!border-ember !text-ember" : ""}`}
       title={status.enabled ? `${picked?.name} is playing for you` : 'Your bot'}
       aria-label="Your bot"
       data-testid="bot-dock-button"
@@ -87,7 +87,7 @@ export function useBotDock({ room, myPlayerId, roomId, isHost, inLobby }: BotDoc
           >
             <Bot size={15} className={status.thinking ? 'text-ember animate-pulse' : 'text-ember'} />
             <span className="min-w-0 truncate"><b>{picked.name}</b><span className="hidden sm:inline"> is playing for you</span></span>
-            <button className="shrink-0 px-2.5 py-1 bg-gray-800 border border-white/15 text-xs font-bold uppercase tracking-wide hover:border-ember" onClick={() => pilot?.setEnabled(false)}>
+            <button className="shrink-0 px-2.5 pt-1 pb-0.5 bg-ember text-ink font-display text-[15px] leading-none tracking-[0.05em] hover:bg-ember-hot" onClick={() => pilot?.setEnabled(false)}>
               Take over
             </button>
           </motion.div>

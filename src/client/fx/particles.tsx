@@ -18,9 +18,11 @@ let raf = 0;
 let last = 0;
 
 const PALETTES = {
-  ember: ['#FF7A1A', '#E85D00', '#F2CF7E', '#FFD9A8'],
-  brass: ['#F2CF7E', '#D6A54A', '#FFF1CC', '#C7352C'],
-  confetti: ['#E85D00', '#F2CF7E', '#C7352C', '#F6F0E2', '#2C6E60', '#FF7A1A'],
+  // Signal Orange and paper: the bomb's sparks.
+  ember: ['#FF7A1A', '#E85D00', '#FAFAF7', '#FFB27A'],
+  // Ink-and-paper flecks with a little red: everyday plays and the Heart 5.
+  ink: ['#FAFAF7', '#D9D9D4', '#D7192B', '#FAFAF7'],
+  confetti: ['#E85D00', '#FAFAF7', '#D7192B', '#0B0B0D', '#9A9AA0', '#FF7A1A'],
 };
 
 export interface BurstOpts {

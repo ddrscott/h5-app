@@ -54,7 +54,7 @@ await guest.goto(`${APP}/h5/play?room=${room}`);
 await guest.fill('input[placeholder="Enter your name"]', 'Gus');
 await guest.fill('input[aria-label="Room code"]', room);
 await guest.click('button:text-is("Join")');
-await guest.waitForSelector('text=Pull up a chair');
+await guest.waitForSelector("text=Who's in?");
 
 await host.click('button:has-text("Add Bot")');
 await host.waitForTimeout(800);

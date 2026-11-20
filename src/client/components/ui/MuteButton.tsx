@@ -9,7 +9,7 @@ export const MuteButton: React.FC<{ className?: string }> = ({ className = '' })
   return (
     <button
       onClick={() => { setMuted(!muted); if (muted) setTimeout(() => sfx.select(3), 30); }}
-      className={`grid place-items-center w-10 h-10 bg-ink/80 border border-white/15 text-bone hover:border-ember transition-colors ${className}`}
+      className={`icon-btn ${className}`}
       title={muted ? 'Sound and vibration off' : 'Sound and vibration on'}
       aria-label={muted ? 'Turn sound on' : 'Turn sound off'}
       aria-pressed={!muted}

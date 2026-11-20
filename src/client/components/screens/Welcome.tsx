@@ -63,7 +63,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 260, damping: 24, delay: 0.3 }}
         >
-          <div className="panel p-5 sm:p-6">
+          <div className="panel-cut panel-tilt p-6 sm:p-7">
             <label htmlFor="player-name" className="section-head block mb-2">Your name</label>
             <input
               id="player-name"
@@ -86,9 +86,9 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
               </button>
 
               <div className="flex items-center gap-3 my-1.5">
-                <div className="h-px flex-1 bg-white/10" />
+                <div className="h-[3px] flex-1 bg-paper/25" />
                 <span className="section-head">Or join a table</span>
-                <div className="h-px flex-1 bg-white/10" />
+                <div className="h-[3px] flex-1 bg-paper/25" />
               </div>
 
               <div className="flex gap-2">
@@ -111,7 +111,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
 
           <div className="mt-3 min-h-[24px] flex items-center justify-center gap-4 text-[13px] text-mist" data-account={account ? 'signed-in' : account === null ? 'guest' : 'loading'}>
             {account === null && (
-              <button onClick={openSignIn} className="text-bone/90 underline underline-offset-4 decoration-white/25 hover:text-ember hover:decoration-ember transition-colors">
+              <button onClick={openSignIn} className="font-semibold text-bone underline underline-offset-4 decoration-2 decoration-ember hover:text-ember transition-colors">
                 Sign in to keep your stats
               </button>
             )}
@@ -125,7 +125,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onJoinGame }) => {
             )}
           </div>
 
-          <div className="mt-2 flex justify-center gap-5 text-[13px] text-mist">
+          <div className="mt-2 flex justify-center gap-5 text-[14px] font-semibold text-mist">
             <button onClick={() => setShowTutor(true)} className="inline-flex items-center gap-1.5 hover:text-ember transition-colors">
               <BookOpen size={14} /> How to Play
             </button>

@@ -225,9 +225,19 @@ The sandbox script runs the test bots in `src/client/bots/sandbox/examples/`. Th
 
 ## Look and feel
 
-The art direction, card design, palette, type and motion rules are in [docs/VISUALS.md](docs/VISUALS.md). In short, the game has a lacquered jade table, warm card stock, cinnabar and brass, and Signal Orange for whatever is live. Cards are springy physical objects. Plays fly in from the seat that made them, and combo callouts, shake and particles scale with the play's strength. All sound is synthesized with the Web Audio API (`src/client/fx/sound.ts`), and one mute switch covers sound and vibration. The motion library is `motion` (`motion/react`), and the app runs inside `MotionConfig reducedMotion="user"`, so `prefers-reduced-motion` turns movement into fades.
+The art direction, card design, palette, type and motion rules are in [docs/VISUALS.md](docs/VISUALS.md). In short, the game looks like a page out of an action manga, in a style that's our own: ink black, paper white and screentone grays, Signal Orange for whatever is live, and blood red for danger and the Heart 5. Titles, callouts and buttons are hand-lettered in Bangers; body text is Barlow. Dialogs and big panels are cut manga panels: leaning edges, cut corners, a thick paper outline, a hard offset and a slight tilt. Buttons are slanted. Seats are character panels, a tilted portrait frame (a bot's original personality emblem, or a person's initials) overlapping a leaning name plate, your own seat included, and yours is never smaller than an opponent's. A seat that passed goes gray inside but stays solid ink. Names only ever break between words. The table is a screentone page with one angled ink stage panel cut across it where the cards land. Big plays get burst frames with focus lines and made-up katakana sound effects. A bomb, straight flush or the Heart 5 gets a finisher frame of just over half a second: a full-bleed slashed panel with the word in giant tilted lettering, sized so it always lands whole on screen, an ink counter-slash with the sound effect, and a short shake, all while the newest meld stays in view. Game over is a full-screen results page with the winner on a tilted slab. The genre is borrowed, nothing else: no characters, symbols or art from any real series. Cards are springy physical objects, and plays fly in from the seat that made them. All sound is synthesized with the Web Audio API (`src/client/fx/sound.ts`), and one mute switch covers sound and vibration. The motion library is `motion` (`motion/react`), and the app runs inside `MotionConfig reducedMotion="user"`, so `prefers-reduced-motion` turns movement into fades and drops the shake and impact frame.
 
-**No terminal aesthetic in this project.** It's a family card game, so there's no monospace font, no `// SECTION_HEADS`, no snake_case labels, and no `$` prompt markers. That overrides the owner's default visual signature. Keep the orange accent and the hard-edged panels.
+**No terminal aesthetic in this project.** It's a family card game, so there's no monospace font (except the code samples in the bot panel), no `// SECTION_HEADS`, no snake_case labels, and no `$` prompt markers. That overrides the owner's default visual signature. Keep the orange accent and the hard-edged panels.
+
+`scripts/shots-art.mjs` screenshots every screen headless (landing, welcome, sign-in, stats, lobby, bot panel, a real table against bots, the FX lab's deal, every meld callout, bomb, Heart 5 and game over, and the cards) at 1920×1080, 1100×1000, 1024×768 and 390×844. It signs in with dev codes, so run it against `npm run dev` with `.dev.vars` in place:
+
+```bash
+node scripts/shots-art.mjs http://localhost:5173 /tmp/art [screen]
+```
+
+Run it with `NAMES=long` to put 20-character names (the longest allowed) on everyone in the FX lab (`/h5/animation?names=long`). Every shot also checks that no seat name gets cut off without an ellipsis and that your YOU chip on the results page lands whole, and lists any miss under page errors.
+
+The table shot waits until the pile holds another seat's play (it passes or leads for you when it's your turn), and the bomb and Heart 5 shots catch the finisher frame mid-beat.
 
 Two pages help when working on it:
 
