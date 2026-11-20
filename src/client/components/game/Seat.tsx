@@ -22,6 +22,8 @@ export interface SeatProps {
   /** bumps when this player passes, to stamp PASS */
   passBeat: number;
   compact: boolean;
+  /** draws the whole seat this much bigger on a large screen (see seatScale) */
+  scale?: number;
   /** avatar letters, unique at this table (see seatBadges) */
   badge?: string;
   onKick?: () => void;
@@ -72,7 +74,7 @@ const TimerRing: React.FC<{ startedAt: number; size: number }> = ({ startedAt, s
   );
 };
 
-export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place, passBeat, compact, badge, onKick }) => {
+export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place, passBeat, compact, scale = 1, badge, onKick }) => {
   const absent = player.isActive === false;
   const out = player.isOut || (place !== undefined && place > 0);
   const [turnStart, setTurnStart] = useState(0);
@@ -95,7 +97,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
       className="absolute z-30 flex flex-col items-center w-max"
       style={{ left: x, top: y, x: '-50%', y: '-50%' }}
       initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: player.hasPassed && !active ? 0.62 : 1, scale: active ? 1.06 : 1 }}
+      animate={{ opacity: player.hasPassed && !active ? 0.62 : 1, scale: (active ? 1.06 : 1) * scale }}
       transition={{ type: 'spring', stiffness: 400, damping: 24 }}
     >
       {/* their hand, face down: a small fan whose size follows the card count */}

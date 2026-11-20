@@ -11,7 +11,7 @@ import { Callouts, showCallout, calloutFontPx, calloutSize, calloutTilt, splitCa
 import { GameOver } from './GameOver';
 import { DialogBox } from '../ui/DialogBox';
 import { CardBack } from '../ui/CardFace';
-import { useViewport, registry, fan, tableLanes, placeCallout, meldHalf, seatHalf } from '../../fx/layout';
+import { useViewport, registry, fan, tableLanes, placeCallout, meldHalf, seatHalf, seatScale } from '../../fx/layout';
 import type { Viewport } from '../../fx/layout';
 import { bus } from '../../fx/bus';
 import { sfx } from '../../fx/sound';
@@ -161,11 +161,12 @@ export const GameTable: React.FC<GameTableProps> = ({
   }, [order, myPlayerId]);
   // ---------- lanes: hand, status stack, pile, ring and callouts never share pixels ----------
   const compact = rawVp.w < 640;
-  const half = seatHalf(compact);
+  const sScale = seatScale(rawVp, compact);
+  const half = seatHalf(compact, sScale);
   const spots = useMemo(() => seatSpots(opponents.length, rawVp.w, rawVp.h, rawVp.portrait)
     .map((p) => ({ x: Math.min(rawVp.w - half.hw * 1.06 - 6, Math.max(half.hw * 1.06 + 6, p.x)), y: Math.max(56 + half.hh, p.y) })),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [opponents.length, rawVp, compact]);
+  [opponents.length, rawVp, compact, sScale]);
   const boxes = useMemo(() => spots.map((p) => ({ ...p, ...half })),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [spots]);
@@ -374,6 +375,7 @@ export const GameTable: React.FC<GameTableProps> = ({
               place={placeOf(p)}
               passBeat={passBeats[id] ?? 0}
               compact={compact}
+              scale={sScale}
               badge={badges.get(id)}
               onKick={isHost && onKick ? () => onKick(id) : undefined}
             />

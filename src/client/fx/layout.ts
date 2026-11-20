@@ -109,7 +109,15 @@ export function pileFlat(vp: Pick<Viewport, 'w' | 'PW' | 'pileHalf'>) {
 export interface SeatBox { x: number; y: number; hw: number; hh: number }
 
 /** Half sizes of an opponent's seat (card fan + nameplate), for keeping text off them. */
-export const seatHalf = (compact: boolean) => (compact ? { hw: 68, hh: 42 } : { hw: 104, hh: 48 });
+export const seatHalf = (compact: boolean, scale = 1) =>
+  compact ? { hw: 68, hh: 42 } : { hw: 104 * scale, hh: 48 * scale };
+/**
+ * How much bigger than its base size an opponent's seat draws on a large screen. Phones stay at 1;
+ * a 1440x900 laptop gets about 1.15 and a big monitor up to 1.6, so the seats don't look like
+ * stamps next to your own hand.
+ */
+export const seatScale = (vp: { w: number; h: number }, compact: boolean) =>
+  compact ? 1 : Math.min(1.6, Math.max(1, Math.min(vp.w / 1100, vp.h / 780)));
 /** Height of the status chip + your nameplate stack. */
 const STATUS_H = 62;
 const HEADER = 58;
