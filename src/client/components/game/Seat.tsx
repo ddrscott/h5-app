@@ -67,7 +67,7 @@ const TimerRing: React.FC<{ startedAt: number; size: number }> = ({ startedAt, s
     <svg className="absolute -inset-[5px] pointer-events-none" width={size + 10} height={size + 10} viewBox={`-5 -5 ${size + 10} ${size + 10}`} aria-label={`${Math.ceil(left * 30)} seconds`}>
       <circle cx={size / 2} cy={size / 2} r={r + 3} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="2.5" />
       <circle
-        cx={size / 2} cy={size / 2} r={r + 3} fill="none" stroke="#F2CF7E" strokeWidth="2.5"
+        cx={size / 2} cy={size / 2} r={r + 3} fill="none" stroke="#E85D00" strokeWidth="3"
         strokeDasharray={c} strokeDashoffset={c * (1 - left)} transform={`rotate(-90 ${size / 2} ${size / 2})`}
         style={{ transition: 'stroke-dashoffset .25s linear' }}
       />
@@ -125,7 +125,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
             initial={{ scale: 1.5 }}
             animate={{ scale: 1 }}
             data-count
-            className="absolute z-20 -right-3 -top-2 min-w-[22px] h-[20px] px-1 grid place-items-center font-sans tabular-nums text-[11px] font-bold bg-ink text-bone border border-white/20"
+            className="absolute z-20 -right-3 -top-2 min-w-[24px] h-[22px] px-1 grid place-items-center font-display text-[15px] leading-none pt-px bg-paper text-ink border-2 border-ink shadow-hard-sm"
           >
             {player.handCount}
           </motion.span>
@@ -136,7 +136,7 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
             <motion.div
               key={stamp}
               data-stamp
-              className="absolute z-10 pointer-events-none font-sans tabular-nums font-extrabold text-[13px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/85"
+              className="absolute z-10 pointer-events-none font-display text-[19px] leading-none tracking-[0.08em] px-2 pt-1 pb-0.5 border-[3px] border-ink text-ink bg-paper shadow-hard-sm"
               // low on the fan with its right edge short of the card count (top right), so the count stays readable
               style={{ top: (backW * 1.4 + 4) * 0.72, right: 14 }}
               initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
@@ -153,39 +153,43 @@ export const Seat: React.FC<SeatProps> = ({ player, x, y, active, leader, place,
       {/* nameplate */}
       <div
         data-plate
-        className={`relative flex items-center gap-2 pl-1 pr-2.5 py-1 border bg-ink/80 backdrop-blur-sm transition-colors duration-200 ${
-          active ? 'border-ember shadow-[0_0_0_1px_#E85D00,0_0_22px_rgba(232,93,0,.45)]' : 'border-white/15'
+        className={`relative flex items-center gap-2 pl-1 pr-2.5 py-1 border-[3px] bg-ink transition-colors duration-200 ${
+          active ? 'border-ember shadow-[5px_5px_0_0_#E85D00]' : 'border-paper shadow-hard'
         }`}
         style={{ maxWidth: compact ? 136 : 210 }}
       >
-        <div className="relative shrink-0 grid place-items-center font-sans tabular-nums font-extrabold text-[12px] text-ink"
-          style={{ width: av, height: av, background: out ? '#D6A54A' : active ? '#E85D00' : '#ECE5D3' }}>
-          {badge ?? initials(player.name)}
+        {/* the portrait: a small comic panel, screentone shading behind hand-lettered initials */}
+        <div className="relative shrink-0 grid place-items-center font-display text-[17px] leading-none tracking-[0.04em] text-ink"
+          style={{ width: av, height: av }}>
+          <span aria-hidden className="absolute inset-0 border-2 border-ink"
+            style={{ background: out ? '#8E8E8F' : active ? '#E85D00' : '#FAFAF7', clipPath: 'polygon(0 0, 100% 0, 100% 78%, 82% 100%, 0 100%)' }} />
+          <span aria-hidden className="tone absolute inset-0 text-ink/25" style={{ clipPath: 'polygon(0 55%, 100% 25%, 100% 78%, 82% 100%, 0 100%)' }} />
+          <span className="relative pt-0.5">{badge ?? initials(player.name)}</span>
           {active && absent && turnStart > 0 && <TimerRing startedAt={turnStart} size={av} />}
           {leader && (
             // top-right, so on the left seat it stays on screen
-            <Crown size={14} strokeWidth={2.5} className="absolute -top-2.5 -right-2 text-brass drop-shadow" aria-label="Leads this trick" />
+            <Crown size={16} strokeWidth={2.75} className="absolute -top-3 -right-2.5 text-ember fill-paper drop-shadow-[2px_2px_0_#000]" aria-label="Leads this trick" />
           )}
         </div>
         <div className="min-w-0 leading-tight">
           {/* full names, always: wrap to two lines on a phone rather than cut "Aggressive…" */}
-          <p className={`font-semibold break-words ${compact ? 'text-[11px] leading-[1.15] line-clamp-2' : 'text-[12px] truncate'} ${active ? 'text-bone' : 'text-bone/85'}`}>
+          <p className={`font-bold break-words ${compact ? 'text-[12px] leading-[1.1] line-clamp-2' : 'text-[13px] truncate'} ${active ? 'text-ember-hot' : 'text-bone'}`}>
             {player.name}
           </p>
-          <p className="font-sans tabular-nums text-[10px] text-mist flex items-center gap-1">
-            {absent && <WifiOff size={11} className="text-brass" aria-label="Disconnected" />}
+          <p className="font-sans tabular-nums text-[11px] font-semibold text-mist flex items-center gap-1">
+            {absent && <WifiOff size={11} className="text-paper" aria-label="Disconnected" />}
             {/* the live prompt sits on the stats line, so the name keeps both of its lines */}
             <span>{player.wins}W·{player.losses}L</span>
             {/* a bot's personality; on its turn the badge says it's thinking */}
             {player.isBot && <PersonaBadge persona={player.persona} thinking={active && !out && !absent} compact={compact} />}
-            {out && place ? <span className="text-brass font-bold">{ORDINAL[place] ?? `${place}TH`}</span> : null}
+            {out && place ? <span className="font-display text-[13px] leading-none px-1 pt-px bg-paper text-ink">{ORDINAL[place] ?? `${place}TH`}</span> : null}
           </p>
         </div>
         {onKick && absent && <KickButton name={player.name} onConfirm={onKick} />}
       </div>
       {player.autopilot && (
         <div
-          className="mt-1 flex items-center gap-1 px-1.5 py-0.5 bg-ink/85 border border-ember/70 text-[10px] font-semibold text-bone max-w-[150px]"
+          className="mt-1 flex items-center gap-1 px-1.5 py-0.5 bg-ink border-2 border-ember text-[11px] font-bold text-bone max-w-[150px]"
           title={`${player.autopilot}, an uploaded bot, is playing for ${player.name}`}
           data-autopilot
         >

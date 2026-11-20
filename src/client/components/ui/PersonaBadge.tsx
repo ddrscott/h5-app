@@ -23,11 +23,15 @@ export const PersonaBadge: React.FC<PersonaBadgeProps> = ({ persona, thinking = 
       data-persona={p?.id ?? 'bot'}
       title={title}
       aria-label={thinking ? `${label}, thinking` : label}
-      className={`inline-flex items-center gap-1 whitespace-nowrap ${thinking ? 'text-ember-hot' : 'text-bone/80'} ${className}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap ${thinking ? 'text-ember-hot' : 'text-bone'} ${className}`}
     >
-      <Icon size={12} strokeWidth={2.25} aria-hidden className={thinking ? 'animate-pulse' : ''} />
-      {/* a phone-sized seat has room for the icon only; it pulses orange while the bot thinks */}
-      {!compact && <span>{thinking ? 'thinking…' : label}</span>}
+      {/* the emblem: the personality's mark on a tilted paper tag, orange while it thinks */}
+      <span aria-hidden className={`grid place-items-center w-[15px] h-[15px] -rotate-6 border-[1.5px] border-ink ${thinking ? 'bg-ember animate-pulse' : 'bg-paper'}`}
+        style={{ boxShadow: '1.5px 1.5px 0 #000' }}>
+        <Icon size={10} strokeWidth={2.75} className="text-ink" />
+      </span>
+      {/* a phone-sized seat has room for the emblem only */}
+      {!compact && <span className="font-display text-[13px] leading-none tracking-[0.05em] pt-px">{thinking ? 'thinking…' : label}</span>}
     </span>
   );
 };

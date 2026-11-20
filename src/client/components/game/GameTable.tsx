@@ -75,20 +75,22 @@ const TableInlay: React.FC<{ vp: Viewport; r: number; top: boolean; bottom: bool
           {/* top arc, left to right */}
           <path id="inlayTop" d="M -100,0 a 100,100 0 0,1 200,0" />
           {/* bottom arc, also left to right so it reads upright */}
-          <path id="inlayBottom" d="M -108,0 a 108,108 0 0,0 216,0" />
-          <radialGradient id="inlayLight">
-            <stop offset="0%" stopColor="#2E7366" stopOpacity="0.55" />
-            <stop offset="70%" stopColor="#2E7366" stopOpacity="0" />
-          </radialGradient>
+          <path id="inlayBottom" d="M -112,0 a 112,112 0 0,0 224,0" />
+          {/* dry brush: roughen the stroke's edges */}
+          <filter id="dryBrush" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.9 0.06" numOctaves="2" seed="4" />
+            <feDisplacementMap in="SourceGraphic" scale="5" />
+          </filter>
         </defs>
-        <circle r="140" fill="url(#inlayLight)" />
-        {outer && <circle r="122" fill="none" stroke="#D6A54A" strokeOpacity="0.22" strokeWidth="0.8" />}
-        <g className="spin-slow" style={{ transformOrigin: '0 0' }}>
-          <circle r="88" fill="none" stroke="#D6A54A" strokeOpacity="0.18" strokeWidth="0.6" strokeDasharray="2 4" />
+        {outer && <circle r="124" fill="none" stroke="#FAFAF7" strokeOpacity="0.1" strokeWidth="1" strokeDasharray="30 6 4 6" />}
+        {/* one loaded brush stroke round the pile, lifting off before it closes */}
+        <g filter="url(#dryBrush)" fill="none" stroke="#FAFAF7" strokeLinecap="round">
+          <circle r="92" strokeOpacity="0.13" strokeWidth="9" strokeDasharray="520 58" transform="rotate(-62)" />
+          <circle r="92" strokeOpacity="0.1" strokeWidth="3" strokeDasharray="470 108" transform="rotate(-50) scale(1.05)" />
         </g>
-        <g fill="#D6A54A" fillOpacity="0.34" fontSize="11" fontFamily='"Fraunces Variable", "H5 Seal", Georgia, serif' fontWeight="700" letterSpacing="3">
-          {top && <text><textPath href="#inlayTop" startOffset="50%" textAnchor="middle">✦ HEART OF FIVE ✦</textPath></text>}
-          {bottom && <text><textPath href="#inlayBottom" startOffset="50%" textAnchor="middle">红心五 · IT'S DA BOMB</textPath></text>}
+        <g fill="#FAFAF7" fillOpacity="0.3" fontSize="14" fontFamily='Bangers, "H5 Seal", Impact, sans-serif' letterSpacing="2.5">
+          {top && <text><textPath href="#inlayTop" startOffset="50%" textAnchor="middle">HEART OF FIVE</textPath></text>}
+          {bottom && <text><textPath href="#inlayBottom" startOffset="50%" textAnchor="middle">红心五 · IT'S DA BOMB!</textPath></text>}
         </g>
       </svg>
     </div>
@@ -142,7 +144,7 @@ export const GameTable: React.FC<GameTableProps> = ({
   const rawVp = useViewport();
   const [scope, animate] = useAnimate<HTMLDivElement>();
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [flash, setFlash] = useState<{ id: number; color: string } | null>(null);
+  const [impact, setImpact] = useState<{ id: number; kind: 'bomb' | 'heart5' } | null>(null);
   const [passBeats, setPassBeats] = useState<Record<string, number>>({});
   const isPlaying = phase === GamePhase.PLAYING;
   const isMyTurn = isPlaying && currentTurnPlayerId === myPlayerId;
@@ -197,13 +199,15 @@ export const GameTable: React.FC<GameTableProps> = ({
   const placeOf = (p?: Player) => (p?.isOut && p.position ? p.position : undefined);
 
   // ---------- screen shake ----------
+  // Short and hard, like a panel jolting: never longer than about 0.4s, so play isn't held up.
   const shake = useCallback((px: number) => {
     if (!scope.current || reducedMotion() || px <= 0) return;
-    const a = px, b = px * 0.6;
-    void animate(scope.current, { x: [0, -a, a * 0.9, -b, b * 0.7, -b * 0.4, 0], y: [0, a * 0.5, -a * 0.6, b * 0.5, -b * 0.3, 0, 0] }, { duration: 0.42 + px * 0.012, ease: 'easeOut' });
+    const a = px, b = px * 0.55;
+    void animate(scope.current, { x: [0, -a, a * 0.9, -b, b * 0.5, 0], y: [0, a * 0.6, -a * 0.5, b * 0.4, 0, 0] }, { duration: Math.min(0.4, 0.22 + px * 0.01), ease: 'easeOut' });
   }, [animate, scope]);
 
-  const flashOnce = (color: string) => { if (!reducedMotion()) setFlash({ id: Date.now(), color }); };
+  /** The full-screen impact frame for a bomb or the Heart 5 (skipped under reduced motion). */
+  const impactOnce = (kind: 'bomb' | 'heart5') => { if (!reducedMotion()) setImpact({ id: Date.now(), kind }); };
 
   // ---------- a meld lands ----------
   const onLand = useCallback((meld: Meld, fx: PlayFx) => {
@@ -212,19 +216,19 @@ export const GameTable: React.FC<GameTableProps> = ({
     sfx.land(fx.level >= 3 ? 3 : n >= 5 ? 2 : 1);
     const cx = vp.pileX, cy = vp.pileY;
     if (fx.heart5) {
-      sfx.heart5(); haptics.heart5(); shake(10); flashOnce('rgba(199,53,44,.35)');
-      particles.burst({ x: cx, y: cy, kind: 'heart', palette: 'brass', count: 34, speed: 520 });
-      particles.burst({ x: cx, y: cy, kind: 'ember', palette: 'brass', count: 40, speed: 260 });
+      sfx.heart5(); haptics.heart5(); shake(12); impactOnce('heart5');
+      particles.burst({ x: cx, y: cy, kind: 'heart', palette: 'ink', count: 34, speed: 520 });
+      particles.burst({ x: cx, y: cy, kind: 'ember', palette: 'ink', count: 40, speed: 260 });
     } else if (fx.level === 3) {
-      sfx.bomb(); haptics.bomb(); shake(18); flashOnce('rgba(255,180,90,.42)');
+      sfx.bomb(); haptics.bomb(); shake(16); impactOnce('bomb');
       particles.burst({ x: cx, y: cy, kind: 'spark', count: 150, speed: 900 });
       particles.burst({ x: cx, y: cy, kind: 'ember', count: 70, speed: 340 });
     } else if (fx.level === 2) {
       sfx.flourish(1); shake(5);
-      particles.burst({ x: cx, y: cy, kind: 'spark', palette: 'brass', count: 34, speed: 520 });
+      particles.burst({ x: cx, y: cy, kind: 'spark', palette: 'ink', count: 34, speed: 520 });
     } else {
       shake(n > 1 ? 3 : 1.5);
-      if (n > 1) particles.burst({ x: cx, y: cy + vp.PH * 0.4, kind: 'spark', palette: 'brass', count: 8 + n * 2, speed: 260, angle: -Math.PI / 2, spread: Math.PI * 0.9 });
+      if (n > 1) particles.burst({ x: cx, y: cy + vp.PH * 0.4, kind: 'spark', palette: 'ink', count: 8 + n * 2, speed: 260, angle: -Math.PI / 2, spread: Math.PI * 0.9 });
     }
     if (fx.label) {
       showCallout({ text: fx.label, level: fx.level as 1 | 2 | 3 | 4, sub: who, ...lane(fx.label, fx.level, who, n) });
@@ -356,8 +360,8 @@ export const GameTable: React.FC<GameTableProps> = ({
         {/* the lamp over whoever's turn it is */}
         <motion.div
           aria-hidden
-          className="absolute pointer-events-none rounded-full"
-          style={{ width: 460, height: 460, left: -230, top: -230, background: 'radial-gradient(circle, rgba(255,190,120,.16), rgba(255,190,120,0) 62%)' }}
+          className="tone absolute pointer-events-none"
+          style={{ width: 420, height: 420, left: -210, top: -210, color: 'rgba(232,93,0,.28)', WebkitMaskImage: 'radial-gradient(circle, #000 0%, transparent 66%)', maskImage: 'radial-gradient(circle, #000 0%, transparent 66%)' }}
           initial={false}
           animate={light ? { x: light.x, y: light.y, opacity: 1 } : { opacity: 0 }}
           transition={{ type: 'spring', stiffness: 120, damping: 20 }}
@@ -397,25 +401,26 @@ export const GameTable: React.FC<GameTableProps> = ({
               <motion.div
                 key={status.err ? `e:${status.small}` : status.big}
                 role={status.err ? 'alert' : undefined}
-                className={`flex items-baseline gap-2 px-3 py-1 border ${status.err ? 'bg-cinnabar-deep text-paper border-cinnabar max-w-[min(92vw,560px)] flex-wrap justify-center text-center' : 'whitespace-nowrap'} ${status.hot ? 'bg-ember text-ink border-ember-hot shadow-[0_6px_24px_-6px_rgba(232,93,0,.8)]' : status.err ? '' : status.lead ? 'bg-ink/90 text-brass-light border-brass/60 font-sans tabular-nums uppercase tracking-[0.14em]' : 'bg-ink/80 text-bone border-white/15'}`}
+                className={`flex items-baseline gap-2 pl-4 pr-5 py-1 ${status.err ? 'bg-blood text-paper max-w-[min(92vw,560px)] flex-wrap justify-center text-center' : 'whitespace-nowrap'} ${status.hot ? 'bg-ember text-ink' : status.err ? '' : status.lead ? 'bg-paper text-ink' : 'bg-gray-800 text-bone'}`}
+                style={{ clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)' }}
                 initial={{ y: 14, opacity: 0, scale: status.hot ? 0.8 : 1 }}
                 animate={status.err ? { y: 0, opacity: 1, scale: 1, x: [0, -6, 6, -3, 0] } : { y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: -8, opacity: 0, transition: { duration: 0.12 } }}
                 transition={{ type: 'spring', stiffness: 500, damping: 22 }}
               >
-                <span className={`text-[13px] font-extrabold ${status.hot ? 'font-sans tabular-nums uppercase tracking-[0.14em]' : 'font-semibold'}`}>
+                <span className={`${status.hot || status.lead || status.err ? 'font-display text-[18px] leading-none tracking-[0.05em] uppercase' : 'text-[14px] font-bold'}`}>
                   
-                  {status.lead && <Crown size={13} className="inline -mt-0.5 mr-1.5 text-brass" />}
+                  {status.lead && <Crown size={14} strokeWidth={2.5} className="inline -mt-1 mr-1.5 text-ink" />}
                   {status.big}
                 </span>
-                {status.small && <span className={`text-[12px] ${status.hot ? 'text-ink/75' : status.err ? 'text-paper/90' : 'text-mist'}`}>{status.small}</span>}
+                {status.small && <span className={`text-[13px] font-semibold ${status.hot ? 'text-ink/80' : status.err ? 'text-paper/90' : 'text-mist'}`}>{status.small}</span>}
               </motion.div>
             )}
           </AnimatePresence>
           {me && (
-            <div ref={(el) => registry.seat(myPlayerId, el)} className="relative flex items-center gap-2 px-2 py-0.5 bg-ink/60 border border-white/10 font-sans tabular-nums text-[11px] text-mist">
-              {isLeader && <Crown size={12} className="text-brass" aria-label="You lead this trick" />}
-              <span className="text-bone font-semibold font-sans text-[12px]">{me.name}</span>
+            <div ref={(el) => registry.seat(myPlayerId, el)} className="relative flex items-center gap-2 px-2 py-0.5 bg-ink border-2 border-paper font-sans tabular-nums text-[12px] font-semibold text-mist shadow-hard-sm">
+              {isLeader && <Crown size={12} className="text-paper" aria-label="You lead this trick" />}
+              <span className="text-bone font-bold font-sans text-[13px]">{me.name}</span>
               <span>{me.wins}W·{me.losses}L</span>
               <AnimatePresence>
                 {(passBeats[myPlayerId] ?? 0) > 0 && (
@@ -480,17 +485,17 @@ export const GameTable: React.FC<GameTableProps> = ({
       {/* header */}
       <div className="absolute top-2 left-2 right-2 flex justify-between items-start z-50 pointer-events-none">
         <div className="flex items-center gap-2 pointer-events-auto">
-          <div className="font-seal grid place-items-center w-9 h-9 bg-cinnabar text-paper font-black text-[11px] leading-[1.05] text-center shadow-[inset_0_0_0_2px_rgba(246,240,226,.5)] -rotate-3" aria-hidden>
+          <div className="font-seal grid place-items-center w-9 h-9 bg-blood text-paper font-black text-[11px] leading-[1.05] text-center border-2 border-ink shadow-[inset_0_0_0_2px_rgba(250,250,247,.55),3px_3px_0_#000] -rotate-3" aria-hidden>
             红心<br />五
           </div>
-          <span className="hidden sm:block font-sans tabular-nums text-[11px] tracking-[0.2em] text-mist">HEART OF FIVE</span>
+          <span className="hidden sm:block font-display text-[18px] tracking-[0.06em] text-bone">HEART OF FIVE</span>
         </div>
         <div className="flex gap-2 pointer-events-auto">
           {headerExtra}
           <MuteButton />
           <button
             onClick={() => setShowLeaveConfirm(true)}
-            className="grid place-items-center w-10 h-10 bg-ink/80 border border-white/15 text-bone hover:border-ember transition-colors"
+            className="icon-btn"
             title="Leave game"
             aria-label="Leave game"
           >
@@ -500,18 +505,7 @@ export const GameTable: React.FC<GameTableProps> = ({
       </div>
 
       <AnimatePresence>
-        {flash && (
-          <motion.div
-            key={flash.id}
-            aria-hidden
-            className="fixed inset-0 pointer-events-none"
-            style={{ background: flash.color, zIndex: 65 }}
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 0 }}
-            transition={{ duration: 0.35 }}
-            onAnimationComplete={() => setFlash(null)}
-          />
-        )}
+        {impact && <ImpactFrame key={impact.id} kind={impact.kind} cx={vp.pileX} cy={vp.pileY} onDone={() => setImpact(null)} />}
       </AnimatePresence>
 
       <Callouts />
@@ -521,8 +515,8 @@ export const GameTable: React.FC<GameTableProps> = ({
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setShowLeaveConfirm(false)} />
           <DialogBox className="max-w-sm z-[81]">
-            <p className="section-head mb-2">Leave table</p>
-            <h3 className="font-display text-2xl font-bold mb-2">Leave the game?</h3>
+            <p className="section-head mb-3">Leave table</p>
+            <h3 className="font-display text-[34px] leading-none tracking-[0.03em] mb-3">Leaving already?</h3>
             <p className="text-gray-300 mb-5 text-sm">Your seat stays at the table, and the room plays for you after 30 seconds each turn.</p>
             <div className="flex gap-3">
               <button onClick={() => { setShowLeaveConfirm(false); onLeaveGame(); }} className="btn-primary flex-1">Leave</button>
@@ -548,13 +542,42 @@ export const GameTable: React.FC<GameTableProps> = ({
   );
 };
 
+/**
+ * A manga impact frame: one beat where the page flashes paper white (blood red for the Heart 5),
+ * then white focus lines rush at the pile and are gone. The middle stays clear so the cards that
+ * caused it are what you see. About half a second, and it never takes input.
+ */
+const ImpactFrame: React.FC<{ kind: 'bomb' | 'heart5'; cx: number; cy: number; onDone: () => void }> = ({ kind, cx, cy, onDone }) => {
+  const heart = kind === 'heart5';
+  const mask = `radial-gradient(ellipse 30vmax 22vmax at ${cx}px ${cy}px, transparent 0%, transparent 38%, #000 66%)`;
+  return (
+    <div aria-hidden className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 58, WebkitMaskImage: mask, maskImage: mask }}>
+      <motion.div
+        className="absolute inset-0"
+        style={{ background: heart ? '#D7192B' : '#FAFAF7' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 0.92, 0] }}
+        transition={{ duration: 0.18, times: [0, 0.25, 1], ease: 'easeOut' }}
+      />
+      <motion.div
+        className="impact-lines speed-lines absolute"
+        style={{ left: cx - 1500, top: cy - 1500, width: 3000, height: 3000, color: heart ? '#FF5A66' : '#FAFAF7' }}
+        initial={{ rotate: 0, scale: 1.25, opacity: 0 }}
+        animate={{ rotate: 5, scale: 1, opacity: [0, 0.85, 0.7, 0] }}
+        transition={{ duration: 0.5, ease: 'easeOut', opacity: { duration: 0.5, times: [0, 0.12, 0.5, 1] } }}
+        onAnimationComplete={onDone}
+      />
+    </div>
+  );
+};
+
 const PassStamp: React.FC = () => {
   const [on, setOn] = useState(true);
   useEffect(() => { const t = setTimeout(() => setOn(false), 1200); return () => clearTimeout(t); }, []);
   if (!on) return null;
   return (
     <motion.span
-      className="absolute left-full ml-2 top-1/2 font-sans tabular-nums font-extrabold text-[12px] tracking-[0.2em] px-2 py-0.5 border-2 border-bone/80 text-bone bg-ink/80"
+      className="absolute left-full ml-2 top-1/2 font-display text-[18px] leading-none tracking-[0.08em] px-2 pt-1 pb-0.5 border-[3px] border-ink text-ink bg-paper shadow-hard-sm"
       initial={{ y: '-50%', scale: 1.8, rotate: -14, opacity: 0 }}
       animate={{ y: '-50%', scale: 1, rotate: -8, opacity: 1 }}
       exit={{ opacity: 0 }}

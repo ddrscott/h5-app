@@ -16,7 +16,7 @@ interface ConnectionOverlayProps {
 export const ConnectionOverlay: React.FC<ConnectionOverlayProps> = ({ status, lost, onHome }) => {
   if (status === 'reconnecting') {
     return (
-      <div className="fixed top-0 left-0 right-0 z-[90] bg-brass text-ink shadow-lg" role="status" aria-live="polite">
+      <div className="fixed top-0 left-0 right-0 z-[90] bg-paper text-ink shadow-lg" role="status" aria-live="polite">
         <div className="flex items-center justify-center gap-2 py-2 px-4">
           <Loader2 size={16} className="animate-spin text-ink" />
           <p className="text-ink font-semibold text-sm">Reconnecting… your seat is saved.</p>

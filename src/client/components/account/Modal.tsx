@@ -12,7 +12,7 @@ export const Modal: React.FC<{ title: string; label: string; onClose: () => void
 
   return (
     <div className="fixed inset-0 z-[85] flex items-center justify-center p-4 overflow-y-auto">
-      <motion.div className="absolute inset-0 bg-ink/75 backdrop-blur-[3px]" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} />
+      <motion.div className="absolute inset-0 bg-ink/80" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} />
       <motion.div
         className="relative panel w-full max-w-md p-5 sm:p-6"
         role="dialog"
@@ -22,11 +22,11 @@ export const Modal: React.FC<{ title: string; label: string; onClose: () => void
         animate={{ y: 0, scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 360, damping: 26 }}
       >
-        <button onClick={onClose} className="absolute top-3 right-3 p-1.5 text-mist hover:text-bone transition-colors" aria-label="Close">
+        <button onClick={onClose} className="icon-btn !w-9 !h-9 absolute top-3 right-3" aria-label="Close">
           <X size={18} />
         </button>
-        <p className="section-head mb-1.5">{label}</p>
-        <h2 id="modal-title" className="font-display font-black text-[28px] leading-tight text-paper mb-4 pr-8">{title}</h2>
+        <p className="section-head mb-3">{label}</p>
+        <h2 id="modal-title" className="font-display text-[36px] leading-[0.95] tracking-[0.03em] text-paper mb-4 pr-10">{title}</h2>
         {children}
       </motion.div>
     </div>

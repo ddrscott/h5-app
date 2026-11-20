@@ -81,6 +81,8 @@ export const AnimationTest: React.FC = () => {
     ['Ann: pair', () => oppPlay('ann', [card(9, 'H'), card(9, 'D')], MeldType.PAIR)],
     ['Bo: triple', () => oppPlay('bo', [card(10, 'H'), card(10, 'C'), card(10, 'S')], MeldType.THREE_OF_KIND)],
     ['Cy: straight', () => oppPlay('cy', [card(5, 'S'), card(6, 'C'), card(7, 'S'), card(8, 'D'), card(9, 'C')], MeldType.RUN)],
+    ['Ann: full house', () => oppPlay('ann', [card(12, 'H'), card(12, 'C'), card(12, 'D'), card(6, 'S'), card(6, 'H')], MeldType.FULL_HOUSE)],
+    ['Bo: sisters', () => oppPlay('bo', [card(6, 'C'), card(6, 'D'), card(7, 'H'), card(7, 'D'), card(8, 'C'), card(8, 'S')], MeldType.SISTERS)],
     ['Ann: BOMB', () => oppPlay('ann', S.map((s) => card(11, s)), MeldType.BOMB)],
     ['Bo: str. flush', () => oppPlay('bo', [7, 8, 9, 10, 11].map((r) => card(r, 'D')), MeldType.STRAIGHT_FLUSH)],
     ['Cy: Heart 5', () => oppPlay('cy', [card(5, 'H')], MeldType.SINGLE)],
@@ -140,7 +142,7 @@ export const AnimationTest: React.FC = () => {
         onPlayAgain={() => steps[0][1]()}
         isHost
       />
-      <div className="fixed left-2 top-14 z-[90] w-[148px] panel p-2 flex flex-col gap-1 max-h-[80vh] overflow-auto" style={{ display: panel ? undefined : 'none' }}>
+      <div data-lab-panel className="fixed left-2 top-14 z-[90] w-[148px] panel p-2 flex flex-col gap-1 max-h-[80vh] overflow-auto" style={{ display: panel ? undefined : 'none' }}>
         <p className="section-head mb-1">Fx lab</p>
         {steps.map(([label, fn]) => (
           <button key={label} onClick={fn} className="text-left text-[11px] font-sans tabular-nums px-2 py-1 bg-gray-800 hover:bg-gray-700 border border-white/10">{label}</button>

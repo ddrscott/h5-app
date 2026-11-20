@@ -28,7 +28,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
       content: (
         <div className="space-y-4">
           <div className="space-y-2">
-            <h3 className="font-bold text-gold">Players & Cards</h3>
+            <h3 className="font-display text-[19px] tracking-[0.04em] text-paper">Players & Cards</h3>
             <ul className="list-disc list-inside text-sm space-y-1">
               <li>2-6 players can play</li>
               <li>Uses a standard 52-card deck</li>
@@ -37,7 +37,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
             </ul>
           </div>
           <div className="space-y-2">
-            <h3 className="font-bold text-gold">Card Rankings</h3>
+            <h3 className="font-display text-[19px] tracking-[0.04em] text-paper">Card Rankings</h3>
             <p className="text-sm">From lowest to highest: 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A, 2</p>
             <p className="text-sm text-yellow-400">Special: The Heart 5 (♥5) beats everything!</p>
           </div>
@@ -51,14 +51,14 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
           <p className="text-sm">You can play these combinations:</p>
           <div className="space-y-3">
             <div>
-              <p className="font-bold text-gold">Singles</p>
+              <p className="font-display text-[19px] tracking-[0.04em] text-paper">Singles</p>
               <div className="flex justify-center">
                 <Card suit="S" rank={7} className="scale-50" />
               </div>
               <p className="text-xs text-gray-400 text-center">Any single card</p>
             </div>
             <div>
-              <p className="font-bold text-gold">Pairs</p>
+              <p className="font-display text-[19px] tracking-[0.04em] text-paper">Pairs</p>
               <div className="flex justify-center space-x-1">
                 <Card suit="H" rank={8} className="scale-50" />
                 <Card suit="D" rank={8} className="scale-50" />
@@ -66,7 +66,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
               <p className="text-xs text-gray-400 text-center">Two cards of the same rank</p>
             </div>
             <div>
-              <p className="font-bold text-gold">Triplets (Three of a Kind)</p>
+              <p className="font-display text-[19px] tracking-[0.04em] text-paper">Triplets (Three of a Kind)</p>
               <div className="flex justify-center space-x-1">
                 <Card suit="C" rank={9} className="scale-50" />
                 <Card suit="H" rank={9} className="scale-50" />
@@ -84,7 +84,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
         <div className="space-y-4">
           <div className="space-y-3">
             <div>
-              <p className="font-bold text-gold">Straight (5+ cards)</p>
+              <p className="font-display text-[19px] tracking-[0.04em] text-paper">Straight (5+ cards)</p>
               <div className="flex justify-center space-x-1">
                 <Card suit="S" rank={5} className="scale-50" />
                 <Card suit="H" rank={6} className="scale-50" />
@@ -95,7 +95,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
               <p className="text-xs text-gray-400 text-center">5 or more consecutive cards (2 cannot be used)</p>
             </div>
             <div>
-              <p className="font-bold text-gold">Pair Sequence (2+ pairs)</p>
+              <p className="font-display text-[19px] tracking-[0.04em] text-paper">Pair Sequence (2+ pairs)</p>
               <div className="flex justify-center space-x-1">
                 <Card suit="C" rank={8} className="scale-50" />
                 <Card suit="S" rank={8} className="scale-50" />
@@ -105,7 +105,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
               <p className="text-xs text-gray-400 text-center">2 or more consecutive pairs</p>
             </div>
             <div>
-              <p className="font-bold text-gold">Triplet Sequence (2+ triplets)</p>
+              <p className="font-display text-[19px] tracking-[0.04em] text-paper">Triplet Sequence (2+ triplets)</p>
               <div className="flex justify-center space-x-1">
                 <Card suit="H" rank={10} className="scale-50" />
                 <Card suit="D" rank={10} className="scale-50" />
@@ -124,7 +124,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
       title: "Special Hands - Bombs! 💣",
       content: (
         <div className="space-y-4">
-          <div className="p-3 bg-red-900/30 border border-red-600/50 rounded-lg mb-4">
+          <div className="p-3 bg-red-900/30 border border-red-600/50  mb-4">
             <p className="text-sm text-red-300">🔥 Bombs are special hands that can beat any regular combination!</p>
           </div>
           <div className="space-y-4">
@@ -149,7 +149,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
               </div>
               <p className="text-xs text-gray-400 text-center">5+ consecutive cards of the same suit - Beats four of a kind!</p>
             </div>
-            <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+            <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-600/30 ">
               <p className="text-sm text-yellow-300">💡 Bomb Rules:</p>
               <ul className="text-xs text-gray-300 mt-2 space-y-1">
                 <li>• Bombs can be played on any combination</li>
@@ -167,11 +167,11 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
       content: (
         <div className="space-y-4">
           <div className="space-y-2">
-            <h3 className="font-bold text-gold">Starting the Game</h3>
+            <h3 className="font-display text-[19px] tracking-[0.04em] text-paper">Starting the Game</h3>
             <p className="text-sm">The player with the 3 of Diamonds (♦3) goes first and must play it.</p>
           </div>
           <div className="space-y-2">
-            <h3 className="font-bold text-gold">Taking Turns</h3>
+            <h3 className="font-display text-[19px] tracking-[0.04em] text-paper">Taking Turns</h3>
             <ul className="list-disc list-inside text-sm space-y-1">
               <li>Play a higher card/combination of the same type</li>
               <li>Or pass if you can't (or don't want to) play</li>
@@ -180,7 +180,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
             </ul>
           </div>
           <div className="space-y-2">
-            <h3 className="font-bold text-gold">Leading New Tricks</h3>
+            <h3 className="font-display text-[19px] tracking-[0.04em] text-paper">Leading New Tricks</h3>
             <p className="text-sm">When everyone passes, the last player to play leads the next trick with any valid combination.</p>
           </div>
         </div>
@@ -191,7 +191,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
       content: (
         <div className="space-y-4">
           <div className="space-y-2">
-            <h3 className="font-bold text-gold">Understanding Game Flow</h3>
+            <h3 className="font-display text-[19px] tracking-[0.04em] text-paper">Understanding Game Flow</h3>
             <ul className="list-disc list-inside text-sm space-y-2">
               <li><span className="text-yellow-400">Trick:</span> One play sequence from leader to new leader</li>
               <li><span className="text-yellow-400">Game:</span> Multiple tricks until all but one player are out of cards</li>
@@ -199,7 +199,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
             </ul>
           </div>
           <div className="space-y-2">
-            <h3 className="font-bold text-gold">How Games End</h3>
+            <h3 className="font-display text-[19px] tracking-[0.04em] text-paper">How Games End</h3>
             <ul className="list-disc list-inside text-sm space-y-1">
               <li>First player out of cards wins the game (gets a win)</li>
               <li>Last player with cards loses the game (gets a loss)</li>
@@ -207,7 +207,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
               <li>No target number of games - play as long as you want!</li>
             </ul>
           </div>
-          <div className="mt-4 p-3 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+          <div className="mt-4 p-3 bg-blue-900/20 border border-blue-600/30 ">
             <p className="text-sm text-blue-300">💡 After each game, you'll see cumulative stats and can choose to play again or leave.</p>
           </div>
         </div>
@@ -218,7 +218,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
       content: (
         <div className="space-y-4">
           <div className="space-y-2">
-            <h3 className="font-bold text-gold">🎯 Pro Tips</h3>
+            <h3 className="font-display text-[19px] tracking-[0.04em] text-paper">🎯 Pro Tips</h3>
             <ul className="list-disc list-inside text-sm space-y-2">
               <li><span className="text-yellow-400">Save the Heart 5:</span> It's your trump card!</li>
               <li><span className="text-yellow-400">Break up pairs:</span> Sometimes it's better to play singles</li>
@@ -228,7 +228,7 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
               <li><span className="text-red-400">Watch for bombs:</span> Four of a kind and straight flushes are rare but powerful</li>
             </ul>
           </div>
-          <div className="mt-4 p-3 bg-gray-700/50 rounded-lg">
+          <div className="mt-4 p-3 bg-gray-700/50 ">
             <p className="text-sm text-center">Ready to play? Join a game and have fun!</p>
           </div>
         </div>
@@ -250,13 +250,14 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden">
+      <div className="panel max-w-2xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="bg-gray-900 px-6 py-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gold">How to Play</h2>
+        <div className="px-6 pt-5 pb-3 flex justify-between items-center border-b-[3px] border-paper">
+          <h2 className="font-display text-[34px] leading-none tracking-[0.03em] text-paper">How to play</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="icon-btn !w-9 !h-9"
+            aria-label="Close"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -266,22 +267,18 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[60vh]">
-          <h3 className="text-lg font-bold mb-4 text-center">
+          <h3 className="font-display text-[26px] leading-none tracking-[0.03em] mb-4 text-center">
             {tutorialPages[currentPage].title}
           </h3>
           {tutorialPages[currentPage].content}
         </div>
 
         {/* Navigation */}
-        <div className="bg-gray-900 px-6 py-4 flex justify-between items-center">
+        <div className="px-6 py-4 flex justify-between items-center border-t-[3px] border-paper">
           <button
             onClick={prevPage}
             disabled={currentPage === 0}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              currentPage === 0
-                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                : 'bg-gray-700 hover:bg-gray-600 text-white'
-            }`}
+            className="btn-secondary"
           >
             Previous
           </button>
@@ -290,8 +287,8 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
             {tutorialPages.map((_, index) => (
               <div
                 key={index}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  index === currentPage ? 'bg-gold' : 'bg-gray-600'
+                className={`w-3 h-3 border-2 border-ink -skew-x-12 transition-colors ${
+                  index === currentPage ? 'bg-ember' : 'bg-gray-500'
                 }`}
               />
             ))}
@@ -300,14 +297,14 @@ export const Tutor: React.FC<TutorProps> = ({ onClose }) => {
           {currentPage === tutorialPages.length - 1 ? (
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gold hover:bg-gold-dark text-gray-900 font-bold rounded-lg transition-colors"
+              className="btn-primary"
             >
               Start Playing!
             </button>
           ) : (
             <button
               onClick={nextPage}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors"
+              className="btn-secondary"
             >
               Next
             </button>

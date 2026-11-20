@@ -19,7 +19,7 @@ export const LayoutTest: React.FC = () => {
           <div className="flex gap-8 px-8">
           {/* Portrait View */}
           <div className="space-y-2">
-            <h2 className="text-lg font-semibold text-gold">iPhone Portrait ({Math.round(portraitWidth)}x{Math.round(portraitHeight)})</h2>
+            <h2 className="text-lg font-semibold text-paper">iPhone Portrait ({Math.round(portraitWidth)}x{Math.round(portraitHeight)})</h2>
             <div 
               className="bg-black rounded-lg overflow-hidden shadow-2xl mx-auto"
               style={{ width: `${portraitWidth}px`, height: `${portraitHeight}px` }}
@@ -35,7 +35,7 @@ export const LayoutTest: React.FC = () => {
           
           {/* Landscape View */}
           <div className="space-y-2">
-            <h2 className="text-lg font-semibold text-gold">iPhone Landscape ({Math.round(landscapeWidth)}x{Math.round(landscapeHeight)})</h2>
+            <h2 className="text-lg font-semibold text-paper">iPhone Landscape ({Math.round(landscapeWidth)}x{Math.round(landscapeHeight)})</h2>
             <div 
               className="bg-black rounded-lg overflow-hidden shadow-2xl mx-auto"
               style={{ width: `${landscapeWidth}px`, height: `${landscapeHeight}px` }}

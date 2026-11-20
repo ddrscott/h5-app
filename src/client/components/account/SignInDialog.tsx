@@ -52,7 +52,7 @@ export const SignInDialog: React.FC<Props> = ({ initialEmail = '', initialError,
     <Modal label="Your account" title="Keep your stats" onClose={onClose}>
       {step === 'email' ? (
         <form onSubmit={(e) => { e.preventDefault(); void send(); }}>
-          <p className="text-sm text-bone/80 mb-4">
+          <p className="text-[15px] font-medium text-bone mb-4">
             Sign in with your email and every game you finish is saved: wins, losses and places, against people and against the computer. No password. We'll email you a code.
           </p>
           <label htmlFor="signin-email" className="section-head block mb-2">Email</label>
@@ -67,7 +67,7 @@ export const SignInDialog: React.FC<Props> = ({ initialEmail = '', initialError,
             autoFocus
             required
           />
-          {error && <p className="mt-3 text-sm text-cinnabar" role="alert">{error}</p>}
+          {error && <p className="mt-3 text-sm text-blood" role="alert">{error}</p>}
           <button type="submit" disabled={busy || !email.trim()} className="btn-primary w-full h-12 mt-4">
             <Mail size={17} /> {busy ? 'Sending…' : 'Email me a code'}
           </button>
@@ -75,11 +75,11 @@ export const SignInDialog: React.FC<Props> = ({ initialEmail = '', initialError,
         </form>
       ) : (
         <form onSubmit={(e) => { e.preventDefault(); void verify(); }}>
-          <p className="text-sm text-bone/80 mb-4">
+          <p className="text-[15px] font-medium text-bone mb-4">
             We sent a 6-digit code to <span className="text-paper font-semibold break-all">{email}</span>. Type it here, or tap the link in the email.
           </p>
           {devCode && (
-            <p className="mb-4 px-3 py-2 border border-brass/40 bg-brass/10 text-sm text-brass-light">
+            <p className="mb-4 px-3 py-2 border-2 border-ember bg-ember/10 text-sm font-semibold text-bone">
               Local dev, so no email went out. Your code is <span className="font-bold tabular-nums tracking-[0.2em]">{devCode}</span>
             </p>
           )}
@@ -97,7 +97,7 @@ export const SignInDialog: React.FC<Props> = ({ initialEmail = '', initialError,
             className="field text-center text-2xl tabular-nums tracking-[0.4em] placeholder:tracking-[0.4em]"
             autoFocus
           />
-          {error && <p className="mt-3 text-sm text-cinnabar" role="alert">{error}</p>}
+          {error && <p className="mt-3 text-sm text-blood" role="alert">{error}</p>}
           <button type="submit" disabled={busy || code.length !== 6} className="btn-primary w-full h-12 mt-4">
             {busy ? 'Checking…' : 'Sign in'}
           </button>

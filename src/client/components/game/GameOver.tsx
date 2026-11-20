@@ -55,7 +55,7 @@ const StatsLine: React.FC = () => {
   if (account === null) {
     return (
       <div className="flex items-center justify-between gap-3 mb-4 text-[13px]" data-stats-line="guest">
-        <span className="text-mist">Guest results end with the room.</span>
+        <span className="text-mist font-semibold">Guest results vanish with the room.</span>
         <button onClick={openSignIn} className="text-bone underline underline-offset-4 decoration-white/30 hover:text-ember hover:decoration-ember transition-colors shrink-0">
           Sign in to keep your stats
         </button>
@@ -67,7 +67,7 @@ const StatsLine: React.FC = () => {
     : 'Your stats count from the next game';
   return (
     <div className="flex items-center justify-between gap-3 mb-4 text-[13px]" data-stats-line={statsStatus.state}>
-      <span className={`inline-flex items-center gap-1.5 ${statsStatus.state === 'saved' ? 'text-brass-light' : 'text-mist'}`}>
+      <span className={`inline-flex items-center gap-1.5 ${statsStatus.state === 'saved' ? 'text-paper' : 'text-mist'}`}>
         {statsStatus.state === 'saved' && <Check size={15} strokeWidth={2.6} />}{text}
       </span>
       <button onClick={openStats} className="inline-flex items-center gap-1.5 text-bone hover:text-ember transition-colors shrink-0">
@@ -110,7 +110,7 @@ export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, play
   let tickN = 0;
   return (
     <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
-      <motion.div className="absolute inset-0 bg-ink/70 backdrop-blur-[3px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} />
+      <motion.div className="absolute inset-0 bg-ink/80" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} />
       <motion.div
         className="relative panel w-full max-w-md p-5 sm:p-6"
         initial={{ y: 40, scale: 0.9, opacity: 0 }}
@@ -122,7 +122,7 @@ export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, play
         <p className="section-head mb-3">Game result</p>
         <div className="flex items-center gap-3 mb-1">
           <motion.div
-            className="grid place-items-center w-12 h-12 bg-brass text-ink shrink-0"
+            className="grid place-items-center w-14 h-14 bg-ember text-ink border-[3px] border-paper shadow-hard shrink-0"
             initial={{ rotate: -30, scale: 0 }}
             animate={{ rotate: -4, scale: 1 }}
             transition={{ type: 'spring', stiffness: 500, damping: 14, delay: 0.35 }}
@@ -131,18 +131,18 @@ export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, play
           </motion.div>
           <motion.h1
             id="go-title"
-            className="font-display font-black leading-[0.95] text-[clamp(30px,8vw,44px)] text-paper"
+            className="font-display leading-[0.92] tracking-[0.03em] text-[clamp(38px,10vw,58px)] text-paper"
             initial={{ y: 18, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 400, damping: 22, delay: 0.3 }}
           >
-            {iWon ? 'You win!' : <>{winner.name} <span className="text-brass">wins</span></>}
+            {iWon ? 'You win!' : <>{winner.name} <span className="inline-block bg-paper text-ink px-2 -rotate-2">wins!</span></>}
           </motion.h1>
         </div>
-        <p className="text-sm text-mist mb-5">{iWon ? 'First out. The table is yours.' : 'First out takes the game.'}</p>
+        <p className="text-[15px] font-semibold text-mist mb-5">{iWon ? 'First one out. Nobody laid a finger on you.' : 'First one out takes it all.'}</p>
 
-        <div className="border border-white/10 mb-5">
-          <div className="grid grid-cols-[3.2rem_1fr_3rem_3rem] px-3 py-1.5 font-sans tabular-nums text-[10px] tracking-[0.18em] text-mist border-b border-white/10">
+        <div className="border-[3px] border-paper mb-5">
+          <div className="grid grid-cols-[3.2rem_1fr_3rem_3rem] px-3 pt-2 pb-1 font-display text-[15px] leading-none tracking-[0.08em] text-mist border-b-[3px] border-paper">
             <span>OUT</span><span>PLAYER</span><span className="text-right">W</span><span className="text-right">L</span>
           </div>
           {rows.map((r, i) => {
@@ -152,20 +152,20 @@ export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, play
             return (
               <motion.div
                 key={r.playerId}
-                className={`relative grid grid-cols-[3.2rem_1fr_3rem_3rem] items-center px-3 py-2 border-b border-white/5 last:border-b-0 ${first ? 'bg-brass/10' : ''}`}
+                className={`relative grid grid-cols-[3.2rem_1fr_3rem_3rem] items-center px-3 py-2 border-b-2 border-gray-700 last:border-b-0 ${first ? 'bg-paper text-ink' : ''}`}
                 initial={{ x: -30, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 420, damping: 26, delay: 0.55 + i * 0.12 }}
               >
-                <span className={`font-sans tabular-nums text-[13px] font-bold ${first ? 'text-brass' : r.place ? 'text-bone/80' : 'text-cinnabar'}`}>
+                <span className={`font-display text-[20px] leading-none tracking-[0.04em] ${first ? 'text-ink' : r.place ? 'text-bone' : 'text-blood'}`}>
                   {r.place ? ORD[r.place] : 'last'}
                 </span>
-                <span className={`truncate text-[14px] ${me ? 'text-paper font-semibold' : 'text-bone/90'}`}>
-                  {r.name}{me && <span className="ml-1.5 text-[11px] font-semibold text-ember">you</span>}
-                  {!r.place && r.cardsLeft > 0 && <span className="ml-2 font-sans tabular-nums text-[10px] text-mist">{r.cardsLeft} left</span>}
+                <span className={`truncate text-[15px] font-semibold ${first ? 'text-ink font-bold' : me ? 'text-paper font-bold' : 'text-bone'}`}>
+                  {r.name}{me && <span className="ml-1.5 font-display text-[14px] tracking-[0.05em] text-ember">YOU</span>}
+                  {!r.place && r.cardsLeft > 0 && <span className="ml-2 font-sans tabular-nums text-[12px] font-semibold text-blood">stuck with {r.cardsLeft}</span>}
                 </span>
-                <CountUp className={`text-right font-sans tabular-nums text-[15px] font-bold ${first ? 'text-brass-light' : 'text-bone'}`} from={b.wins} to={r.wins} delay={0.9 + i * 0.12} onTick={() => sfx.tick(tickN++)} />
-                <CountUp className="text-right font-sans tabular-nums text-[15px] text-mist" from={b.losses} to={r.losses} delay={1.0 + i * 0.12} onTick={() => sfx.tick(tickN++)} />
+                <CountUp className={`text-right font-display text-[22px] leading-none ${first ? 'text-ink' : 'text-bone'}`} from={b.wins} to={r.wins} delay={0.9 + i * 0.12} onTick={() => sfx.tick(tickN++)} />
+                <CountUp className={`text-right font-display text-[22px] leading-none ${first ? 'text-ink/60' : 'text-mist'}`} from={b.losses} to={r.losses} delay={1.0 + i * 0.12} onTick={() => sfx.tick(tickN++)} />
               </motion.div>
             );
           })}

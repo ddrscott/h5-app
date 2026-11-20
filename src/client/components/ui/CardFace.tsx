@@ -7,11 +7,11 @@ import React from 'react';
  * Corner indices are large on purpose: in a fanned hand on a phone only the left strip shows.
  */
 
-export const RED = '#C7352C';
-export const BLACK = '#1C1D24';
-export const BRASS = '#D6A54A';
-export const BRASS_DEEP = '#8C6420';
-export const PAPER = '#F6F0E2';
+export const RED = '#D7192B';
+export const BLACK = '#141416';
+export const INK = '#0B0B0D';
+export const ORANGE = '#E85D00';
+export const PAPER = '#FAFAF7';
 
 type SuitCode = 'H' | 'D' | 'C' | 'S';
 
@@ -55,43 +55,64 @@ const PIPS: Record<number, Array<[number, number, boolean?]>> = {
   10: [[L, 28], [R, 28], [C, 42], [L, 56], [R, 56], [L, 84, true], [R, 84, true], [C, 98, true], [L, 112, true], [R, 112, true]],
 };
 
-const SERIF = '"Fraunces Variable", Georgia, serif';
+/** Indices: Barlow ExtraBold, picked for legibility at a glance. Face letters: Bangers lettering. */
+const SANS = 'Barlow, "Arial Narrow", Arial, sans-serif';
+const LETTERING = 'Bangers, Impact, sans-serif';
 
 const Index: React.FC<{ label: string; suit: SuitCode; color: string; pipFill?: string }> = ({ label, suit, color, pipFill }) => (
   <g>
     <text
-      x={label.length > 1 ? 4.5 : 8} y="31" fill={color} fontFamily={SERIF} fontWeight="800" fontSize="29"
+      x={label.length > 1 ? 4.5 : 7.5} y="31" fill={color} fontFamily={SANS} fontWeight="800" fontSize="31"
       {...(label.length > 1 ? { textLength: 27, lengthAdjust: 'spacingAndGlyphs' } : {})}
     >{label}</text>
     <Pip suit={suit} x={label.length > 1 ? 18 : 17} y={45} size={19} fill={pipFill} />
   </g>
 );
 
-/** The Heart of Five: brass-framed, a seal stamp, five hearts around the five. */
-const HeartFive: React.FC = () => (
-  <>
-    <rect x="3.5" y="3.5" width="93" height="133" rx="4" fill="none" stroke={BRASS} strokeWidth="2.2" />
-    <rect x="6.5" y="6.5" width="87" height="127" rx="2.5" fill="none" stroke={BRASS} strokeWidth="0.6" opacity="0.8" />
-    <Index label="5" suit="H" color={RED} />
-    <g transform="rotate(180 50 70)"><Index label="5" suit="H" color={RED} /></g>
-    <circle cx="50" cy="70" r="27" fill="none" stroke={BRASS} strokeWidth="1.4" />
-    <circle cx="50" cy="70" r="23.5" fill="none" stroke={BRASS} strokeWidth="0.5" strokeDasharray="1.2 2" />
-    {[0, 1, 2, 3, 4].map((i) => {
-      const a = (i * 72 - 90) * (Math.PI / 180);
-      return <Pip key={i} suit="H" x={50 + Math.cos(a) * 33} y={70 + Math.sin(a) * 33} size={9} fill={BRASS} />;
-    })}
-    <Pip suit="H" x={50} y={71} size={36} />
-    <text x="50" y="76.5" textAnchor="middle" fill={PAPER} fontFamily={SERIF} fontWeight="800" fontSize="20">5</text>
-    {/* seal stamp: 红心五 */}
-    <g transform="translate(9 96) rotate(-4)">
-      <rect width="13" height="30" rx="1.5" fill={RED} />
-      <rect x="1.4" y="1.4" width="10.2" height="27.2" rx="1" fill="none" stroke={PAPER} strokeWidth="0.6" opacity="0.85" />
-      {['红', '心', '五'].map((ch, i) => (
-        <text key={ch} x="6.5" y={9.6 + i * 8.6} textAnchor="middle" fill={PAPER} fontSize="7.4" fontWeight="900" fontFamily="'H5 Seal', serif">{ch}</text>
-      ))}
-    </g>
-  </>
-);
+/**
+ * The Heart of Five: an ink double frame, a dry-brush ring in red round a big heart, five small
+ * ink hearts, screentone shading, and the 红心五 seal stamp. Our own marks, nothing borrowed.
+ */
+const HeartFive: React.FC = () => {
+  const id = React.useId().replace(/:/g, '');
+  return (
+    <>
+      <defs>
+        <pattern id={`h5tone${id}`} width="3.2" height="3.2" patternUnits="userSpaceOnUse">
+          <circle cx="1.6" cy="1.6" r="0.75" fill={RED} opacity="0.35" />
+        </pattern>
+        <filter id={`h5brush${id}`} x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="1.4 0.12" numOctaves="2" seed="11" />
+          <feDisplacementMap in="SourceGraphic" scale="3.2" />
+        </filter>
+      </defs>
+      <rect x="3.5" y="3.5" width="93" height="133" rx="3" fill="none" stroke={INK} strokeWidth="2.4" />
+      <rect x="7" y="7" width="86" height="126" rx="1.5" fill="none" stroke={RED} strokeWidth="0.9" />
+      <Index label="5" suit="H" color={RED} />
+      <g transform="rotate(180 50 70)"><Index label="5" suit="H" color={RED} /></g>
+      <circle cx="50" cy="70" r="31" fill={`url(#h5tone${id})`} />
+      {/* one loaded brush stroke, lifting off before it closes */}
+      <g filter={`url(#h5brush${id})`} fill="none" stroke={RED} strokeLinecap="round">
+        <circle cx="50" cy="70" r="26" strokeWidth="4.6" strokeDasharray="140 24" transform="rotate(-70 50 70)" />
+        <circle cx="50" cy="70" r="26" strokeWidth="1.6" strokeDasharray="120 44" transform="rotate(-40 50 70)" opacity="0.8" />
+      </g>
+      {[0, 1, 2, 3, 4].map((i) => {
+        const a = (i * 72 - 90) * (Math.PI / 180);
+        return <Pip key={i} suit="H" x={50 + Math.cos(a) * 35} y={70 + Math.sin(a) * 35} size={8.5} fill={INK} />;
+      })}
+      <Pip suit="H" x={50} y={71} size={34} />
+      <text x="50" y="78" textAnchor="middle" fill={PAPER} stroke={INK} strokeWidth="0.6" paintOrder="stroke" fontFamily={LETTERING} fontSize="22">5</text>
+      {/* seal stamp: 红心五 */}
+      <g transform="translate(9 96) rotate(-5)">
+        <rect width="13" height="30" rx="0.8" fill={RED} />
+        <rect x="1.4" y="1.4" width="10.2" height="27.2" rx="0.5" fill="none" stroke={PAPER} strokeWidth="0.7" opacity="0.9" />
+        {['红', '心', '五'].map((ch, i) => (
+          <text key={ch} x="6.5" y={9.6 + i * 8.6} textAnchor="middle" fill={PAPER} fontSize="7.4" fontWeight="900" fontFamily="'H5 Seal', serif">{ch}</text>
+        ))}
+      </g>
+    </>
+  );
+};
 
 const Joker: React.FC<{ big: boolean }> = ({ big }) => {
   const color = big ? RED : BLACK;
@@ -102,7 +123,7 @@ const Joker: React.FC<{ big: boolean }> = ({ big }) => {
       return `${(50 + Math.cos(a) * r).toFixed(2)},${(70 + Math.sin(a) * r).toFixed(2)}`;
     }).join(' ');
   const letters = (
-    <g fontFamily={SERIF} fontWeight="800" fontSize="12" fill={color} textAnchor="middle">
+    <g fontFamily={LETTERING} fontSize="13.5" fill={color} textAnchor="middle">
       {'JOKER'.split('').map((ch, i) => <text key={i} x="11" y={17 + i * 11.5}>{ch}</text>)}
     </g>
   );
@@ -111,10 +132,10 @@ const Joker: React.FC<{ big: boolean }> = ({ big }) => {
       {letters}
       <g transform="rotate(180 50 70)">{letters}</g>
       <circle cx="50" cy="70" r="29" fill={color} opacity="0.07" />
-      <polygon points={star(27, 11)} fill={color} />
-      <polygon points={star(13, 6)} fill={big ? BRASS : PAPER} />
+      <polygon points={star(27, 11)} fill={color} stroke={INK} strokeWidth="1" strokeLinejoin="miter" />
+      <polygon points={star(13, 6)} fill={big ? ORANGE : PAPER} />
       <circle cx="50" cy="70" r="3.4" fill={color} />
-      <text x="50" y="114" textAnchor="middle" fontFamily={SERIF} fontWeight="700" fontSize="8" letterSpacing="2" fill={color}>
+      <text x="50" y="116" textAnchor="middle" fontFamily={LETTERING} fontSize="10" letterSpacing="1.5" fill={color}>
         {big ? 'BIG' : 'SMALL'}
       </text>
     </>
@@ -127,12 +148,12 @@ const Face: React.FC<{ rank: number; suit: SuitCode; color: string }> = ({ rank,
   const xs = crown === 1 ? [50] : crown === 2 ? [43, 57] : [37, 50, 63];
   return (
     <>
-      <rect x="26" y="22" width="48" height="96" fill={color} opacity="0.07" />
-      <rect x="26" y="22" width="48" height="96" fill="none" stroke={color} strokeWidth="1.1" />
-      <rect x="29" y="25" width="42" height="90" fill="none" stroke={color} strokeWidth="0.4" />
+      <rect x="26" y="22" width="48" height="96" fill={color} opacity="0.06" />
+      <path d="M26 22 H74 V118 H26 Z" fill="none" stroke={INK} strokeWidth="1.6" />
+      <path d="M29 25 H71 V115 H29 Z" fill="none" stroke={color} strokeWidth="0.5" />
       {xs.map((x) => <Pip key={`t${x}`} suit={suit} x={x} y={38} size={10} />)}
       {xs.map((x) => <Pip key={`b${x}`} suit={suit} x={x} y={102} size={10} flip />)}
-      <text x="50" y="86" textAnchor="middle" fill={color} fontFamily={SERIF} fontWeight="700" fontSize="46">{letter}</text>
+      <text x="50" y="89" textAnchor="middle" fill={color} fontFamily={LETTERING} fontSize="54">{letter}</text>
     </>
   );
 };
@@ -157,8 +178,9 @@ export const CardFace: React.FC<CardFaceProps> = React.memo(({ suit, rank, class
   return (
     <div className={`card-face relative w-full h-full ${className}`} role="img" aria-label={name}>
       <svg viewBox="0 0 100 140" className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100" height="140" rx="6" fill={h5 ? '#FBF3DC' : PAPER} />
-        <rect x="0.5" y="0.5" width="99" height="139" rx="5.5" fill="none" stroke="#000" strokeOpacity="0.18" />
+        <rect width="100" height="140" rx="6" fill={PAPER} />
+        {/* a light ink outline, like a card drawn on the page */}
+        <rect x="0.8" y="0.8" width="98.4" height="138.4" rx="5.4" fill="none" stroke={INK} strokeWidth="1.6" strokeOpacity="0.85" />
         {isJoker ? <Joker big={rank === 17} /> : h5 ? <HeartFive /> : (
           <>
             <Index label={label} suit={s} color={color} />
@@ -176,39 +198,41 @@ export const CardFace: React.FC<CardFaceProps> = React.memo(({ suit, rank, class
         )}
         {selected && <rect x="1.5" y="1.5" width="97" height="137" rx="5" fill="none" stroke="#E85D00" strokeWidth="3" />}
       </svg>
-      {/* light from above: a soft sheen across the stock */}
-      <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: '6% / 4.3%', background: 'linear-gradient(160deg, rgba(255,255,255,.35) 0%, rgba(255,255,255,0) 38%, rgba(0,0,0,0) 70%, rgba(60,40,10,.10) 100%)' }} />
       {h5 && <div className="foil" style={{ borderRadius: '6% / 4.3%' }} />}
     </div>
   );
 });
 CardFace.displayName = 'CardFace';
 
-/** The back: ink field inside a paper border, a lattice of hearts, and a five-heart rosette. */
+/** The back: an ink field of screentone dots inside a paper border, and an orange impact burst holding five ink hearts. */
 export const CardBack: React.FC<{ className?: string }> = React.memo(({ className = '' }) => {
   const id = React.useId().replace(/:/g, '');
+  const burst = Array.from({ length: 28 }, (_, i) => {
+    const r = i % 2 ? 16 : 27 - (i % 4 === 0 ? 0 : 3);
+    const a = (i * (360 / 28) - 90) * (Math.PI / 180);
+    return `${(50 + Math.cos(a) * r).toFixed(2)},${(70 + Math.sin(a) * r * 1.12).toFixed(2)}`;
+  }).join(' ');
   return (
     <div className={`relative w-full h-full ${className}`} aria-label="Card back" role="img">
       <svg viewBox="0 0 100 140" className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <pattern id={`lat${id}`} width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <path d="M0 6 H12 M6 0 V12" stroke={BRASS} strokeWidth="0.5" opacity="0.35" />
-            <g transform="translate(3.6 3.6) scale(0.048)"><path fill="#E85D00" opacity="0.55" d="M50 92 C 22 70 3 52 3 31 C 3 16 14 5 28 5 C 38 5 46 11 50 21 C 54 11 62 5 72 5 C 86 5 97 16 97 31 C 97 52 78 70 50 92 Z" /></g>
+          <pattern id={`dot${id}`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+            <circle cx="2" cy="2" r="0.9" fill={PAPER} opacity="0.22" />
           </pattern>
         </defs>
         <rect width="100" height="140" rx="6" fill={PAPER} />
-        <rect x="5" y="5" width="90" height="130" rx="2.5" fill="#152633" />
-        <rect x="5" y="5" width="90" height="130" rx="2.5" fill={`url(#lat${id})`} />
-        <rect x="8" y="8" width="84" height="124" rx="1.5" fill="none" stroke={BRASS} strokeWidth="0.8" opacity="0.7" />
-        <circle cx="50" cy="70" r="24" fill="#152633" stroke={BRASS} strokeWidth="1.2" />
+        <rect x="0.8" y="0.8" width="98.4" height="138.4" rx="5.4" fill="none" stroke={INK} strokeWidth="1.6" />
+        <rect x="5" y="5" width="90" height="130" rx="1.5" fill={INK} />
+        <rect x="5" y="5" width="90" height="130" rx="1.5" fill={`url(#dot${id})`} />
+        <rect x="8.5" y="8.5" width="83" height="123" fill="none" stroke={PAPER} strokeWidth="0.8" opacity="0.6" />
+        <polygon points={burst} fill={ORANGE} stroke={PAPER} strokeWidth="1.4" strokeLinejoin="miter" />
         {[0, 1, 2, 3, 4].map((i) => (
           <g key={i} transform={`rotate(${i * 72} 50 70)`}>
-            <Pip suit="H" x={50} y={57} size={13} fill="#E85D00" flip />
+            <Pip suit="H" x={50} y={61} size={9.5} fill={INK} flip />
           </g>
         ))}
-        <circle cx="50" cy="70" r="3" fill={BRASS} />
+        <circle cx="50" cy="70" r="2.6" fill={INK} />
       </svg>
-      <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: '6% / 4.3%', background: 'linear-gradient(160deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 40%)' }} />
     </div>
   );
 });

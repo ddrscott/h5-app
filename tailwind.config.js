@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
-// Palette and type are described in docs/VISUALS.md. The gray scale is tinted toward the table's
-// jade so every leftover gray-800 panel sits on the same surface, and the rounded scale is clamped
-// to hard edges: only cards (physical objects) get a real corner radius.
+// Palette and type are described in docs/VISUALS.md: ink black, paper white and screentone grays,
+// Signal Orange for whatever is live, blood red for danger. The gray scale is neutral (screentone),
+// and the rounded scale is clamped to hard edges: only cards (physical objects) get a real radius.
 export default {
   content: [
     "./index.html",
@@ -10,41 +10,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: '#0A1012',
-        jade: {
-          950: '#06110F',
-          900: '#0B201D',
-          800: '#113029',
-          700: '#184139',
-          600: '#21574C',
-          500: '#2C6E60',
-        },
-        paper: { DEFAULT: '#F6F0E2', shade: '#E7DCC6' },
-        cinnabar: { DEFAULT: '#C7352C', deep: '#8E1F1A' },
+        ink: '#0B0B0D',
+        paper: { DEFAULT: '#FAFAF7', shade: '#E6E6E1' },
+        blood: { DEFAULT: '#D7192B', deep: '#8F0C18' },
         ember: { DEFAULT: '#E85D00', hot: '#FF7A1A', deep: '#A84300' },
-        brass: { DEFAULT: '#D6A54A', light: '#F2CF7E', deep: '#8C6420' },
-        bone: '#ECE5D3',
-        mist: '#8FA7A0',
+        // Text on ink, and secondary text.
+        bone: '#EFEFEA',
+        mist: '#A3A3A8',
         // Old names, kept so nothing renders unstyled.
-        'felt-dark': '#0B201D',
-        'felt': '#113029',
-        'felt-light': '#184139',
-        'card-red': '#C7352C',
-        'card-black': '#1C1D24',
-        'gold': '#D6A54A',
-        'gold-dark': '#8C6420',
+        'card-red': '#D7192B',
+        'card-black': '#141416',
         gray: {
-          50: '#F3F5F4',
-          100: '#E4E9E7',
-          200: '#C9D3D0',
-          300: '#A9B7B3',
-          400: '#84958F',
-          500: '#62726D',
-          600: '#3F4D49',
-          700: '#2A3633',
-          800: '#18221F',
-          900: '#0E1614',
-          950: '#080D0C',
+          50: '#F4F4F2',
+          100: '#E6E6E3',
+          200: '#CFCFCC',
+          300: '#B2B2B0',
+          400: '#8E8E8F',
+          500: '#6B6B6E',
+          600: '#4A4A4E',
+          700: '#333336',
+          800: '#202023',
+          900: '#151517',
+          950: '#0E0E10',
         },
       },
       borderRadius: {
@@ -56,13 +43,20 @@ export default {
         '2xl': '2px',
       },
       fontFamily: {
-        display: ['"Fraunces Variable"', 'Georgia', '"H5 Seal"', 'serif'],
-        casino: ['"Fraunces Variable"', 'Georgia', 'serif'],
+        // Hand-lettered comic caps for titles, heads and callouts; Barlow for reading.
+        display: ['Bangers', '"H5 Seal"', 'Impact', 'sans-serif'],
+        casino: ['Bangers', 'Impact', 'sans-serif'],
+        sans: ['Barlow', 'ui-sans-serif', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', '"H5 Seal"', 'sans-serif'],
+        sfx: ['"H5 SFX"', 'Bangers', 'sans-serif'],
       },
       boxShadow: {
         'card': '0 2px 8px rgba(0, 0, 0, 0.3)',
         'card-hover': '0 4px 12px rgba(0, 0, 0, 0.4)',
         'glow': '0 0 20px rgba(232, 93, 0, 0.45)',
+        // Hard comic offsets: no blur.
+        'hard': '5px 5px 0 0 #000',
+        'hard-sm': '3px 3px 0 0 #000',
+        'hard-paper': '5px 5px 0 0 rgba(250,250,247,.9)',
       },
     },
   },
