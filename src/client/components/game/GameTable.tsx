@@ -11,7 +11,7 @@ import { Callouts, showCallout, calloutFontPx, calloutSize, calloutTilt, splitCa
 import { GameOver } from './GameOver';
 import { DialogBox } from '../ui/DialogBox';
 import { CardBack } from '../ui/CardFace';
-import { useViewport, registry, fan, tableLanes, placeCallout, meldHalf, seatHalf, seatScale } from '../../fx/layout';
+import { useViewport, registry, fan, tableLanes, placeCallout, meldFit, seatHalf, seatScale } from '../../fx/layout';
 import type { Viewport } from '../../fx/layout';
 import { bus } from '../../fx/bus';
 import { sfx } from '../../fx/sound';
@@ -176,14 +176,15 @@ export const GameTable: React.FC<GameTableProps> = ({
   [spots]);
   const handTop = fan(Math.max(1, myHand.length), rawVp).top;
   const lanes = useMemo(() => tableLanes(rawVp, boxes, handTop), [rawVp, boxes, handTop]);
-  const vp = useMemo(() => ({ ...rawVp, pileY: lanes.pileY, pileHalf: lanes.pileHalf }), [rawVp, lanes.pileY, lanes.pileHalf]);
+  const vp = useMemo(() => ({ ...rawVp, pileY: lanes.pileY, pileHalf: lanes.pileHalf, meldRoom: lanes.meldRoom }), [rawVp, lanes.pileY, lanes.pileHalf, lanes.meldRoom]);
   /** A clear spot for a callout: its own space, sized by the play, never over a seat or the newest meld. */
   const lane = useCallback((text: string, level: number, sub: string | undefined, meldN: number) => {
     let full = calloutFontPx(level, vp.w, text, Infinity);
     while (full > 16 && calloutSize(full, text, level).w > vp.w - 24) full *= 0.96;
+    const fit = meldN > 0 ? meldFit(meldN, vp, vp.meldRoom) : null;
     const p = placeCallout({
       vp, seats: boxes, pileY: vp.pileY, statusTop: lanes.statusTop,
-      meldHalfW: meldN > 0 ? meldHalf(meldN, vp, vp.pileHalf) : 0,
+      meldHalfW: fit?.half ?? 0, meldScale: fit?.scale ?? 1,
       full, floor: CALLOUT_FLOOR[level] ?? 24,
       size: (f, lines) => {
         if (lines === 2 && !splitCallout(text)) return null;

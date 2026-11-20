@@ -240,6 +240,12 @@ Two pages help when working on it:
 - `/h5/animation` is the **FX lab**: the real `GameTable` on a scripted offline game, with buttons (and `window.__lab` for scripts) for the deal, every meld type, a bomb, the Heart 5, passes, the sweep, going out, an error and game over.
 - `/h5/cards` shows every card face and the back.
 
+`scripts/shots-pile.mjs` drives the FX lab in headless Chromium. It puts a pair and a triple on the table, then a full house, a five-card run, sisters, a single and an eight-card run, at square (car screen), desktop, tablet and phone sizes. It saves a screenshot of each and prints the newest meld's card width, how much of each covered card's corner shows, and whether a corner runs under the hand, a plate or the buttons. Pass sizes and melds to narrow it down:
+
+```bash
+node scripts/shots-pile.mjs http://localhost:5173 /tmp/pile 640x640,1000x1000 fullhouse,run8
+```
+
 ## Served at askscottpierce.com/h5
 
 The Worker owns only `/h5` and `/h5/*` on askscottpierce.com, through two zone routes, with no workers.dev URL. Pages, assets, the service worker, the API, and the room sockets all live under `/h5`. Four places hard-code the prefix, and they have to change together:
@@ -283,6 +289,10 @@ node scripts/smoke-stats.mjs http://localhost:5173
 Two rule tests fail: a long A-K run, and a longer straight flush beating a shorter one. Both turn on whether a 2 can sit low in a run, which the owner has yet to settle.
 
 ## Deploy
+
+**Every push to `main` deploys.** `.github/workflows/deploy.yml` runs `npm ci`, the typecheck, the remote D1 migrations, then `npm run deploy`, one deploy at a time in push order. That includes Thunder merges to `main`. It needs the repo variable `CLOUDFLARE_ACCOUNT_ID` and the secret `CLOUDFLARE_API_TOKEN`, a token scoped to Workers Scripts Write, D1 Write, and Workers Routes Write on askscottpierce.com. `scripts/ci-token.sh` makes it with `CF_TOKEN_MANAGER` and pipes it straight into `gh secret set`, so it's never printed; running it again makes a second token, so delete the old one in the dashboard. CI skips `npm test` because of the two known rule failures below. Run it locally before you push. You can also run the workflow by hand from the Actions tab.
+
+To deploy from this machine instead:
 
 ```bash
 npm run db:migrate # apply migrations/ to the remote D1 database "h5" (first deploy, and after any new migration)
