@@ -19,14 +19,14 @@
   unicode-range: U+5FC3;
 }
 .font-seal { font-family: 'H5 Seal', 'Noto Serif SC', 'Songti SC', serif; }
-/* Five Chinese comic sound-effect glyphs (唰 轰 隆 砰 ！), about 3.6 KB, from ZCOOL QingKe
-   HuangYou. See assets/fonts. */
+/* The Chinese comic sound effects (唰 轰 隆 砰 ！) and seat emotes (牛 绝了 溜了 我太难了), about
+   4.7 KB, from ZCOOL QingKe HuangYou. See assets/fonts. */
 @font-face {
   font-family: 'H5 SFX';
   font-weight: 400;
   font-display: block;
   src: url('./assets/fonts/sfx-zcool.woff2') format('woff2');
-  unicode-range: U+5530, U+8F70, U+9686, U+7830, U+FF01;
+  unicode-range: U+5530, U+8F70, U+9686, U+7830, U+FF01, U+725B, U+7EDD, U+4E86, U+6E9C, U+6211, U+592A, U+96BE;
 }
 .font-sfx { font-family: 'H5 SFX', 'Bangers', 'PingFang SC', 'Noto Sans SC', sans-serif; }
 

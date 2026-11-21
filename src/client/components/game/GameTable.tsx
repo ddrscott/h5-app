@@ -7,6 +7,7 @@ import { GamePhase } from '../../types/game';
 import { PlayerHand } from './PlayerHand';
 import { Seat, seatSpots } from './Seat';
 import { TablePile } from './TablePile';
+import { Emotes, showEmote } from './Emotes';
 import { Callouts, showCallout, dismissCallout, onCalloutBox, calloutFontPx, calloutSize, calloutTilt, splitCallout, CALLOUT_FLOOR } from './Callouts';
 import { GameOver } from './GameOver';
 import { DialogBox } from '../ui/DialogBox';
@@ -276,6 +277,9 @@ export const GameTable: React.FC<GameTableProps> = ({
       shake(n > 1 ? 3 : 1.5);
       if (n > 1) particles.burst({ x: cx, y: cy + vp.PH * 0.4, kind: 'spark', palette: 'ink', count: 8 + n * 2, speed: 260, angle: -Math.PI / 2, spread: Math.PI * 0.9 });
     }
+    // a Chinese reaction off the player's seat, once the impact frame has cut out
+    const emote = fx.heart5 ? { text: '牛！', hot: true } : fx.label === 'BOMB!' ? { text: '666' } : fx.label === 'STRAIGHT FLUSH!' ? { text: '绝了！', hot: true } : null;
+    if (emote) window.setTimeout(() => showEmote({ playerId: meld.playerId, ...emote }), framed ? IMPACT_MS + 120 : 300);
     if (fx.label) {
       const label = fx.label;
       const go = () => showCallout({ text: label, level: fx.level as 1 | 2 | 3 | 4, sub: who, ...lane(label, fx.level, who, n) });
@@ -328,6 +332,7 @@ export const GameTable: React.FC<GameTableProps> = ({
         sfx.out();
         particles.burst({ x, y, kind: 'confetti', count: place === 1 ? 70 : 36, speed: 520 });
         if (mine && place === 1) particles.celebrate();
+        if (place === 1) showEmote({ playerId: id, text: '溜了！' });
         const text = mine ? (place === 1 ? 'YOU WENT OUT FIRST!' : `OUT · ${ORD[place]?.toUpperCase()}`) : `OUT · ${ORD[place]?.toUpperCase()}`;
         const level = place === 1 ? 2 : 1;
         // Waits for a play's callout to finish instead of printing over it.
@@ -544,6 +549,7 @@ export const GameTable: React.FC<GameTableProps> = ({
       <ImpactLayer w={vp.w} h={vp.h} />
 
       <Callouts />
+      <Emotes />
       <FxCanvas />
 
       {showLeaveConfirm && (

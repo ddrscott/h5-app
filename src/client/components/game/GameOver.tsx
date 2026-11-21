@@ -210,6 +210,19 @@ export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, play
                         STUCK WITH {r.cardsLeft}
                       </span>
                     )}
+                    {!r.place && r.cardsLeft > 0 && (
+                      // "life is so hard for me": the loser's emote, the same sticker as the seat emotes
+                      <motion.span
+                        aria-hidden
+                        className="font-sfx whitespace-nowrap leading-none border-2 border-ink bg-paper text-ink px-1.5 pt-1 pb-0.5 text-[18px]"
+                        style={{ boxShadow: '2px 3px 0 #000' }}
+                        initial={{ scale: 0.2, rotate: 20, opacity: 0 }}
+                        animate={{ scale: 1, rotate: 6, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 520, damping: 14, delay: 1.6 }}
+                      >
+                        我太难了
+                      </motion.span>
+                    )}
                   </span>
                   <CountUp className={`text-right font-display text-[26px] leading-none ${first ? 'text-ink' : 'text-bone'}`} from={b.wins} to={r.wins} delay={0.9 + i * 0.12} onTick={() => sfx.tick(tickN++)} />
                   <CountUp className={`text-right font-display text-[26px] leading-none ${first ? 'text-ink/60' : 'text-mist'}`} from={b.losses} to={r.losses} delay={1.0 + i * 0.12} onTick={() => sfx.tick(tickN++)} />

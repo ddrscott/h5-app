@@ -38,6 +38,10 @@ card, never a colored fill.
 - **H5 SFX**: a 3.6 KB subset of ZCOOL QingKe HuangYou (SIL OFL) holding only the Chinese comic
   sound effects (唰 轰 隆 砰 ！). It's a Chinese game, so the onomatopoeia is Chinese, not Japanese.
   In `src/client/assets/fonts`.
+- **Seat emotes** (`components/game/Emotes.tsx`): Chinese internet reactions pop off a player's seat
+  as a tilted paper sticker with an ink outline and hard offset, then float up and fade (about 1.9s):
+  牛！ (orange) for the Heart 5, 666 for a bomb, 绝了！ (orange) for a straight flush, 溜了！ for the
+  first one out. The loser's 我太难了 sticks on their row of the results screen, by STUCK WITH N.
 - **H5 Seal**: a 2 KB subset of Noto Serif SC holding only 红心五, so the name renders on devices
   without a CJK font.
 - **No terminal look.** This is a family card table, not a developer tool. Don't use a monospace
