@@ -35,8 +35,9 @@ card, never a colored fill.
 - **Barlow** (SIL OFL, `@fontsource/barlow`, weights 400 to 800, Latin only) for reading: body
   text, names, form fields, counts, W·L records (with `tabular-nums`), and the card indices,
   where legibility matters more than style.
-- **H5 SFX**: a 1.4 KB subset of Dela Gothic One (SIL OFL) holding only the katakana the sound
-  effects use (ドドン, ゴゴゴ, ズバッ and a few spares), in `src/client/assets/fonts`.
+- **H5 SFX**: a 3.6 KB subset of ZCOOL QingKe HuangYou (SIL OFL) holding only the Chinese comic
+  sound effects (唰 轰 隆 砰 ！). It's a Chinese game, so the onomatopoeia is Chinese, not Japanese.
+  In `src/client/assets/fonts`.
 - **H5 Seal**: a 2 KB subset of Noto Serif SC holding only 红心五, so the name renders on devices
   without a CJK font.
 - **No terminal look.** This is a family card table, not a developer tool. Don't use a monospace
@@ -222,9 +223,9 @@ the lobby, where seats still have portraits, two players with the same initials 
    |---|---|---|
    | single | none (JOKER for jokers) | land thud, a 1–2px nudge |
    | pair, triple | lettering only, paper with an ink outline | thud, a few paper flecks |
-   | straight, sisters, full house | ink lettering on a paper burst with focus lines, ズバッ | flourish, 5px shake, paper flecks |
-   | bomb, straight flush | paper lettering on an orange burst, ドドン | full-screen impact frame, boom, 16px shake (under 0.4s), sparks and embers, vibration |
-   | Heart 5 | paper lettering on a blood-red burst, ゴゴゴ | full-screen impact frame in red, struck bell, 12px shake, ink-and-red hearts, vibration |
+   | straight, sisters, full house | ink lettering on a paper burst with focus lines, 唰！ (shuā, a swish) | flourish, 5px shake, paper flecks |
+   | bomb, straight flush | paper lettering on an orange burst, 轰！ (hōng, a boom) | full-screen impact frame, boom, 16px shake (under 0.4s), sparks and embers, vibration |
+   | Heart 5 | paper lettering on a blood-red burst, 隆隆隆 (lóng, a rumble) | full-screen impact frame in red, struck bell, 12px shake, ink-and-red hearts, vibration |
 
    **Burst frames** (`Burst` in `Callouts.tsx`) are jagged stars stretched to the callout's own
    box, with focus lines clipped inside them and a hard ink offset. Their padding is part of
@@ -242,7 +243,7 @@ the lobby, where seats still have portraits, two players with the same initials 
    edge sits. `impactFit` measures each line in Bangers and sizes the word so the tilted block,
    stroke and drop shadow included, fits that width and the band's height, so the lettering
    always lands whole inside the frame. On a phone it picks the line split whose wider line is
-   narrowest. A narrower ink wedge with the sound effect (ドドン or ゴゴゴ) bursts the other way.
+   narrowest. A narrower ink wedge with the sound effect (轰！ or 隆隆隆) bursts the other way.
    Both swell a little from the ring and fade. The ring stays clear the whole time, and so does
    the newest meld where it spills past the ring, so you always see the cards that did it. The
    regular callout pops in as the frame leaves rather than under it. It never takes input and
@@ -287,7 +288,7 @@ the lobby, where seats still have portraits, two players with the same initials 
 - **Going out and winning:** going out pops confetti from the player's seat with a callout of
   their place. Game over is a results page rather than a dialog. A full-bleed slab slashes in at
   -5 degrees with the winner in giant lettering (YOU WIN! on orange, or NAME WINS! on paper) and a
-  ドン! sound effect. Under it the standings come in as cut strips that step down like panels,
+  砰！ (pēng) sound effect. Under it the standings come in as cut strips that step down like panels,
   sliding in by finishing order while the win and loss counts tick up. The winner's strip is
   paper with an orange offset. Your YOU chip and a STUCK WITH N chip sit beside and under the
   name, never inside it, so a long name truncates and the chips always land whole. The stats line and the Leave and Play again buttons sit in a cut

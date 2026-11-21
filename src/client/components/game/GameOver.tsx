@@ -159,7 +159,7 @@ export const GameOver: React.FC<GameOverProps> = ({ winner, finalStandings, play
               animate={{ scale: 1, rotate: 12, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 600, damping: 14, delay: 0.5 }}
             >
-              ドン!
+              砰！
             </motion.span>
           </div>
         </motion.div>

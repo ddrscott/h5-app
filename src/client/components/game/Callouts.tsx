@@ -118,9 +118,9 @@ const BURST_PAD_Y = 0.3;
  */
 const STYLE: Record<number, { size: string; color: string; stroke: string; hold: number; burst?: string; lines?: string; sfx?: string }> = {
   1: { size: 'clamp(26px, 7vw, 40px)', color: '#FAFAF7', stroke: '#0B0B0D', hold: 900 },
-  2: { size: 'clamp(32px, 9vw, 60px)', color: '#0B0B0D', stroke: '#FAFAF7', hold: 1200, burst: '#FAFAF7', lines: 'rgba(11,11,13,.22)', sfx: 'ズバッ' },
-  3: { size: 'clamp(44px, 13vw, 104px)', color: '#FAFAF7', stroke: '#0B0B0D', hold: 1800, burst: '#E85D00', lines: 'rgba(11,11,13,.3)', sfx: 'ドドン' },
-  4: { size: 'clamp(34px, 10vw, 84px)', color: '#FAFAF7', stroke: '#0B0B0D', hold: 1800, burst: '#D7192B', lines: 'rgba(11,11,13,.34)', sfx: 'ゴゴゴ' },
+  2: { size: 'clamp(32px, 9vw, 60px)', color: '#0B0B0D', stroke: '#FAFAF7', hold: 1200, burst: '#FAFAF7', lines: 'rgba(11,11,13,.22)', sfx: '唰！' },
+  3: { size: 'clamp(44px, 13vw, 104px)', color: '#FAFAF7', stroke: '#0B0B0D', hold: 1800, burst: '#E85D00', lines: 'rgba(11,11,13,.3)', sfx: '轰！' },
+  4: { size: 'clamp(34px, 10vw, 84px)', color: '#FAFAF7', stroke: '#0B0B0D', hold: 1800, burst: '#D7192B', lines: 'rgba(11,11,13,.34)', sfx: '隆隆隆' },
 };
 /**
  * How long the pop-in takes to settle, per level: the plain spring (stiffness 520, damping 20)

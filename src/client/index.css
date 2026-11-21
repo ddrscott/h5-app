@@ -19,16 +19,16 @@
   unicode-range: U+5FC3;
 }
 .font-seal { font-family: 'H5 Seal', 'Noto Serif SC', 'Songti SC', serif; }
-/* A few katakana for sound-effect lettering (ドン, ゴゴゴ, バキッ, ズバッ), about 1.4 KB, from
-   Dela Gothic One. See assets/fonts. */
+/* Five Chinese comic sound-effect glyphs (唰 轰 隆 砰 ！), about 3.6 KB, from ZCOOL QingKe
+   HuangYou. See assets/fonts. */
 @font-face {
   font-family: 'H5 SFX';
   font-weight: 400;
   font-display: block;
-  src: url('./assets/fonts/sfx-dela-gothic.woff2') format('woff2');
-  unicode-range: U+30A1-30FF, U+FF01;
+  src: url('./assets/fonts/sfx-zcool.woff2') format('woff2');
+  unicode-range: U+5530, U+8F70, U+9686, U+7830, U+FF01;
 }
-.font-sfx { font-family: 'H5 SFX', 'Bangers', sans-serif; }
+.font-sfx { font-family: 'H5 SFX', 'Bangers', 'PingFang SC', 'Noto Sans SC', sans-serif; }
 
 @layer base {
   :root {

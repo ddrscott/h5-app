@@ -701,7 +701,7 @@ const ImpactFrame: React.FC<ImpactSpec & { w: number; h: number; onDone: () => v
   }, [cx, cy, clear, w, h, text, narrow, bleed]);
   const { font, stretch, words } = geo.fit;
   const fill = heart ? '#D7192B' : '#E85D00';
-  const sfx = heart ? 'ゴゴゴ' : 'ドドン';
+  const sfx = heart ? '隆隆隆' : '轰！';
   const t = IMPACT_MS / 1000;
   const origin = `${cx}px ${cy}px`;
   const burst = { duration: t, times: [0, 0.16, 0.72, 1], ease: 'easeOut' as const };

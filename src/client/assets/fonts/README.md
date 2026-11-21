@@ -7,9 +7,11 @@ a few glyphs render on devices without a CJK font. All are under the SIL Open Fo
 - `seal-*.woff2` hold three glyphs of Noto Serif SC Black (红, 心, 五), cut with
   `pyftsubset --text=…` from `@fontsource/noto-serif-sc`, at about 2 KB
   (`OFL-NotoSerifSC.txt`). The family is `H5 Seal`.
-- `sfx-dela-gothic.woff2` holds the katakana the callout sound effects use (ドンゴバキッズーォガ)
-  from Dela Gothic One, cut from `@fontsource/dela-gothic-one`'s chunk 119 with
-  `uvx --from fonttools --with brotli pyftsubset … --text='ドンゴバキッズーォガ' --flavor=woff2`,
-  at about 1.4 KB (`OFL-DelaGothicOne.txt`). The family is `H5 SFX`.
+- `sfx-zcool.woff2` holds the five Chinese comic sound-effect glyphs the callouts use (唰 轰 隆 砰 ！)
+  from ZCOOL QingKe HuangYou. Its fontsource chunks (51, 79, 107, 111, 118 of
+  `@fontsource/zcool-qingke-huangyou`) are merged and cut with
+  `uvx --from fonttools --with brotli pyftsubset merged.ttf --text='唰轰隆砰！' --flavor=woff2`,
+  at about 3.6 KB (`OFL-ZCOOLQingKeHuangYou.txt`). The family is `H5 SFX`. Adding a glyph means
+  re-cutting it and widening the `unicode-range` in `index.css`.
 
 Both families are declared in `src/client/index.css`.
