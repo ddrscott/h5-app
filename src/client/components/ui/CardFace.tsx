@@ -70,7 +70,7 @@ const Index: React.FC<{ label: string; suit: SuitCode; color: string; pipFill?: 
 );
 
 /**
- * The Heart of Five: an ink double frame, a dry-brush ring in red round a big heart, five small
+ * The Heart of Five: an ink double frame, a clean red ring round a big heart (both edged in paper so they sit on the stipple), five small
  * ink hearts, screentone shading, and the 红心五 seal stamp. Our own marks, nothing borrowed.
  */
 const HeartFive: React.FC = () => {
@@ -81,25 +81,20 @@ const HeartFive: React.FC = () => {
         <pattern id={`h5tone${id}`} width="3.2" height="3.2" patternUnits="userSpaceOnUse">
           <circle cx="1.6" cy="1.6" r="0.75" fill={RED} opacity="0.35" />
         </pattern>
-        <filter id={`h5brush${id}`} x="-20%" y="-20%" width="140%" height="140%">
-          <feTurbulence type="fractalNoise" baseFrequency="1.4 0.12" numOctaves="2" seed="11" />
-          <feDisplacementMap in="SourceGraphic" scale="3.2" />
-        </filter>
       </defs>
       <rect x="3.5" y="3.5" width="93" height="133" rx="3" fill="none" stroke={INK} strokeWidth="2.4" />
       <rect x="7" y="7" width="86" height="126" rx="1.5" fill="none" stroke={RED} strokeWidth="0.9" />
       <Index label="5" suit="H" color={RED} />
       <g transform="rotate(180 50 70)"><Index label="5" suit="H" color={RED} /></g>
       <circle cx="50" cy="70" r="31" fill={`url(#h5tone${id})`} />
-      {/* one loaded brush stroke, lifting off before it closes */}
-      <g filter={`url(#h5brush${id})`} fill="none" stroke={RED} strokeLinecap="round">
-        <circle cx="50" cy="70" r="26" strokeWidth="4.6" strokeDasharray="140 24" transform="rotate(-70 50 70)" />
-        <circle cx="50" cy="70" r="26" strokeWidth="1.6" strokeDasharray="120 44" transform="rotate(-40 50 70)" opacity="0.8" />
-      </g>
+      {/* the ring: one clean closed stroke, with a paper edge so it sits on top of the stipple */}
+      <circle cx="50" cy="70" r="26" fill="none" stroke={PAPER} strokeWidth="7" />
+      <circle cx="50" cy="70" r="26" fill="none" stroke={RED} strokeWidth="4.4" />
       {[0, 1, 2, 3, 4].map((i) => {
         const a = (i * 72 - 90) * (Math.PI / 180);
         return <Pip key={i} suit="H" x={50 + Math.cos(a) * 35} y={70 + Math.sin(a) * 35} size={8.5} fill={INK} />;
       })}
+      <Pip suit="H" x={50} y={71.4} size={38} fill={PAPER} />
       <Pip suit="H" x={50} y={71} size={34} />
       <text x="50" y="78" textAnchor="middle" fill={PAPER} stroke={INK} strokeWidth="0.6" paintOrder="stroke" fontFamily={LETTERING} fontSize="22">5</text>
       {/* seal stamp: 红心五 */}

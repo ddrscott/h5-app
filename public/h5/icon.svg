@@ -1,18 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
   <!--
     Heart of Five app icon: the Heart 5 card's centre mark (CardFace.tsx HeartFive) on card stock.
-    A dry-brush red ring that lifts off before it closes, five small ink hearts, a screentone halo,
-    and the big red heart with a lettered 5. Source for the 180/192/512 PNGs; favicon.svg is the
+    A clean closed red ring, five small ink hearts, a screentone halo under it,
+    and the big red heart (ring and heart edged in paper so they sit above the stipple) with a lettered 5. Source for the 180/192/512 PNGs; favicon.svg is the
     simplified cut for 16-32px. Regenerate the PNGs and favicon.ico with scripts/make-icons.mjs.
   -->
   <defs>
     <pattern id="tone" width="3.2" height="3.2" patternUnits="userSpaceOnUse">
       <circle cx="1.6" cy="1.6" r="0.75" fill="#D7192B" opacity="0.35"/>
     </pattern>
-    <filter id="brush" x="-20%" y="-20%" width="140%" height="140%">
-      <feTurbulence type="fractalNoise" baseFrequency="1.4 0.12" numOctaves="2" seed="11"/>
-      <feDisplacementMap in="SourceGraphic" scale="3.2"/>
-    </filter>
     <path id="heart" d="M50 92 C 22 70 3 52 3 31 C 3 16 14 5 28 5 C 38 5 46 11 50 21 C 54 11 62 5 72 5 C 86 5 97 16 97 31 C 97 52 78 70 50 92 Z"/>
   </defs>
   <rect width="100" height="100" fill="#FAFAF7"/>
@@ -20,10 +16,8 @@
   <rect x="6.8" y="6.8" width="86.4" height="86.4" fill="none" stroke="#D7192B" stroke-width="1"/>
   <g transform="translate(50 50) translate(-50 -70)">
     <circle cx="50" cy="70" r="31" fill="url(#tone)"/>
-    <g filter="url(#brush)" fill="none" stroke="#D7192B" stroke-linecap="round">
-      <circle cx="50" cy="70" r="26" stroke-width="4.6" stroke-dasharray="140 24" transform="rotate(-70 50 70)"/>
-      <circle cx="50" cy="70" r="26" stroke-width="1.6" stroke-dasharray="120 44" transform="rotate(-40 50 70)" opacity="0.8"/>
-    </g>
+    <circle cx="50" cy="70" r="26" fill="none" stroke="#FAFAF7" stroke-width="7"/>
+    <circle cx="50" cy="70" r="26" fill="none" stroke="#D7192B" stroke-width="4.4"/>
     <g fill="#0B0B0D">
       <use href="#heart" transform="translate(45.75 30.75) scale(0.085)"/>
       <use href="#heart" transform="translate(79.04 54.93) scale(0.085)"/>
@@ -31,6 +25,7 @@
       <use href="#heart" transform="translate(25.17 94.07) scale(0.085)"/>
       <use href="#heart" transform="translate(12.46 54.93) scale(0.085)"/>
     </g>
+    <use href="#heart" fill="#FAFAF7" transform="translate(31 52.3) scale(0.38)"/>
     <use href="#heart" fill="#D7192B" transform="translate(33 54) scale(0.34)"/>
     <path d="M1.6 0 H10 L9.6 2.9 H4.3 L4 5.1 C4.8 4.8 5.6 4.7 6.3 4.7 C8.9 4.7 10.4 6.5 10.4 9.1 C10.4 12.2 8.3 14 5.3 14 C2.9 14 1 12.8 0.4 10.6 L3.2 9.8 C3.5 10.8 4.3 11.3 5.2 11.3 C6.6 11.3 7.4 10.4 7.4 9.2 C7.4 7.9 6.6 7.2 5.4 7.2 C4.6 7.2 3.9 7.5 3.4 8.1 L0.8 7.7 Z" fill="#FAFAF7" stroke="#0B0B0D" stroke-width="1.1" stroke-linejoin="round" paint-order="stroke" transform="translate(50.3 70.6) skewX(-6) scale(1.12) translate(-5.4 -7)"/>
   </g>
