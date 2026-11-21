@@ -164,6 +164,15 @@ interface Press {
   drag: boolean | null;
 }
 
+/**
+ * Where a fanned card's centre looks to be, in slot coordinates. Cards tilt about their bottom
+ * edge, so a tilted card's centre leans off its slot point by half its height.
+ */
+const seenCentre = (slot: Slot, H: number, lift = 0) => {
+  const t = (slot.rot * Math.PI) / 180;
+  return { x: slot.x + (H / 2) * Math.sin(t), y: slot.y - lift + (H / 2) * (1 - Math.cos(t)) };
+};
+
 /** This tab's room and seat, so a reload finds its own order (the FX lab has none and keeps it in memory). */
 const seatTag = () => { const s = loadSeat(); return s ? `${s.roomId.toUpperCase()}/${s.sessionId}` : null; };
 
@@ -244,21 +253,25 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ hand, selectedCards, onC
     const slot = slotsRef.current[i];
     if (!slot) return;
     const p = toSlot(e.clientX, e.clientY);
+    const H = vpRef.current.H;
+    // a selected card rides higher, and so does one under the mouse
+    const c = seenCentre(slot, H, selectedRef.current.has(code) ? H * 0.26 : e.pointerType === 'mouse' ? H * 0.12 : 0);
     press.current = {
       code, pointerId: e.pointerId, touch: e.pointerType !== 'mouse', x0: e.clientX, y0: e.clientY,
-      // the card's centre sits H/2 above its bottom edge, which rides at slot.y (selected cards ride higher)
-      grabX: p.x - slot.x, grabY: p.y - (slot.y - (selectedRef.current.has(code) ? vpRef.current.H * 0.26 : 0)),
-      drag: null,
+      grabX: p.x - c.x, grabY: p.y - c.y, drag: null,
     };
      
   }, []);
 
   useEffect(() => {
+    // the slot whose card would look nearest the held card (rows count a bit more than columns)
     const nearest = (x: number, y: number) => {
       const s = slotsRef.current;
+      const H = vpRef.current.H;
       let best = 0, bestD = Infinity;
       for (let i = 0; i < s.length; i++) {
-        const d = (s[i].x - x) ** 2 + ((s[i].y - y) * 1.4) ** 2;
+        const c = seenCentre(s[i], H);
+        const d = (c.x - x) ** 2 + ((c.y - y) * 1.4) ** 2;
         if (d < bestD) { bestD = d; best = i; }
       }
       return best;
@@ -332,7 +345,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ hand, selectedCards, onC
   // Over the right end of the hand's top row, clear of that card even when it's selected. The arc
   // dips at the ends, so this sits lower than the middle of the hand and away from your plate.
   const endSlot = slots[fanned.rows === 2 ? Math.ceil(slots.length / 2) - 1 : slots.length - 1];
-  const sortBottom = vp.handBase + vp.H + (endSlot ? -endSlot.y : 0) + vp.H * 0.26 + 4;
+  const sortBottom = vp.handBase + vp.H + (endSlot ? -endSlot.y : 0) + vp.H * 0.26 + (vp.w < 640 ? 2 : 4);
   const sortRight = Math.max(8, vp.w / 2 - ((endSlot?.x ?? 0) + vp.W / 2));
 
   return (
@@ -381,29 +394,37 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({ hand, selectedCards, onC
 
 /**
  * Two small sort tabs by the hand's right end: by rank (the deal order) and by suit. On a phone
- * your plate sits right above the hand's middle, so they stack into a narrow column at the edge.
+ * your plate and the turn banner sit right above the hand, so the tabs stack into a short column
+ * beside the plate, with the label turned on its side.
  */
 const SortControl: React.FC<{ bottom: number; right: number; stack: boolean; active: SortKind | null; onSort: (k: SortKind) => void }> = ({ bottom, right, stack, active, onSort }) => (
   <div
     role="group"
     aria-label="Sort your hand"
     data-sort-control
-    className={`absolute flex ${stack ? 'flex-col' : ''} items-stretch pointer-events-auto select-none border-2 border-paper/70 bg-ink`}
+    className="absolute flex items-stretch pointer-events-auto select-none border-2 border-paper/70 bg-ink"
     style={{ bottom, right, boxShadow: '2px 2px 0 0 #000' }}
   >
-    <span className={`grid place-items-center px-1.5 text-bone/70 text-[10px] font-bold uppercase tracking-[0.08em] ${stack ? 'py-0.5' : ''}`}>Sort</span>
-    {(['rank', 'suit'] as const).map((k) => (
-      <button
-        key={k}
-        type="button"
-        data-sort={k}
-        onClick={() => onSort(k)}
-        aria-pressed={active === k}
-        title={k === 'rank' ? 'Sort by rank' : 'Sort by suit'}
-        className={`h-7 px-2 font-display text-[15px] leading-none tracking-[0.05em] transition-colors ${stack ? 'border-t-2' : 'border-l-2'} border-paper/70 ${active === k ? 'bg-ember text-ink' : 'text-paper hover:text-ember'}`}
-      >
-        {k === 'rank' ? 'Rank' : 'Suit'}
-      </button>
-    ))}
+    <span
+      className={`grid place-items-center text-bone/70 font-bold uppercase ${stack ? 'px-0.5 text-[9px] tracking-[0.1em]' : 'px-1.5 text-[10px] tracking-[0.08em]'}`}
+      style={stack ? { writingMode: 'vertical-rl', transform: 'rotate(180deg)' } : undefined}
+    >
+      Sort
+    </span>
+    <div className={`flex ${stack ? 'flex-col' : ''}`}>
+      {(['rank', 'suit'] as const).map((k, i) => (
+        <button
+          key={k}
+          type="button"
+          data-sort={k}
+          onClick={() => onSort(k)}
+          aria-pressed={active === k}
+          title={k === 'rank' ? 'Sort by rank' : 'Sort by suit'}
+          className={`font-display leading-none tracking-[0.05em] transition-colors border-paper/70 border-l-2 ${stack ? `h-6 px-1.5 text-[14px] ${i ? 'border-t-2' : ''}` : 'h-7 px-2 text-[15px]'} ${active === k ? 'bg-ember text-ink' : 'text-paper hover:text-ember'}`}
+        >
+          {k === 'rank' ? 'Rank' : 'Suit'}
+        </button>
+      ))}
+    </div>
   </div>
 );

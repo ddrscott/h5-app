@@ -259,9 +259,18 @@ the lobby, where seats still have portraits, two players with the same initials 
 
 - **Hand:** cards sit on a wide arc and re-flow with springs when it changes. Each card sways on
   its own phase. On desktop a card tilts toward the pointer in 3D, and light slides across it.
-  A press selects; keep the finger or mouse down and sweep across cards to select or clear several
-  in one stroke. A selected card lifts with an orange edge and underglow, and its contact shadow
-  grows and softens. Too many cards for one row (a two-player game) wrap to two rows.
+  A tap selects or clears a card when the finger or mouse comes up. A selected card lifts with an
+  orange edge and underglow, and its contact shadow grows and softens. Too many cards for one row
+  (a two-player game) wrap to two rows.
+- **Rearranging:** press a card and slide it (a mouse past 5px, a finger sideways past 10px) to
+  carry it. It straightens, grows a little and rides the pointer on a stiff spring, and the others
+  spring aside to open the slot it would drop into: the one whose card looks nearest, tilt
+  included, which also works across the two rows on a phone. A drag never selects or clears
+  anything, and a selected card stays selected when moved. Shift+arrows move the focused card.
+  Two small sort tabs (Rank, Suit) sit over the right end of the hand's top row, clear of that
+  card even when it's selected; on a phone they stack into a short column beside your plate,
+  under the turn banner, with the label turned on its side. The live sort is orange. Sweeping
+  across cards to select several is gone: it was the same gesture as a drag.
 - **Deal:** cards fly from the table center into your hand one after another, flipping face up as
   they arrive, while backs fly out to every opponent's seat, each with a flick sound.
 - **Play:** cards leave from where they actually are (your hand, or the opponent's fan), lob along
