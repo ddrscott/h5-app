@@ -4,6 +4,11 @@ import { CardFace } from './CardFace';
 
 interface BannerProps {
   className?: string;
+  /**
+   * Draw the speed-line burst here (the default). A screen that scrolls passes false and draws
+   * <SpeedBurst> in a clipped background layer instead, so the 1400px burst can't add empty scroll.
+   */
+  burst?: boolean;
 }
 
 const FAN: Array<{ suit: string; rank: number; x: number; r: number; y: number }> = [
@@ -14,11 +19,48 @@ const FAN: Array<{ suit: string; rank: number; x: number; r: number; y: number }
   { suit: 'J', rank: 17, x: 1.9, r: 20, y: 18 },
 ];
 
+const BURST_MASK = 'radial-gradient(circle, transparent 14%, #000 30%, transparent 60%)';
+const BURST_STYLE: React.CSSProperties = {
+  width: 1400, height: 1400, marginLeft: -700, marginTop: -620, color: 'rgba(250,250,247,.09)',
+  WebkitMaskImage: BURST_MASK, maskImage: BURST_MASK,
+};
+
+/**
+ * The banner's speed-line burst in a background layer of its own: fill a positioned, scrolling
+ * screen with this and render <Banner burst={false}>. The layer clips the burst to the screen and
+ * centres it where the banner would have drawn it.
+ */
+export const SpeedBurst: React.FC = () => {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [at, setAt] = React.useState<{ x: number; y: number } | null>(null);
+  React.useLayoutEffect(() => {
+    const layer = ref.current;
+    const screen = layer?.parentElement;
+    if (!layer || !screen) return;
+    const place = () => {
+      const anchor = screen.querySelector('[data-burst-anchor]');
+      if (!anchor) return;
+      const a = anchor.getBoundingClientRect(), l = layer.getBoundingClientRect();
+      setAt({ x: a.left + a.width / 2 - l.left, y: a.top - l.top });
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(screen);
+    window.addEventListener('resize', place);
+    return () => { ro.disconnect(); window.removeEventListener('resize', place); };
+  }, []);
+  return (
+    <div ref={ref} aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
+      {at && <div className="speed-lines absolute" style={{ ...BURST_STYLE, left: at.x, top: at.y }} />}
+    </div>
+  );
+};
+
 /**
  * The title: five cards fanned around the Heart of Five, breathing on their own and leaning
  * toward the pointer as a group.
  */
-export const Banner: React.FC<BannerProps> = ({ className = '' }) => {
+export const Banner: React.FC<BannerProps> = ({ className = '', burst = true }) => {
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
   const sx = useSpring(mx, { stiffness: 120, damping: 14 });
@@ -38,10 +80,8 @@ export const Banner: React.FC<BannerProps> = ({ className = '' }) => {
       onPointerLeave={() => { mx.set(0); my.set(0); }}
     >
       {/* focus lines rushing at the fan, the opening splash page */}
-      <div aria-hidden className="relative">
-        <div className="speed-lines absolute left-1/2 top-1/2 pointer-events-none"
-          style={{ width: 1400, height: 1400, marginLeft: -700, marginTop: -620, color: 'rgba(250,250,247,.09)',
-            WebkitMaskImage: 'radial-gradient(circle, transparent 14%, #000 30%, transparent 60%)', maskImage: 'radial-gradient(circle, transparent 14%, #000 30%, transparent 60%)' }} />
+      <div aria-hidden className="relative" data-burst-anchor>
+        {burst && <div className="speed-lines absolute left-1/2 top-1/2 pointer-events-none" style={BURST_STYLE} />}
       </div>
       <motion.div className="relative mx-auto" style={{ width: `calc(${w} * 4.2)`, height: `calc(${w} * 1.75)`, rotateX: rotX, rotateY: rotY, transformPerspective: 900 }}>
         {FAN.map((c, i) => (
